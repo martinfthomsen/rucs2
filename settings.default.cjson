@@ -1,0 +1,157 @@
+{ // Settings and Parameters - DEFAULT
+   "ucs": { // Parameters for ucs computation
+      "kmer_size":            20, // k size used to extract k-mers
+      "min_seq_len_pos":     500, // Minimum sequence length for contigs in positive samples to be considered for k-mer extraction. Threshold for limiting k-mers from untrustworthy sequences
+      "min_seq_len_neg":     500, // Minimum sequence length for contigs in negative samples to be considered for k-mer extraction. Threshold for limiting k-mers from untrustworthy sequences
+      "charspace":       "nATGC", // The alphabet used by the program. The "any" symbol is asumed to be the first symbol.
+      "min_kmer_count":       20, // Minimum number of times a k-mer must be found to count as present (FASTQ reads input only)
+      "rev_comp":           true, // Should the reverse_complement sequences be considered for k-mer extraction? true/false
+      "bwa_settings": { // k-mer alignment to reference
+         "seed_length":        5,
+         "max_mismatch_seed":  0, // edit distance in seed
+         "max_mismatch":       0, // edit distance
+         "max_gaps":           0, // max number of gaps
+         "max_gap_ext":       -1, // max gap extensions
+         "max_mismatch_score": 0,
+         "threads":            4  // Number of threads allowed
+      },
+      "sam_flags_ignore":     20  // Samtools binary flags used for parsing k-mer alignment to reference
+   },
+   "pcr":{ // PCR Pair and product parameters
+      "no_good_pp":          100, // Number of good primer pairs to identify before stopping the algorithm early
+      "seq_selection":       [0], // Range of sequences IDs (zero-index) from the input to analyse for PCR primer pairs
+      "product_deviation":    50, // Product size deviation which is indistiguishable from target size.
+      "min_pair_distance":   100, // Minimum distance, to previous pair, for a new pair to be counted as unique primer pair
+      "min_pcr_grade":         1, // Minimum grade for a pcr product to be counted as present
+      "max_unique_penalty":    3, // Maximum average penalty score a primer/probe may get to be counted as unique
+      "priming":{ // Priming Grade Thresholds and Penalties
+         "alignment_similarity":  0.6, // Cut-off similarity. A hetero dimer alignment below this similarity is not considered as binding. passing_grade=1+
+         "threshold_tm":         40,   // Cut-off temperature. Tm's below this is not considered as binding. passing_grade=2+
+         "viable_tm_diff":        5,   // Temperature threshold. Tm's within this threshold of target Tm is considered a viable binder. passing_grade=3+
+         "good_tm_diff":          1,   // Temperature threshold. Tm's within this threshold of target Tm is considered a good binder. passing_grade=4
+         "threshold_grade":       1,   // minimum passing_grade to be considered as binding
+         "penalties": { // Priming penalty scores
+            "positive": {
+               "no_grade_4":    20,
+               "no_grade_3":    30,
+               "multi_grade_4": 10,
+               "multi_grade_3":  7,
+               "multi_grade_2":  3,
+               "multi_grade_1":  1
+            },
+            "negative": {
+               "grade_4": 10,
+               "grade_3":  7,
+               "grade_2":  3,
+               "grade_1":  1
+            }
+         },
+         "primer3":{ // Default settings for Primer3 modified sligthly
+            "PRIMER_NUM_RETURN":                10000,   // How many primer pairs to return
+            "PRIMER_DNA_CONC":                     50,   // DNA oligo concentration (nM)
+            "PRIMER_SALT_MONOVALENT":              50.0, // Monovalent cations concentration (mM)
+            "PRIMER_SALT_DIVALENT":                 1.5, // Divalent cations concentration (mM)
+            "PRIMER_DNTP_CONC":                     0.6, // dNTPs concentration (mM)
+            "PRIMER_SALT_CORRECTIONS":              1,   // Salt correction method {0:schildkraut, 1:santalucia, 2:wczarzy}
+            "PRIMER_TM_FORMULA":                    1,   // Tm calculation method {0:breslauer, 1:santalucia}
+            "PRIMER_MIN_SIZE":                     15,   // Minimum primer length
+            "PRIMER_OPT_SIZE":                     21,   // Optimum primer length
+            "PRIMER_MAX_SIZE":                     30,   // Maximum primer length
+            "PRIMER_WT_SIZE_LT":                    1.0, // Penalty weight for primer smaller than optimum
+            "PRIMER_WT_SIZE_GT":                    1.0, // Penalty weight for primer longer than optimum
+            "PRIMER_MIN_GC":                       20.0, // Minimum %GC content for primer
+            "PRIMER_MAX_GC":                       80.0, // Maximum %GC content for primer
+            "PRIMER_MIN_TM":                       57,   // Minimum primer Tm
+            "PRIMER_OPT_TM":                       60,   // Optimum primer Tm
+            "PRIMER_MAX_TM":                       62,   // Maximum primer Tm
+            "PRIMER_WT_TM_LT":                      1.0, // Penalty weight for primer temp lower than optimum
+            "PRIMER_WT_TM_GT":                      1.0, // Penalty weight for primer temp higher than optimum
+            "PRIMER_PAIR_MAX_DIFF_TM":              1.0, // Maximum acceptable (unsigned) difference between the melting temperatures of the left and right primers.(default 100)
+            "PRIMER_MAX_END_GC":                    3,   // Max number of GC bases in 3" end 
+            "PRIMER_MAX_END_STABILITY":           100.0, // Max end stability
+            "PRIMER_WT_END_STABILITY":              0.0, // Penalty weight for end stability
+            "PRIMER_MAX_NS_ACCEPTED":               0,   // Max number of Ns accepted in any primer
+            "PRIMER_MAX_POLY_X":                    5,   // Max allowed of identical consequtive bases
+            "PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT": 0,   // Use Thermodynamics in stead of alignment (Slow mode)
+            "PRIMER_MAX_SELF_ANY":                  8,   // Self annealng alignment score
+            "PRIMER_MAX_SELF_END":                  3,   // Primer self annealing (end to end self priming)
+            "PRIMER_PAIR_MAX_COMPL_ANY":            8,   // Primer pair complementarity
+            "PRIMER_PAIR_MAX_COMPL_END":            3,   // Primer pair complementarity (end to end self priming)
+            "PRIMER_PRODUCT_SIZE_RANGE":    [300, 1000],
+            "PRIMER_PICK_INTERNAL_OLIGO":           0,   // Set to 1 to for qPCR
+            "PRIMER_INTERNAL_DNA_CONC":            50,   // DNA oligo concentration (nM)
+            "PRIMER_INTERNAL_SALT_MONOVALENT":     50.0, // Monovalent cations concentration (mM)
+            "PRIMER_INTERNAL_SALT_DIVALENT":        1.5, // Divalent cations concentration (mM)
+            "PRIMER_INTERNAL_DNTP_CONC":            0.6, // dNTPs concentration (mM)
+            "PRIMER_INTERNAL_MIN_SIZE":            18,   // Minimum probe length
+            "PRIMER_INTERNAL_OPT_SIZE":            24,   // Optimum probe length
+            "PRIMER_INTERNAL_MAX_SIZE":            35,   // Maximum probe length
+            "PRIMER_INTERNAL_WT_SIZE_LT":           1.0, // Penalty weight for probes shorter than optimum
+            "PRIMER_INTERNAL_WT_SIZE_GT":           1.0, // Penalty weight for probes longer than optimum
+            "PRIMER_INTERNAL_MIN_GC":              20.0, // Minimum %GC content for probe
+            "PRIMER_INTERNAL_MAX_GC":              80.0, // Maximum %GC content for probe
+            "PRIMER_INTERNAL_MIN_TM":              67,   // Minimum probe Tm
+            "PRIMER_INTERNAL_OPT_TM":              70,   // Optimum probe Tm
+            "PRIMER_INTERNAL_MAX_TM":              72,   // Maximum probe Tm
+            "PRIMER_INTERNAL_WT_TM_LT":             1.0, // Penalty weight for primer temp lower than optimum
+            "PRIMER_INTERNAL_WT_TM_GT":             1.0, // Penalty weight for primer temp higher than optimum
+            "PRIMER_INTERNAL_MAX_POLY_X":           5,   // Max allowed of identical consequtive bases
+            "PRIMER_INTERNAL_MAX_SELF_ANY":        12,   // Self annealng alignment score
+            "PRIMER_INTERNAL_MAX_SELF_END":        12    // Oligo self annealing (end to end self priming)
+         },
+         "primer3_seq": { // Primer3 sequence parameters, these are not currently used, but available for manipulation.
+            // For more info, see: http://primer3.sourceforge.net/primer3_manual.htm
+            // https://libnano.github.io/primer3-py/quickstart.html#primer-design
+            "SEQUENCE_TARGET": null,                     // [[<start>,<length>], ...]
+            "SEQUENCE_PRIMER_PAIR_OK_REGION_LIST": null, // [[<left_start>,<left_length>,<right_start>,<right_length>], ...] (NOTE: Use -1 to leave empty)
+            "SEQUENCE_INCLUDED_REGION": null,            // eg. [[36,342], ...]
+            "SEQUENCE_EXCLUDED_REGION": null,            // eg. [[36,342], ...]
+            "SEQUENCE_INTERNAL_EXCLUDED_REGION": null,   // 
+            "SEQUENCE_PRIMER": null,                     // 
+            "SEQUENCE_INTERNAL_OLIGO": null,             // 
+            "SEQUENCE_PRIMER_REVCOMP": null,             // 
+            "SEQUENCE_FORCE_LEFT_START": null,           // 
+            "SEQUENCE_FORCE_LEFT_END": null,             // 
+            "SEQUENCE_FORCE_RIGHT_START": null,          // 
+            "SEQUENCE_FORCE_RIGHT_END": null             // 
+         },
+         "blastn_settings": { // Primer binding searches
+            "num_alignments":  1000,
+            "max_hsps":        null,
+            "query_loc":       null,
+            "strand":        "both",
+            "evalue":             8.0,
+            "word_size":         10,
+            "gapopen":            0,
+            "gapextend":          2,
+            "penalty":           -2,
+            "reward":             1,
+            "dbtype":        "nucl",
+            "dust":            "no",
+            "num_threads":        4    // Number of threads allowed
+         }
+      },
+      "annotation": {
+         "flank_size":    600,    // Number of bases surounding the primer pairs to be annotated
+         "blast_db_path":  "",    // Path to BLAST db needed for sequence annotation. Leave as empty string to use BLAST_DB environment path
+         "max_cov":         0.5,  // Maximum coverage threshold for a new annotation to be considered an independent annotation
+         "sim_cutoff":      0.75, // Annotations containing these keywords are ignored
+         "ignore_terms":   ["hypothetical"], // annotations containing these keywords are ignored
+         "replace_terms":  {"\[.+\]": "", // annotations are modified by these replacements: {"pattern":, "replacement"}
+                            "--": " ",
+                            "MULTISPECIES:": "",
+                            ", partial": ""},
+         "blastx_settings": { // Sequence annotation searches
+            "evalue":                10,
+            "word_size":              6,
+            "task":       "blastx-fast",
+            "best_hit_overhang":      0.4,
+            "best_hit_score_edge":    0.4,
+            "num_threads":            4    // Number of threads allowed
+         }
+      }
+   },
+   "clean_files": [ // These files will be removed after a succesful run
+      "*.fq", "*.err.txt", "*.out.txt", "reference.fa", "*.bam",
+      "primer_pairs.json", "blastn.*.tsv"]
+}
