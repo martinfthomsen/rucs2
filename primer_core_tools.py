@@ -14,14 +14,6 @@ from tabulate import tabulate
 log = None
 settings = None
 
-def load_global_dependencies():
-   ''' This method is run at compile time, and will initialise global
-   dependencies '''
-   global settings
-   settings = load_commented_json(
-      "%s/%s"%(os.path.dirname(os.path.realpath(__file__)),
-               'settings.default.cjson'))
-
 ################################################################################
 ################################################################################
 ################################################################################
@@ -45,18 +37,10 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
    for PCR.
    '''
    # Set Globals
-   global log, settings
+   global log
    log = LogObj(quiet)
    if settings_file is not None:
-      if os.path.exists(settings_file):
-         settings = load_commented_json(settings_file)
-      else:
-         set_file = "%s/%s"%(os.path.dirname(os.path.realpath(__file__)),
-                             os.path.basename(settings_file))
-         if os.path.exists(set_file):
-            settings = load_commented_json(set_file)
-         else:
-            raise UserWarning('Settings file not found! (%s)'%(settings_file))
+      load_global_settings(settings_file)
    
    if kmer_size is None: kmer_size = settings['ucs']['kmer_size']
 
@@ -156,15 +140,7 @@ def find_primer_pairs(contig_file, positives, negatives, name=None, quiet=False,
    global log, settings
    log = LogObj(quiet)
    if settings_file is not None:
-      if os.path.exists(settings_file):
-         settings = load_commented_json(settings_file)
-      else:
-         set_file = "%s/%s"%(os.path.dirname(os.path.realpath(__file__)),
-                             os.path.basename(settings_file))
-         if os.path.exists(set_file):
-            settings = load_commented_json(set_file)
-         else:
-            raise UserWarning('Settings file not found! (%s)'%(settings_file))
+      load_global_settings(settings_file)
    
    try:
       pp_json_file = 'primer_pairs_%s.json'%(name if name is not None else 'file')
@@ -337,15 +313,7 @@ Probe distance to primer: N/A
       return num if num > 0 else '-  '
    
    if settings_file is not None:
-      if os.path.exists(settings_file):
-         settings = load_commented_json(settings_file)
-      else:
-         set_file = "%s/%s"%(os.path.dirname(os.path.realpath(__file__)),
-                             os.path.basename(settings_file))
-         if os.path.exists(set_file):
-            settings = load_commented_json(set_file)
-         else:
-            raise UserWarning('Settings file not found! (%s)'%(settings_file))
+      load_global_settings(settings_file)
    
    p3_args = settings['pcr']['priming']['primer3']
    dna_conc = p3_args['PRIMER_DNA_CONC'] if 'PRIMER_DNA_CONC' in p3_args else 50.0
@@ -368,7 +336,11 @@ Probe distance to primer: N/A
                              temp_c, max_loop, temponly, dimer, max_nn_length,
                              tm_method, salt_correction_method)
    
-   print("\n\x1B[1;4mPCR Stat Analysis\x1B[0m\n")
+   n = "\x1B[0m"
+   h = "\x1B[1;4m"
+   r = "\x1B[31m"
+   g = "\x1B[32m"
+   print("\n%sPCR Stat Analysis%s\n"%(h,n))
    # Check PCR product size
    if template is None:
       size = 'N/A'
@@ -384,61 +356,80 @@ Probe distance to primer: N/A
    
    print("             Forward  Reverse  Probe")
    # Print length
-   l1, l2, l3 = len(forward), len(reverse), len(probe)
+   l1, l2 = len(forward), len(reverse)
+   l3 = len(probe) if probe is not None else '  N/A'
    print("Length:      %5s    %5s    %3s  "%(l1, l2, l3))
    
    # Count GC%
    gc1 = round((forward.count('G') + forward.count('C')) / l1 * 100, 1)
    gc2 = round((reverse.count('G') + reverse.count('C')) / l2 * 100, 1)
-   gc3 = round((probe.count('G') + probe.count('C')) / l3 * 100, 1)
+   if probe is not None:
+      gc3 = round((probe.count('G') + probe.count('C')) / l3 * 100, 1)
+   else:
+      gc3 = 'N/A'
    print("GC%% content: %7s  %7s  %5s"%(gc1, gc2, gc3))
    
    # Melting temperature
    tm1 = neg2mask(round(p3_therm.calcTm(forward),1))
    tm2 = neg2mask(round(p3_therm.calcTm(reverse),1))
    tm3 = neg2mask(round(p3_therm.calcTm(probe),1)) if probe is not None else 'N/A'
-   print("Melting Tm:  %7s  %7s  %5s"%(tm1, tm2, tm3))
+   m1, m2, m3 = n, n, n
+   if isinstance(tm1, float): m1 = g if tm1 > 55 and tm1 < 62 else r
+   if isinstance(tm2, float): m2 = g if tm2 > 55 and tm2 < 62 else r
+   if isinstance(tm3, float): m3 = g if tm3 > 65 and tm3 < 72 else r
+   print("Melting Tm:  %s%7s  %s%7s  %s%5s%s"%(m1, tm1, m2, tm2, m3, tm3, n))
    
    # Homo dimer temperature
    tm1 = neg2mask(round(p3_therm.calcHomodimer(forward).tm,1))
    tm2 = neg2mask(round(p3_therm.calcHomodimer(reverse).tm,1))
    tm3 = neg2mask(round(p3_therm.calcHomodimer(probe).tm,1)) if probe is not None else 'N/A'
-   print("Homo dimer:  %7s  %7s  %5s"%(tm1, tm2, tm3))
+   m1, m2, m3 = n, n, n
+   if isinstance(tm1, float): m1 = r if tm1 > 45 else g
+   if isinstance(tm2, float): m2 = r if tm2 > 45 else g
+   if isinstance(tm3, float): m3 = r if tm3 > 45 else g
+   print("Homo dimer:  %s%7s  %s%7s  %s%5s%s"%(m1, tm1, m2, tm2, m3, tm3, n))
    
    # Hairpin temperature
    tm1 = neg2mask(round(p3_therm.calcHairpin(forward).tm,1))
    tm2 = neg2mask(round(p3_therm.calcHairpin(reverse).tm,1))
    tm3 = neg2mask(round(p3_therm.calcHairpin(probe).tm,1)) if probe is not None else 'N/A'
-   print("Hairpin:     %7s  %7s  %5s\n"%(tm1, tm2, tm3))
+   m1, m2, m3 = n, n, n
+   if isinstance(tm1, float): m1 = r if tm1 > 45 else g
+   if isinstance(tm2, float): m2 = r if tm2 > 45 else g
+   if isinstance(tm3, float): m3 = r if tm3 > 45 else g
+   print("Hairpin:     %s%7s  %s%7s  %s%5s%s\n"%(m1, tm1, m2, tm2, m3, tm3, n))
    
    print("              Fw-Rv  Fw-Pr  Rv-Pr")
    # Hetero dimer temperatur
    tm1 = neg2mask(round(p3_therm.calcHeterodimer(forward, reverse).tm,1))
    tm2 = neg2mask(round(p3_therm.calcHeterodimer(forward, probe).tm,1)) if probe is not None else 'N/A'
    tm3 = neg2mask(round(p3_therm.calcHeterodimer(reverse, probe).tm,1)) if probe is not None else 'N/A'
-   print("Hetero dimer: %5s  %5s  %5s\n"%(tm1, tm2, tm3))
-   
-   # round_sig(p3_therm.calcEndStability(forward).tm)
-   # round_sig(p3_therm.calcEndStability(reverse).tm)
-   # round_sig(p3_therm.calcEndStability(probe).tm)
+   m1, m2, m3 = n, n, n
+   if isinstance(tm1, float): m1 = r if tm1 > 45 else g
+   if isinstance(tm2, float): m2 = r if tm2 > 45 else g
+   if isinstance(tm3, float): m3 = r if tm3 > 45 else g
+   print("Hetero dimer: %s%5s  %s%5s  %s%5s%s\n"%(m1, tm1, m2, tm2, m3, tm3, n))
    
    # Check Probe not starting with GC
    if probe is not None:
-      print("Probe 5' end not G or C?  %s"%('FAILED' if probe[0] in 'GC' else 'PASSED'))
-   
-   # Check Probe distance to primer
-   if template is None:
-      dist = 'N/A'
-   else:
-      if probe in template:
-         start = template.index(forward) + len(forward)
-         end = template.index(probe)
+      state = "%sFAILED"%r if probe[0] in 'GC' else "%sPASSED"%g
+      print("Probe 5' end not G or C?  %s%s"%(state, n))
+      
+      # Check Probe distance to primer
+      if template is None:
+         dist = 'N/A'
+         m = n
       else:
-         rctem = reverse_complement(template)
-         start = rctem.index(reverse) + len(reverse)
-         end = rctem.index(probe)
-      dist = "%sbp"%(end - start)
-   print("Probe distance to primer: %s\n"%(dist))
+         if probe in template:
+            start = template.index(forward) + len(forward)
+            end = template.index(probe)
+         else:
+            rctem = reverse_complement(template)
+            start = rctem.index(reverse) + len(reverse)
+            end = rctem.index(probe)
+         dist = "%sbp"%(end - start)
+         m = r if end - start > 30 else g
+      print("Probe distance to primer: %s%s%s\n"%(m, dist, n))
 
 
 # ITERATORS
@@ -2070,6 +2061,19 @@ def find_complementing_kmers(kmers, files, kmer_size=20, min_seq_len=500):
    return kmers
 
 ############ FUNCTIONS (FOR PCR PRIMER IDENTIFICATION)
+def load_global_settings(settings_file='settings.default.cjson'):
+   ''' This method is run at compile time, and will initialise global
+   dependencies '''
+   global settings
+   if os.path.exists(settings_file):
+      sf = settings_file
+   else:
+      # Look for the settings file relative to the script directory
+      sf = "%s/%s"%(os.path.dirname(os.path.realpath(__file__)),settings_file)
+      if not os.path.exists(sf):
+         raise UserWarning('Settings file not found! (%s)'%(settings_file))
+   settings = load_commented_json(sf)
+
 def find_validated_primer_pairs(contig_file, p_refs, n_refs,
                                 contig_names=None, annotate=True,
                                 top_x_only=None):
@@ -3168,7 +3172,7 @@ GENETIC CODE TRRANSLATION:
    # Validate inputs
    # assert ' ' not in reference, 'BLAST cannot handle spaces in reference path!'
    defaults = { # Name: (type, arg, default_value)
-      'evalue':              (int,   '-evalue',                    10  ),
+      'evalue':              (float, '-evalue',                    10.0),
       'word_size':           (int,   '-word_size',                  6  ),
       'task':                (str,   '-task',             'blastx-fast'),
       'best_hit_overhang':   (float, '-best_hit_overhang',          0.4),
@@ -3343,7 +3347,7 @@ def predict_pcr_results(refs, pairs, output=None, fail_on_non_match=False, thres
    for pair in pairs:
       primers.append((pair[0], {}))
       primers.append((reverse_complement(pair[1]), {}))
-      if len(pair) == 3:
+      if len(pair) == 3 and pair[2] is not None:
          primers.append((pair[2], {}))
          probes.append(pair[2])
       
@@ -3357,11 +3361,11 @@ def predict_pcr_results(refs, pairs, output=None, fail_on_non_match=False, thres
       alignments = blast_to_ref(ref, primers_fa, settings['pcr']['priming']['blastn_settings'])
       # Filter primer matches which fail the thermodynamic test
       alignments = filter_primer_alignments(ref, alignments, probes)
-      for j, tmp in enumerate(pairs):
-         fw = tmp[0]
-         rv = tmp[1]
-         if len(tmp) == 3:
-            probe = tmp[2]
+      for j, pair in enumerate(pairs):
+         fw = pair[0]
+         rv = pair[1]
+         if len(pair) == 3 and pair[2] is not None:
+            probe = pair[2]
          else:
             probe = ''
          
@@ -3601,36 +3605,153 @@ def print_primer_and_probe_bindsites(seq_file, pribind_locs, probind_locs={},
          print(seq)
       print('\n')
 
-def full(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
-        clean_run=True, annotate=True, settings_file=None):
+def find_ucs(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
+             clean_run=True, settings_file=None):
+   ''' This script computes the core sequences of the positive genomes and
+   removes sequences covered by any of the negative genomes, thus creating
+   unique core sequences.
+   '''
+   # Set Globals
+   global log
+   log = LogObj(quiet)
+   if settings_file is not None:
+      load_global_settings(settings_file)
+   
+   if kmer_size is None:
+      kmer_size = settings['ucs']['kmer_size']
+   
+   min_seq_len = settings['pcr']['priming']['primer3']['PRIMER_PRODUCT_SIZE_RANGE'][0]
+
+   # Create reference directory to store reference links, and BWA index files
+   ref_dir = 'references'
+   if not os.path.exists(ref_dir): os.mkdir(ref_dir)
+   try:
+      log.progress.add('main', 'Running find_ucs', None)
+      
+      # Save Sorted Reference
+      reference = "reference.fa"
+      if ref_input is None: ref_input = positives[0]
+      
+      save_as_fasta([seq for seq, n, d in seqs_from_file(ref_input)], reference)
+      
+      # Create symlinks for all reference
+      reference = create_symbolic_files([reference], ref_dir)[0]
+      positives = create_symbolic_files(positives, ref_dir)
+      negatives = create_symbolic_files(negatives, ref_dir)
+      
+      # Find unique core sequences
+      cs_files, ucs_files = find_unique_core_sequences(positives, negatives,
+                                                       reference, kmer_size)
+      
+      # Print Sequence Analysis Table
+      title = 'Sequence Analysis'
+      headers = ['', 'Sequences', 'Size in bases', 'Seqs >%s'%min_seq_len,
+                 'Size >%s'%min_seq_len]
+      rows = [['Reference']+analyse_genome(reference, min_seq_len),
+              ['Core Sequences']+analyse_genome(cs_files[1], min_seq_len),
+              ['Unique Core Sequences']+analyse_genome(ucs_files[1], min_seq_len)]
+      print(text_table(title, headers, rows))
+      
+   except UserWarning as msg:
+      # Clean up (to reduce space usage)
+      clean_up(ref_dir, clean_run)
+      sys.stderr.write("%s\n"%msg)
+   except:
+      # Clean up (to reduce space usage)
+      log.progress['main'].log_time()
+      log.progress.summary()
+      log.stats.summary()
+      clean_up(ref_dir, clean_run)
+      raise
+   else:
+      # Clean up (to reduce space usage)
+      clean_up(ref_dir, clean_run)
+   finally:
+      log.progress['main'].log_time()
+      # Store time and stats in debug.log
+      with open('debug.log', 'w') as f:
+         log.progress.summary(f)
+         log.stats.summary(f)
+
+# Set entry Points Methods
+def full(args):
    ''' Run full diagnostic: fucs + fppp '''
-   main(positives, negatives, ref_input, kmer_size, quiet, clean_run, annotate,
-        settings_file)
+   main(args.positives, args.negatives, args.reference, quiet=True,
+        clean_run=True, annotate=True)
 
 def fucs(args):
    ''' Find Unique Core Sequences '''
-   find_ucs(args)
+   find_ucs(args.positives, args.negatives, args.reference, quiet=True,
+            clean_run=True)
 
-def fppp(contig_file, positives, negatives, name=None,
-         clean_run=True, annotate=True, settings_file=None):
+def fppp(args):
    ''' Find PCR Primer Pairs '''
-   find_primer_pairs(contig_file, positives, negatives, name, clean_run,
-                     annotate, settings_file)
+   find_primer_pairs(args.template_file, args.positives, args.negatives,
+                     quiet=True, clean_run=True, annotate=True)
 
 def anno(args):
    ''' Annotate sequences using the refseq BLAST DB '''
-   get_blast_annotations(args)
+   annotations = get_blast_annotations(args.template_file,
+      settings['pcr']['annotation']['blastx_settings'],
+      settings['pcr']['annotation']['blast_db_path'])
+   print(annotations)
 
 def vpcr(args):
    ''' Virtual PCR - Simulate PCR and predict PCR product for the provided
    primer pairs against the provided references. '''
-   virtual_pcr(args)
+   pairs = get_pairs(args.pairs)
+   virtual_pcr(args.references, pairs)
+
+def pcrs(args):
+   ''' Show PCR Statistics - Analyse the temperature and more for the provided
+   primer pairs. '''
+   # Get pairs
+   pairs = get_pairs(args.pairs)
+   
+   # Get first template entry
+   for seq, n, d in seqs_from_file(args.template_file):
+      template = seq
+      break
+   
+   # Show PCR stats for each pair
+   for i, seqs in enumerate(pairs):
+      forward = seqs[0]
+      reverse = seqs[1]
+      probe   = seqs[2] if len(seqs) == 3 else None
+      print('\nPAIR %s:'%(i+1))
+      show_pcr_stats(forward, reverse, probe, template)
+
+def get_pairs(pairs_file):
+   ''' Extract the pairs from the file. '''
+   pairs = []
+   headers = []
+   with open(pairs_file) as f:
+      for l in f:
+         l = l.strip()
+         if l.startswith('#'):
+            try:
+               headers = l[1:].split('\t')
+               fidx = headers.index('forward_primer')
+               ridx = headers.index('reverse_primer')
+               try: pidx = headers.index('probe')
+               except: pidx = ''
+            except:
+               sys.stderr.write(('Unable to locate forward_primer and/or '
+                                 'reverse_primer column(s) in %s!')%pairs_file)
+               sys.exit(1)
+         elif headers:
+            d = l.split('\t')
+            pairs.append([d[fidx], d[ridx], d[pidx] if d[pidx] else None])
+         else:
+            pairs.append(l.strip().split())
+   
+   return pairs
 
 #
 #################################### MAIN #####################################
 #
 # Initialise global dependencies required
-load_global_dependencies()
+load_global_settings()
 
 if __name__ == '__main__':
    from argparse import ArgumentParser
@@ -3643,13 +3764,16 @@ if __name__ == '__main__':
                        help=("File paths for the positive dataset")) 
    parser.add_argument("--negatives", nargs='+', default=None,
                        help=("File paths for the nagetive dataset")) 
-   parser.add_argument("-r", dest="reference", default=None,
+   parser.add_argument("--references", nargs='+', default=None,
+                       help=("File paths for the references to be tested"))
+   parser.add_argument("--reference", default=None,
                        help=("The reference file to which the k-mers should be "
                              "mapped."))
    parser.add_argument("--template_file", default=None,
                        help=("File path for the template file")) 
-   parser.add_argument("--references", nargs='+', default=None,
-                       help=("File paths for the references to be tested"))
+   parser.add_argument("--pairs", default=None,
+                       help=("File containing pcr primer pair sets (1 set per "
+                             "line, forward, reverse, probe*) *optional")) 
    parser.add_argument("--settings_file", default="settings.default.cjson",
                        help=("File containing the default settings for this "
                              "program")) 
@@ -3679,19 +3803,68 @@ if __name__ == '__main__':
                        help=("This will modify the appropriate values in the settings"))
    parser.add_argument("--max_3end_gc", default=None,
                        help=("This will overwrite the set value in the settings"))
-   parser.add_argument("--product_size_range", default=None,
+   parser.add_argument("--product_size_min", default=None,
                        help=("This will overwrite the set value in the settings"))
-   parser.add_argument("--pick_probe", default=None,
+   parser.add_argument("--product_size_max", default=None,
+                       help=("This will overwrite the set value in the settings"))
+   parser.add_argument("--pick_probe", action='store_true',
                        help=("This will overwrite the set value in the settings"))
    parser.add_argument("--annotation_evalue", default=None,
                        help=("This will overwrite the set value in the settings"))
    args = parser.parse_args()
    
    entry_points = ['full', 'fucs', 'fppp', 'vpcr', 'anno', 'pcrs']
+   args.entry_point = args.entry_point[0]
+   print(args)
    if args.entry_point not in entry_points:
       sys.stderr.write('Unknown entry point provided, for help use the -h '
                        'option!\n')
       sys.exit(1)
    
+   # Load Default Settings
+   load_global_settings(args.settings_file)
+   
+   # Update Settings
+   if args.kmer_size is not None:
+      settings['ucs']['kmer_size'] = int(args.kmer_size)
+   if args.read_length is not None:
+      settings['ucs']['min_seq_len_pos'] = int(args.read_length) * 2
+      settings['ucs']['min_seq_len_neg'] = int(args.read_length) * 2
+   if args.tm_threshold is not None:
+      settings['pcr']['priming']['threshold_tm'] = int(args.tm_threshold)
+   if args.primer_pair_max_diff_tm is not None:
+      settings['pcr']['priming']['primer3']['PRIMER_PAIR_MAX_DIFF_TM'] = float(args.primer_pair_max_diff_tm)
+   if args.dna_conc is not None:
+      settings['pcr']['priming']['primer3']['PRIMER_DNA_CONC'] = float(args.dna_conc)
+   if args.dna_conc_probe is not None:
+      settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_DNA_CONC'] = float(args.dna_conc_probe)
+   if args.salt_monovalent_conc is not None:
+      settings['pcr']['priming']['primer3']['PRIMER_SALT_MONOVALENT'] = float(args.salt_monovalent_conc)
+      settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_SALT_MONOVALENT'] = float(args.salt_monovalent_conc)
+   if args.salt_divalent_conc is not None:
+      settings['pcr']['priming']['primer3']['PRIMER_SALT_DIVALENT'] = float(args.salt_divalent_conc)
+      settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_SALT_DIVALENT'] = float(args.salt_divalent_conc)
+   if args.dntp_conc is not None:
+      settings['pcr']['priming']['primer3']['PRIMER_DNTP_CONC'] = float(args.dntp_conc)
+      settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_DNTP_CONC'] = float(args.dntp_conc)
+   if args.anneal_tm is not None:
+      tm = float(args.anneal_tm)
+      settings['pcr']['priming']['primer3']['PRIMER_MIN_TM'] = tm - 3
+      settings['pcr']['priming']['primer3']['PRIMER_OPT_TM'] = tm
+      settings['pcr']['priming']['primer3']['PRIMER_MAX_TM'] = tm + 3
+      settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_MIN_TM'] = tm + 8
+      settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_OPT_TM'] = tm + 10
+      settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_MAX_TM'] = tm + 12
+   if args.max_3end_gc is not None:
+      settings['pcr']['priming']['primer3']['PRIMER_MAX_END_GC'] = int(args.max_3end_gc)
+   if args.product_size_min is not None and args.product_size_max is not None:
+      pr = [int(args.product_size_min), int(args.product_size_max)]
+      settings['pcr']['priming']['primer3']['PRIMER_PRODUCT_SIZE_RANGE'] = pr
+   settings['pcr']['priming']['primer3']['PRIMER_PICK_INTERNAL_OLIGO'] = 1 if args.pick_probe else 0
+   if args.annotation_evalue is not None:
+      settings['pcr']['annotation']['blastx_settings']['evalue'] = float(args.annotation_evalue)
+   
+   # print(settings)
+   # Run Service
    print('Running %s'%(args.entry_point))
    locals().get(args.entry_point)(args)

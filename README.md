@@ -10,9 +10,9 @@ several usages:
 5. Show PCR statistics for a given primer set to a given template
 6. Combine all of the above functionalities in a pipeline to provide a tool for rapid identification of PCR primer Pairs for the unique target sequences of a positive dataset versus a negative dataset
 
-Authors:
-   Martin Christen Frølund Thomsen
-   Henrik Hasman
+Authors: 
+   Martin Christen Frølund Thomsen,
+   Henrik Hasman,
    Ole Lund
 
 
@@ -36,7 +36,7 @@ annotated with gene annotations and the list of candidates with all relevant
 information is stored in a tab separated file.
 
 ### vpcr - Virtual PCR ###
-# Simulate PCR in silico for a list of primer pairs against a list of references
+Simulate PCR in silico for a list of primer pairs against a list of references
 
 ### anno - Annotate Sequences ###
 Annotate provided sequence with BLAST refseq gene annotations
