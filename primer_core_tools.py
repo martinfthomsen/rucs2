@@ -3170,6 +3170,15 @@ GENETIC CODE TRRANSLATION:
    ignore_terms = settings['pcr']['annotation']['ignore_terms']
    replace_terms = settings['pcr']['annotation']['replace_terms']
    # Validate inputs
+   if dbpath == '':
+      if not 'BLASTDB' in os.environ:
+         sys.stderr.write('Annotation not possible! No BLAST DB found.\n')
+         return {}
+   if not 'refseq_protein.00.psq' in os.listdir(dbpath):
+      sys.stderr.write('Annotation not possible! refseq_protein.00.psq not '
+                       'found.\n')
+      return {}
+   
    # assert ' ' not in reference, 'BLAST cannot handle spaces in reference path!'
    defaults = { # Name: (type, arg, default_value)
       'evalue':              (float, '-evalue',                    10.0),
@@ -3200,8 +3209,9 @@ GENETIC CODE TRRANSLATION:
    se_path = '%s.blastx.err'%(name)
    with open(so_path, 'w') as so, open(se_path, 'w') as se:
       ec = Popen(cmd, stdout=so, stderr=se).wait()
-      if ec != 0: raise RuntimeError('BLASTx failed during execution')
-   
+      if ec != 0:
+         sys.stderr.write(str(cmd))
+         raise RuntimeError('BLASTx failed during execution')
    # Extract annotations
    annotations = extract_annotations(so_path, ignore_terms, replace_terms,
                                      max_cov)
@@ -3721,6 +3731,15 @@ def pcrs(args):
       print('\nPAIR %s:'%(i+1))
       show_pcr_stats(forward, reverse, probe, template)
 
+def test(args):
+   ''' Virtual PCR - Simulate PCR and predict PCR product for the provided
+   primer pairs against the provided references. '''
+   ''
+   test_dir = os.path.dirname(os.path.realpath(__file__))
+   pos = ["%s/test/bla.fa"%(test_dir)]
+   neg = ["%s/test/sul.fa"%(test_dir)]
+   main(pos, neg, None, quiet=True, clean_run=False, annotate=True)
+
 def get_pairs(pairs_file):
    ''' Extract the pairs from the file. '''
    pairs = []
@@ -3813,9 +3832,9 @@ if __name__ == '__main__':
                        help=("This will overwrite the set value in the settings"))
    args = parser.parse_args()
    
-   entry_points = ['full', 'fucs', 'fppp', 'vpcr', 'anno', 'pcrs']
+   entry_points = ['full', 'fucs', 'fppp', 'vpcr', 'anno', 'pcrs', 'test']
    args.entry_point = args.entry_point[0]
-   print(args)
+   
    if args.entry_point not in entry_points:
       sys.stderr.write('Unknown entry point provided, for help use the -h '
                        'option!\n')

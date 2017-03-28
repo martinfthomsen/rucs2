@@ -1,0 +1,9 @@
+version: '2'
+
+services:
+  rucs:
+    build: .
+    image: rucs
+    volumes:
+      - .:/workdir
+      - ${BLASTDB}:/blastdb

@@ -128,7 +128,7 @@
             "reward":             1,
             "dbtype":        "nucl",
             "dust":            "no",
-            "num_threads":        4    // Number of threads allowed
+            "num_threads":        1    // Number of threads allowed
          }
       },
       "annotation": {
@@ -147,7 +147,7 @@
             "task":       "blastx-fast",
             "best_hit_overhang":      0.4,
             "best_hit_score_edge":    0.4,
-            "num_threads":            4    // Number of threads allowed
+            "num_threads":            1    // Number of threads allowed
          }
       }
    },
