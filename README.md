@@ -111,6 +111,13 @@ docker-compose build
 docker run --rm -v `pwd`:/workdir rucs test
 ```
 
+**Not using docker?** Check that all dependencies are in your local PATH and
+Python modules are properly installed:
+```
+#!bash
+which python3 samtools bwa blastn blastx makeblastdb
+python3 -c 'import gzip, json, types, shutil, glob, bisect, primer3, numpy, subprocess, difflib, tabulate'
+```
 
 Commands for downloading and preparing BLAST annotation DB:
 ```

@@ -6,7 +6,7 @@ AUTHOR:    Martin CF Thomsen
 import sys, os, time, re, gzip, json, types, shutil, glob, bisect
 import primer3
 import numpy as np
-from subprocess import call, Popen, PIPE
+from subprocess import call, Popen, PIPE, STDOUT as subprocess_stdout
 from difflib import SequenceMatcher
 from tabulate import tabulate
 
@@ -296,14 +296,14 @@ Reverse: CGTAAGCCACGCCTAGT
 Probe:   TGTTCGTCGTCGGTGAGACGGC
 
              Forward  Reverse  Probe
-Length:         19       17     22  
+Length:         19       17     22
 GC% content:    47.4     58.8   63.6
 Melting Tm:     56.7     56.2   67.1
-Homo dimer:      -        -      -  
+Homo dimer:      -        -      -
 Hairpin:         -        -     62.5
 
               Fw-Rv  Fw-Pr  Rv-Pr
-Hetero dimer:   -      -      -  
+Hetero dimer:   -      -      -
 
 Probe 5' end not G or C?  PASSED
 Probe distance to primer: N/A
@@ -454,11 +454,11 @@ def seqs_from_file(filename, exit_on_err=False):
    >>> # Create fasta test file
    >>> file_content = ('>head1 desc1\nthis_is_seq_1\n>head2 desc2\n'
                        'this_is_seq_2\n>head3 desc3\nthis_is_seq_3\n')
-   >>> with open('test.fa', 'w') as f: f.write(file_content) 
+   >>> with open('test.fa', 'w') as f: f.write(file_content)
    >>> # Parse and print the fasta file
    >>> for seq, name, desc in seqs_from_file('test.fa'):
    ...    print ">%s %s\n%s"%(name, desc, seq)
-   ... 
+   ...
    >head1 desc1
    this_is_seq_1
    >head2 desc2
@@ -512,7 +512,7 @@ def seqs_from_file(filename, exit_on_err=False):
                line = readline()
                seq  = line.strip().split()[0]
                # SKIP SECOND HEADER LINE AND QUALITY SCORES
-               line = readline() 
+               line = readline()
                line = readline()
             except:
                break
@@ -695,12 +695,12 @@ class LogObj(object):
          self.tables = {}
       def add_table(self, name, title, headers):
          '''  '''
-         if name in self.tables: 
+         if name in self.tables:
             raise ValueError('Table name "%s" is in use!'%name)
          self.tables[name] = LogObj.TableObj(title, headers)
       def add_row(self, name, row):
          '''  '''
-         if not name in self.tables: 
+         if not name in self.tables:
             raise ValueError('Table name "%s" is unknown!'%name)
          else:
             self.tables[name].add_row(row)
@@ -764,7 +764,7 @@ class LogObj(object):
          '''  '''
          progresses =sorted(self.progresses.values(), key=lambda p: float(p.id))
          rows =  [(round(p.timer, 1) if p.timer is not None else None,
-                   "* %s%s"%('   '*p.lvl, p.msg)) for p in progresses] 
+                   "* %s%s"%('   '*p.lvl, p.msg)) for p in progresses]
          file_obj.write(text_table('Time Analysis', ['Seconds', 'Process'],
                                    rows))
    
@@ -1125,7 +1125,7 @@ def check_file_type(inputFiles):
             fc = f.readline()[0]
             if fc != "@": all_are_reads = False
             if fc != ">": all_are_fasta = False
-      
+   
    except: return 'other'
    if all_are_fasta: return 'fasta'
    elif all_are_reads: return 'fastq'
@@ -1225,6 +1225,7 @@ def find_unique_core_sequences(positives, negatives, reference, kmer_size=20):
    # Compute core sequences
    if log is not None:
       log.progress.add('make_cs', 'Computing k-mer contigs and scaffolds','ucs')
+   
    cs_files = compute_consensus_sequences(core_kmers, reference, kmer_size,
                                           settings['ucs']['charspace'], 'core_sequences')
    if log is not None:
@@ -1321,7 +1322,7 @@ def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
    DATE      18 Jul 2013
    DESCRIPTION
       Extract K-mers from a file with sequence data, and return a list of unique
-      k-mers. 
+      k-mers.
    ARGUMENTS
       filename: string which contain a path to the input file
       genome_prefix: A prefix which is added to the position note of the
@@ -1378,7 +1379,7 @@ def extract_kmers(kmers, seq, position_prefix, size=20, kmer_prefix=''):
    DATE      18 Jul 2013
    DESCRIPTION
       Extract K-mers from seqeunce data (seq), and add it to the K-mer
-      dictionary (kmers). 
+      dictionary (kmers).
    ARGUMENTS
       kmers: The dictionary where the found K-mers are stored.
       seq: The sequence from which the kmers are generated.
@@ -1518,7 +1519,7 @@ def blast_to_ref(reference, fasta, blast_settings=None):
    -query_loc     : Location on the query sequence in 1-based offsets
                     (Format: start-stop)
    -strand        : Strand: both, minus or plus
-   -evalue        : Expectation value (E) threshold for saving hits 
+   -evalue        : Expectation value (E) threshold for saving hits
    -word_size     : Word size for wordfinder algorithm
                     (length of best perfect match)
    -gapopen       : Cost to open a gap
@@ -1731,23 +1732,25 @@ def bwa(ref, fastq, paired_fastq=None, bwa_settings=None, output_prefix='aln'):
       if ec != 0: raise RuntimeError('bwa aln failed during execution')
    
    # Get BAM file
+   path.sam = '%s.sam'%(output_prefix)
    path.bam = '%s.bam'%(output_prefix)
    path.bwalog = '%s_bwa.out.txt'%(output_prefix)
    if paired_fastq is None:
       # Align using BWA (single end) $ bwa samse <REFERENCE> <SAI> <FASTQ>
-      cmd = [path.bwa, 'samse', '-n', '99', ref, sai_file, fastq]   
-      # sys.stderr.write("#CMD=%s\n"%(' '.join(cmd)))
-      with open(path.bam, 'w') as so, open(path.bwalog, 'w') as se:
-         # Run bowtie
-         p1 = Popen(cmd, stderr=se, stdout=PIPE)
-         # Convert SAM to BAM output for disk space efficiency
-         p2 = Popen([path.samtools, 'view', '-Sb'], stdin=p1.stdout, stdout=so)
-         # Wait for the programs to finish
-         p1.stdout.close()  # Allow p1 to receive a SIGPIPE if p2 exits.
+      cmd1 = [path.bwa, 'samse', '-n', '99', ref, sai_file, fastq]
+      cmd2 = [path.samtools, 'view', '-Sb', path.sam]
+      with open(path.sam, 'w') as sam, open(path.bwalog, 'w') as se:
+         # Run BWA
+         p1 = Popen(cmd1, stderr=se, stdout=sam)
          ec1 = p1.wait()
+         if ec1 != 0: raise RuntimeError('bwa failed during execution (return code: %s)\n%s'%(ec1, ' '.join(cmd1)))
+      with open(path.bam, 'w') as bam, open(path.bwalog, 'a') as se:
+         # Convert SAM to BAM output for disk space efficiency
+         p2 = Popen(cmd2, stdout=bam, stderr=se)
+         # Wait for the programs to finish
          ec2 = p2.wait()
-         if ec1 != 0: raise RuntimeError('bwa failed during execution')
-         if ec2 != 0: raise RuntimeError('samtools failed during execution')
+         if ec2 != 0: raise RuntimeError('samtools failed during execution (return code: %s)\n%s'%(ec2, ' '.join(cmd2)))
+      os.unlink(path.sam)
    else:
       # Align paired seqs to reference $ bwa aln <REFERENCE> <FASTQ>
       cmd = [path.bwa, 'aln']
@@ -1764,7 +1767,7 @@ def bwa(ref, fastq, paired_fastq=None, bwa_settings=None, output_prefix='aln'):
          if ec != 0: raise RuntimeError('bwa aln failed during execution')
       
       # Align using BWA (paired end) $ bwa sampe <REFERENCE> <SAI_1> <SAI_2> <FASTQ_1> <FASTQ_2>      -P?
-      cmd = [path.bwa, 'sampe', '-n', '99', '-o', '2000', ref, sai_file, sai_file_2, fastq, paired_fastq]   
+      cmd = [path.bwa, 'sampe', '-n', '99', '-o', '2000', ref, sai_file, sai_file_2, fastq, paired_fastq]
       # sys.stderr.write("#CMD=%s\n"%(' '.join(cmd)))
       with open(path.bam, 'w') as so, open(path.bwalog, 'w') as se:
          # Run bowtie
@@ -1817,7 +1820,7 @@ def extract_alignment_details(bam, ignore_flags=4):
      512   QC failure
     1024   optical or PCR duplicate
     2048   supplementary alignment
-    
+   
    SAM COLUMNS:
    QNAME Query template/pair NAME
    FLAG  bitwise FLAG
@@ -1833,7 +1836,7 @@ def extract_alignment_details(bam, ignore_flags=4):
    OPT   variable OPTional fields in the format TAG:VTYPE:VALUE
          XA:  Alternative hits
          NM:  Edit distance
-    
+   
    XA FORMAT:
    (RNAME,POS,CIGAR,NM;)
    Note: The sign in front of POS (+ or -) determines the strand
@@ -1853,11 +1856,10 @@ def extract_alignment_details(bam, ignore_flags=4):
    #    for alignment in fin.fetch():
    #http://pysam.readthedocs.io/en/latest/api.html#pysam.AlignedSegment
    #pysam.view(path.bam).split('\n')
-   with open(bam) as si:
-      # Extract all matches with flag: 99 = first mate of proper paired reads
-      p1 = Popen([path.samtools, 'view', '-F', str(ignore_flags)], stdin=si, stderr=PIPE, stdout=PIPE)
-      stdout, stderr = p1.communicate()
-   
+   # Extract all matches with flag: 99 = first mate of proper paired reads
+   cmd = [path.samtools, 'view', '-F', str(ignore_flags), bam]
+   p1 = Popen(cmd, stderr=PIPE, stdout=PIPE) #stdin=si,
+   stdout, stderr = p1.communicate()
    # Extract possible PCR products for the queries
    ignore_flags = list(x == '1' for x in reversed("{0:b}".format(ignore_flags).zfill(12)))
    alignments = {}
@@ -2589,7 +2591,7 @@ def round_sig(number, sig_fig=3):
    USAGE
       >>> import numpy as np
       >>> for i in range(6): print(i+1, round_sig(123.456, sig_fig=i+1))
-      ... 
+      ...
       1 100.0
       2 120.0
       3 123.0
@@ -2814,7 +2816,7 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
             rv_locs = AdvancedDictionary((
                (contig_name, (strand, (grade, pos)))
                for contig_name, grade, strand, pos in primers[rc_p_rv]['pos'][i]))
-            if qpcr: 
+            if qpcr:
                probe_locs = AdvancedDictionary((
                   (contig_name, (strand, (grade, pos)))
                   for contig_name, grade, strand, pos in primers[probe]['pos'][i]))
@@ -2870,7 +2872,7 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
             rv_locs = AdvancedDictionary((
                (contig_name, (strand, (grade, pos)))
                for contig_name, grade, strand, pos in primers[rc_p_rv]['neg'][i]))
-            if qpcr: 
+            if qpcr:
                probe_locs = AdvancedDictionary((
                   (contig_name, (strand, (grade, pos)))
                   for contig_name, grade, strand, pos in primers[probe]['neg'][i]))
@@ -3121,7 +3123,7 @@ GENETIC CODE TRRANSLATION:
                # Store annotation
                if not query in annotations:
                   annotations[query] = []
-               threshold = alen*3*max_cov # alignment length * codon size * threshold 
+               threshold = alen*3*max_cov # alignment length * codon size * threshold
                covered = False
                for i, (start, end, notes) in enumerate(annotations[query]):
                   # Check if the new annotation region has been covered previously
@@ -3174,7 +3176,7 @@ GENETIC CODE TRRANSLATION:
       if not 'BLASTDB' in os.environ:
          sys.stderr.write('Annotation not possible! No BLAST DB found.\n')
          return {}
-   if not 'refseq_protein.00.psq' in os.listdir(dbpath):
+   if not 'refseq_protein.00.psq' in os.listdir(dbpath if dbpath != '' else os.environ['BLASTDB']):
       sys.stderr.write('Annotation not possible! refseq_protein.00.psq not '
                        'found.\n')
       return {}
@@ -3360,7 +3362,7 @@ def predict_pcr_results(refs, pairs, output=None, fail_on_non_match=False, thres
       if len(pair) == 3 and pair[2] is not None:
          primers.append((pair[2], {}))
          probes.append(pair[2])
-      
+   
    # Store k-mers as fastq
    primers_fa = 'primers.fa'
    save_as_fasta(dict(primers), primers_fa)
@@ -3388,7 +3390,7 @@ def predict_pcr_results(refs, pairs, output=None, fail_on_non_match=False, thres
             rv_locs = AdvancedDictionary((
                (contig_name, (strand, (grade, pos)))
                for contig_name, grade, strand, pos in alignments[rv_rc]))
-            if probe: 
+            if probe:
                probe_locs = AdvancedDictionary((
                   (contig_name, (strand, (grade, pos)))
                   for contig_name, grade, strand, pos in alignments[probe]))
@@ -3401,7 +3403,7 @@ def predict_pcr_results(refs, pairs, output=None, fail_on_non_match=False, thres
             else:
                # Skip pairs, where one of the primers do not match anything
                pcr_results[j][i] = ''
-               continue 
+               continue
          
          # FIND potential pcr products
          products, counts = find_pcr_products(fw_locs, rv_locs, probe_locs,
@@ -3444,7 +3446,7 @@ def generate_sequence_atlas_data_file(reference_file, core_sequence_file, unique
    ...    'unique_core_sequences.aux.tsv')
    '''
    # read reference   -> contigs: name(id), length
-   data = {'lanes': ['reference', 'cs', 'ucs', 'depth', 'confidence'], 
+   data = {'lanes': ['reference', 'cs', 'ucs', 'depth', 'confidence'],
            'attributes': ['name', 'length'], 'data': []}
    for i, (seq, name, desc) in enumerate(seqs_from_file(reference_file)):
       data['data'].append({
@@ -3780,22 +3782,23 @@ if __name__ == '__main__':
    parser.add_argument("entry_point", nargs=1)
    # Main arguments
    parser.add_argument("--positives", nargs='+', default=None,
-                       help=("File paths for the positive dataset")) 
+                       help=("File paths for the positive dataset"))
    parser.add_argument("--negatives", nargs='+', default=None,
-                       help=("File paths for the nagetive dataset")) 
+                       help=("File paths for the nagetive dataset"))
    parser.add_argument("--references", nargs='+', default=None,
                        help=("File paths for the references to be tested"))
    parser.add_argument("--reference", default=None,
                        help=("The reference file to which the k-mers should be "
                              "mapped."))
    parser.add_argument("--template_file", default=None,
-                       help=("File path for the template file")) 
+                       help=("File path for the template file"))
    parser.add_argument("--pairs", default=None,
-                       help=("File containing pcr primer pair sets (1 set per "
-                             "line, forward, reverse, probe*) *optional")) 
+                       help=("File containing pcr primer pair sets (1 pair per "
+                             "line, tab-separated sequences, format: forward, "
+                             "reverse, probe*) *optional"))
    parser.add_argument("--settings_file", default="settings.default.cjson",
                        help=("File containing the default settings for this "
-                             "program")) 
+                             "program"))
    # Settings-modification options
    # The following options if passed will overwrite the default settings in the
    # settings_file
@@ -3882,6 +3885,14 @@ if __name__ == '__main__':
    settings['pcr']['priming']['primer3']['PRIMER_PICK_INTERNAL_OLIGO'] = 1 if args.pick_probe else 0
    if args.annotation_evalue is not None:
       settings['pcr']['annotation']['blastx_settings']['evalue'] = float(args.annotation_evalue)
+   
+   # Handle wildcards in positives, negatives and references
+   if args.positives is not None:
+      args.positives = [x for path in args.positives for x in glob.glob(path)]
+   if args.negatives is not None:
+      args.negatives = [x for path in args.negatives for x in glob.glob(path)]
+   if args.references is not None:
+      args.references = [x for path in args.references for x in glob.glob(path)]
    
    # print(settings)
    # Run Service
