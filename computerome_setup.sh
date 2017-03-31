@@ -13,15 +13,16 @@ git clone https://bitbucket.org/genomicepidemiology/rucs.git
 ln -s ~/src/rucs/primer_core_tools.py ~/bin/rucs
 cat <<EOT >> ~/envs/rucs/bin/activate
 
-PATH="\$PATH:~/bin"
-export PATH
-EOT
+# Load required modules
+module load anaconda3/4.0.0 perl/5.24.0 samtools/0.1.18 bwa/0.7.10 ncbi-blast/2.6.0+
 
 # Add BLAST DB to ENV to enable annotation
-cat <<EOT >> ~/envs/rucs/bin/activate
-
 BLASTDB=/home/databases/ncbi-blast/refseq_protein
 export BLASTDB
+
+# Add $Home/bin to $PATH
+PATH="\$PATH:~/bin"
+export PATH
 EOT
 
 # Check installation

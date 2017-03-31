@@ -79,7 +79,7 @@ Example of usage: (No docker)
 primer_core_tools.py anno --template_file template.fa
 ```   
 
-### spst - Show PCR statistics ###
+### pcrs - Show PCR statistics ###
 This method will annotate a PCR primer set with PCR statistics, such as
 primer Tm, Hairpin Tm, primer-probe distance and much more.
 
@@ -100,8 +100,7 @@ docker run --rm -v `pwd`:/workdir \
 6. Run test and see if everything is ok
 7. Ready to use
 
-Commands for installation
-
+Commands for installation:
 ```
 #!bash
 docker-machine start default # To start on MAC OS
@@ -137,6 +136,62 @@ free to use the script install_db.sh.
 
 **OBS: BLASTX does not work in docker, so to even use this feature, you need to
 install the dependencies and scripts locally on your machine.**
+
+## Result Explanation ##
+
+#### full run ####
+The full run creates 8 note worthy files.
+**debug.log** This file gives an overview and statistics on the progress.
+
+The fucs part of the algorithm produces 4 important result files:
+* core_sequences.contigs.fa
+* core_sequences.disscafs.fa
+* unique_core_sequences.contigs.fa
+* unique_core_sequences.disscafs.fa
+These files contain the core sequences and unique core sequences respectively in
+two formats. Contigs contains the clean sequences annotated with position in the
+reference. disscafs contains the dissected scaffolds, where the sequences which
+are close in proximity have been joined with stretches of n's to fill out the
+gaps between the sequences.
+
+The fppp part of the algorithm creates 3 important files:
+**results.tsv** This file shows the best matches
+**results_full.tsv** This shows the details for all the tested pairs
+**product_tests.tsv** This file shows the vpcr results for all the tested pairs
+
+#### fucs run ####
+See first part of the full run
+
+#### fppp run ####
+See last part of the full run
+
+#### vpcr run ####
+This entry point provides one important file
+**product_tests.tsv** This file shows the vpcr results for all the tested pairs
+
+#### anno run ####
+This entry point provides no result files, but instead shows the annotations
+found directly on the screen in a json format.
+EG.
+```
+#!json
+{'0': [(1, 735, ['DIM/GIM/SIM family subclass B1 metallo-beta-lactamase'])]}
+```
+The key **'0'** is the contig name where the annotaion was discovered.
+
+The value is a list of hits found on different places in the contig.
+
+The first item in a hit **1** is the starting position of the hit.
+
+The second item in a hit **735** is the end position of the hit.
+
+The third item in a hit
+**['DIM/GIM/SIM family subclass B1 metallo-beta-lactamase']** is a reduced list
+of BLAST annotations matching the given hit.
+
+#### pcrs run ####
+This entry point provides no result files, but instead shows the the statistics
+for the provided pairs directly on the screen.
 
 ## Troubleshoot ##
 #### MAC OS: Cannot run build command ####

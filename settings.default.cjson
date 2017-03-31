@@ -97,7 +97,8 @@
             "PRIMER_INTERNAL_WT_TM_GT":             1.0, // Penalty weight for primer temp higher than optimum
             "PRIMER_INTERNAL_MAX_POLY_X":           5,   // Max allowed of identical consequtive bases
             "PRIMER_INTERNAL_MAX_SELF_ANY":        12,   // Self annealng alignment score
-            "PRIMER_INTERNAL_MAX_SELF_END":        12    // Oligo self annealing (end to end self priming)
+            "PRIMER_INTERNAL_MAX_SELF_END":        12,   // Oligo self annealing (end to end self priming)
+            "PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT": 1    // Use Thermodynamics in stead of alignment (Slow mode)
          },
          "primer3_seq": { // Primer3 sequence parameters, these are not currently used, but available for manipulation.
             // For more info, see: http://primer3.sourceforge.net/primer3_manual.htm
