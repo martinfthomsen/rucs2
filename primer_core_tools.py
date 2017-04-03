@@ -3698,12 +3698,12 @@ def fucs(args):
 
 def fppp(args):
    ''' Find PCR Primer Pairs '''
-   find_primer_pairs(args.template_file, args.positives, args.negatives,
+   find_primer_pairs(args.template, args.positives, args.negatives,
                      quiet=True, clean_run=True, annotate=True)
 
 def anno(args):
    ''' Annotate sequences using the refseq BLAST DB '''
-   annotations = get_blast_annotations(args.template_file,
+   annotations = get_blast_annotations(args.template,
       settings['pcr']['annotation']['blastx_settings'],
       settings['pcr']['annotation']['blast_db_path'])
    print(annotations)
@@ -3721,7 +3721,7 @@ def pcrs(args):
    pairs = get_pairs(args.pairs)
    
    # Get first template entry
-   for seq, n, d in seqs_from_file(args.template_file):
+   for seq, n, d in seqs_from_file(args.template):
       template = seq
       break
    
@@ -3790,7 +3790,7 @@ if __name__ == '__main__':
    parser.add_argument("--reference", default=None,
                        help=("The reference file to which the k-mers should be "
                              "mapped."))
-   parser.add_argument("--template_file", default=None,
+   parser.add_argument("--template", default=None,
                        help=("File path for the template file"))
    parser.add_argument("--pairs", default=None,
                        help=("File containing pcr primer pair sets (1 pair per "

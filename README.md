@@ -57,7 +57,7 @@ Example of usage:
 ```
 #!bash
 docker run --rm -v `pwd`:/workdir \
-       rucs fppp --template_file template.fa --positives positives/* --negatives negatives/*
+       rucs fppp --template template.fa --positives positives/* --negatives negatives/*
 ```
 
 ### vpcr - Virtual PCR ###
@@ -76,7 +76,7 @@ Annotate provided sequence with BLAST refseq gene annotations
 Example of usage: (No docker)
 ```
 #!bash
-primer_core_tools.py anno --template_file template.fa
+primer_core_tools.py anno --template template.fa
 ```   
 
 ### pcrs - Show PCR statistics ###
@@ -87,7 +87,7 @@ Example of usage:
 ```
 #!bash
 docker run --rm -v `pwd`:/workdir \
-       rucs spst --pairs pair_file.tsv --template_file template.fa
+       rucs spst --pairs pair_file.tsv --template template.fa
 ```
 
 ## How do I get set up? ##
@@ -143,9 +143,8 @@ install the dependencies and scripts locally on your machine.**
 The full run creates 8 note worthy files.
 **debug.log** This file gives an overview and statistics on the progress.
 
-The fucs part of the algorithm produces 4 important result files:
+The fucs part of the algorithm produces 3 important result files:
 * core_sequences.contigs.fa
-* core_sequences.disscafs.fa
 * unique_core_sequences.contigs.fa
 * unique_core_sequences.disscafs.fa
 These files contain the core sequences and unique core sequences respectively in
@@ -192,6 +191,7 @@ of BLAST annotations matching the given hit.
 #### pcrs run ####
 This entry point provides no result files, but instead shows the the statistics
 for the provided pairs directly on the screen.
+
 
 ## Troubleshoot ##
 #### MAC OS: Cannot run build command ####
