@@ -19,7 +19,7 @@ settings = None
 ################################################################################
 # Program Entry Points
 def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
-         clean_run=True, annotate=True, settings_file=None):
+         clean_run=True, annotate=True, settings_file=None, name=None):
    ''' PrimerFinder - a tool for designing PCR primer pairs suitable for
    distinguishing closely related strains
    
@@ -48,11 +48,11 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
    ref_dir = 'references'
    if not os.path.exists(ref_dir): os.mkdir(ref_dir)
    try:
-      pp_json_file = 'primer_pairs.json'
-      product_test_result_file = 'product_tests.tsv'
-      probe_test_result_file = 'probe_tests.tsv'
-      result_file = 'results.tsv'
-      result_full_file = 'results_full.tsv'
+      debug_file = '%sdebug.log'%("%s_"%name if name is not None else '')
+      pairs_json_file = '%spairs.json'%("%s_"%name if name is not None else '')
+      results_file = '%sresults.tsv'%("%s_"%name if name is not None else '')
+      products_file = '%sproducts.tsv'%("%s_"%name if name is not None else '')
+      results_file_best = '%sresults_best.tsv'%("%s_"%name if name is not None else '')
       
       log.progress.add('main', 'Running PrimerFinder', None)
       
@@ -91,11 +91,11 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
          raise UserWarning('No valid PCR primer pairs could be found!')
       
       # Create json file containing all pairs
-      with open(pp_json_file, 'w') as f:
+      with open(pairs_json_file, 'w') as f:
          json.dump(pairs[:no_tested_pp], f)
       
       # Create test summary file
-      with open(product_test_result_file, 'w') as f:
+      with open(products_file, 'w') as f:
          rp = range(len(positives))
          rn = range(len(negatives))
          f.write('#%s\t%s\n'%('\t'.join(('P_%s'%(x+1) for x in rp)),
@@ -106,10 +106,10 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
             )) for p in pairs[:no_tested_pp])))
       
       # Create tab separated summary file of good pairs
-      with open(result_file, 'w') as f:
+      with open(results_file_best, 'w') as f:
          f.write(present_pairs_full(good_pp))
       # Create tab separated summary file of all pairs
-      with open(result_full_file, 'w') as f:
+      with open(results_file, 'w') as f:
          f.write(present_pairs_full(pairs[:no_tested_pp]))
    except UserWarning as msg:
       # Clean up (to reduce space usage)
@@ -128,12 +128,13 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
    finally:
       log.progress['main'].log_time()
       # Store time and stats in debug.log
-      with open('debug.log', 'w') as f:
+      with open(debug_file, 'w') as f:
          log.progress.summary(f)
          log.stats.summary(f)
 
-def find_primer_pairs(contig_file, positives, negatives, name=None, quiet=False,
-                      clean_run=True, annotate=True, settings_file=None):
+def find_primer_pairs(contig_file, positives, negatives, contig_names=None,
+                      quiet=False, clean_run=True, annotate=True,
+                      settings_file=None, name=None):
    ''' This methods allows you to run Primer Identification for a one or more
        fasta entries '''
    # Set Globals
@@ -143,9 +144,11 @@ def find_primer_pairs(contig_file, positives, negatives, name=None, quiet=False,
       load_global_settings(settings_file)
    
    try:
-      pp_json_file = 'primer_pairs_%s.json'%(name if name is not None else 'file')
-      test_result_file = 'tests_%s.tsv'%(name if name is not None else 'file')
-      result_file = 'results_%s.tsv'%(name if name is not None else 'file')
+      debug_file = '%sdebug.log'%("%s_"%name if name is not None else '')
+      pairs_json_file = '%spairs.json'%("%s_"%name if name is not None else '')
+      products_file = '%sproducts.tsv'%("%s_"%name if name is not None else '')
+      results_file = '%sresults.tsv'%("%s_"%name if name is not None else '')
+      results_file_best = '%sresults_best.tsv'%("%s_"%name if name is not None else '')
       
       log.progress.add('main', 'Running PrimerFinder', None)
       
@@ -156,10 +159,11 @@ def find_primer_pairs(contig_file, positives, negatives, name=None, quiet=False,
       positives = create_symbolic_files(positives, ref_dir)
       negatives = create_symbolic_files(negatives, ref_dir)
       
-      if name is not None and isinstance(name, str): name = [name]
+      if contig_names is not None and isinstance(contig_names, str):
+         contig_names = [contig_names]
       pairs, good_pp = find_validated_primer_pairs(contig_file, positives,
                                                    negatives,
-                                                   contig_names=name,
+                                                   contig_names=contig_names,
                                                    annotate=annotate)
       
       # Check how many primer pairs have been tested (only tested pp in results)
@@ -173,11 +177,11 @@ def find_primer_pairs(contig_file, positives, negatives, name=None, quiet=False,
          raise UserWarning('No valid PCR primer pairs could be found!')
       
       # Create json file containing all pairs
-      with open(pp_json_file, 'w') as f:
+      with open(pairs_json_file, 'w') as f:
          json.dump(pairs[:no_tested_pp], f)
       
       # Create test summary file
-      with open(test_result_file, 'w') as f:
+      with open(products_file, 'w') as f:
          rp = range(len(positives))
          rn = range(len(negatives))
          f.write('#%s\t%s\n'%('\t'.join(('P_%s'%(x+1) for x in rp)),
@@ -187,8 +191,11 @@ def find_primer_pairs(contig_file, positives, negatives, name=None, quiet=False,
             (p['products']['pos'] + p['products']['neg'] if 'test' in p else [])
             )) for p in pairs[:no_tested_pp])))
       
+      # Create tab separated summary file of good pairs
+      with open(results_file_best, 'w') as f:
+         f.write(present_pairs_full(good_pp))
       # Create tab separated summary file of results
-      with open(result_file, 'w') as f:
+      with open(results_file, 'w') as f:
          f.write(present_pairs_full(pairs[:no_tested_pp]))
    except UserWarning as msg:
       # Clean up (to reduce space usage)
@@ -207,11 +214,11 @@ def find_primer_pairs(contig_file, positives, negatives, name=None, quiet=False,
    finally:
       log.progress['main'].log_time()
       # Store time and stats in debug.log
-      with open('debug_%s.log'%(name if name is not None else 'file'), 'w') as f:
+      with open(debug_file, 'w') as f:
          log.progress.summary(f)
          log.stats.summary(f)
 
-def virtual_pcr(references, pairs, output='pcr_results.tsv', threshold_grade=1):
+def virtual_pcr(references, pairs, output='products.tsv', threshold_grade=1):
    '''
    USAGE
       >>> refs = ['/full/path/to/ref1.fa', ...]
@@ -226,15 +233,15 @@ def virtual_pcr(references, pairs, output='pcr_results.tsv', threshold_grade=1):
    
    predict_pcr_results(refs, pairs, output=output, threshold_grade=threshold_grade)
 
-def show_primer_probe_locs(wdir, no_pos, no_neg, contigs=None):
+def show_primer_probe_locs(wdir, no_pos, no_neg, contigs=None, name=None):
    ''' Show the location of primer bindingsites (red) and probebinding sites
    (green) using shell text coloring.
    '''
    seq_file    = '%s/unique_core_sequences.disscafs.fa'%(wdir)
-   result_file = '%s/results_full.tsv'%(wdir)
-   test_file   = '%s/product_tests.tsv'%(wdir)
+   results_file = '%sresults.tsv'%("%s_"%name if name is not None else '')
+   products_file = '%sproducts.tsv'%("%s_"%name if name is not None else '')
    pribind_locs, probind_locs = get_primer_and_probe_bindsites(
-      result_file, test_file, no_pos, no_neg)
+      results_file, products_file, no_pos, no_neg)
    print_primer_and_probe_bindsites(seq_file, pribind_locs, probind_locs, contigs=contigs, tag1='41', tag2='32')
 
 def compute_tm(seq1, seq2=None):
@@ -2103,7 +2110,8 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
    assert (contig_names is None or isinstance(contig_names, list)), \
           ('Invalid value (contig_names)! Only list allowed.')
    
-   if contig_names is None and 'seq_selection' in settings['pcr']:
+   if (contig_names is None and 'seq_selection' in settings['pcr']
+       and settings['pcr']['seq_selection'] is not None):
       contig_names = list(map(str, settings['pcr']['seq_selection']))
    
    if log is not None:
@@ -3539,7 +3547,7 @@ def color_seq(seq, ranges,
    # print Sequence
    return ''.join(seq2)
 
-def get_primer_and_probe_bindsites(result_file, test_file, no_pos, no_neg):
+def get_primer_and_probe_bindsites(results_file, test_file, no_pos, no_neg):
    ''' Extract the sequences and the primer and probe location found in the
    sequences.
    
@@ -3549,7 +3557,7 @@ def get_primer_and_probe_bindsites(result_file, test_file, no_pos, no_neg):
    count = 0
    pribind_locs = {}
    probind_locs = {}
-   with open(result_file) as file1, open(test_file) as file2:
+   with open(results_file) as file1, open(test_file) as file2:
       for line_result, line_test in zip(file1, file2):
          if line_result.strip() == '': continue
          if line_result[0] == '#': continue
@@ -3618,7 +3626,7 @@ def print_primer_and_probe_bindsites(seq_file, pribind_locs, probind_locs={},
       print('\n')
 
 def find_ucs(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
-             clean_run=True, settings_file=None):
+             clean_run=True, settings_file=None, name=None):
    ''' This script computes the core sequences of the positive genomes and
    removes sequences covered by any of the negative genomes, thus creating
    unique core sequences.
@@ -3628,6 +3636,8 @@ def find_ucs(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
    log = LogObj(quiet)
    if settings_file is not None:
       load_global_settings(settings_file)
+   
+   debug_file = '%sdebug.log'%("%s_"%name if name is not None else '')
    
    if kmer_size is None:
       kmer_size = settings['ucs']['kmer_size']
@@ -3681,7 +3691,7 @@ def find_ucs(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
    finally:
       log.progress['main'].log_time()
       # Store time and stats in debug.log
-      with open('debug.log', 'w') as f:
+      with open(debug_file, 'w') as f:
          log.progress.summary(f)
          log.stats.summary(f)
 
@@ -3698,6 +3708,7 @@ def fucs(args):
 
 def fppp(args):
    ''' Find PCR Primer Pairs '''
+   settings['pcr']['seq_selection'] = None
    find_primer_pairs(args.template, args.positives, args.negatives,
                      quiet=True, clean_run=True, annotate=True)
 
@@ -3748,7 +3759,6 @@ def get_pairs(pairs_file):
    headers = []
    with open(pairs_file) as f:
       for l in f:
-         l = l.strip()
          if l.startswith('#'):
             try:
                headers = l[1:].split('\t')
@@ -3762,7 +3772,8 @@ def get_pairs(pairs_file):
                sys.exit(1)
          elif headers:
             d = l.split('\t')
-            pairs.append([d[fidx], d[ridx], d[pidx] if d[pidx] else None])
+            pairs.append([d[fidx].strip(), d[ridx].strip(),
+                          d[pidx].strip() if d[pidx] else None])
          else:
             pairs.append(l.strip().split())
    

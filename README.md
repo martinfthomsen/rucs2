@@ -154,9 +154,9 @@ are close in proximity have been joined with stretches of n's to fill out the
 gaps between the sequences.
 
 The fppp part of the algorithm creates 3 important files:
-**results.tsv** This file shows the best matches
-**results_full.tsv** This shows the details for all the tested pairs
-**product_tests.tsv** This file shows the vpcr results for all the tested pairs
+**results_best.tsv** This file shows the best matches
+**results.tsv** This shows the details for all the tested pairs
+**products.tsv** This file shows the vpcr results for all the tested pairs
 
 #### fucs run ####
 See first part of the full run
@@ -166,7 +166,7 @@ See last part of the full run
 
 #### vpcr run ####
 This entry point provides one important file
-**product_tests.tsv** This file shows the vpcr results for all the tested pairs
+**products.tsv** This file shows the vpcr results for all the tested pairs
 
 #### anno run ####
 This entry point provides no result files, but instead shows the annotations

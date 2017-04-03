@@ -143,7 +143,7 @@
                             "MULTISPECIES:": "",
                             ", partial": ""},
          "blastx_settings": { // Sequence annotation searches
-            "evalue":                 0.0001, // Sensitivity of the BLASTx search
+            "evalue":                 0.001, // Sensitivity of the BLASTx search
             "word_size":              6,
             "task":       "blastx-fast",
             "best_hit_overhang":      0.4,
