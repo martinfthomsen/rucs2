@@ -43,7 +43,13 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
       load_global_settings(settings_file)
    
    if kmer_size is None: kmer_size = settings['ucs']['kmer_size']
-
+   
+   # Validate Input
+   if positives is None or not positives:
+      raise UserWarning('No Positive genomes provided!')
+   if negatives is None:
+      negatives = []
+   
    # Create reference directory to store reference links, and BWA index files
    ref_dir = 'references'
    if not os.path.exists(ref_dir): os.mkdir(ref_dir)
@@ -3637,13 +3643,19 @@ def find_ucs(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
    if settings_file is not None:
       load_global_settings(settings_file)
    
+   # Validate Input
+   if positives is None or not positives:
+      raise UserWarning('No Positive genomes provided!')
+   if negatives is None:
+      negatives = []
+   
    debug_file = '%sdebug.log'%("%s_"%name if name is not None else '')
    
    if kmer_size is None:
       kmer_size = settings['ucs']['kmer_size']
    
    min_seq_len = settings['pcr']['priming']['primer3']['PRIMER_PRODUCT_SIZE_RANGE'][0]
-
+   
    # Create reference directory to store reference links, and BWA index files
    ref_dir = 'references'
    if not os.path.exists(ref_dir): os.mkdir(ref_dir)
