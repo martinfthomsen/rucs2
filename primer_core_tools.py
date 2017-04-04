@@ -290,7 +290,8 @@ def compute_tm(seq1, seq2=None):
    
    return tm_seq1, tm_seq2, tm_dimer
 
-def show_pcr_stats(forward, reverse, probe=None, template=None, settings_file=None):
+def show_pcr_stats(forward, reverse, probe=None, template=None,
+                   settings_file=None, title='PCR Stat Analysis'):
    '''
    USAGE:
           settings_file = '/Users/mcft/Work/CGE/repositories/primerfinder/settings.default.cjson'
@@ -353,7 +354,7 @@ Probe distance to primer: N/A
    h = "\x1B[1;4m"
    r = "\x1B[31m"
    g = "\x1B[32m"
-   print("\n%sPCR Stat Analysis%s\n"%(h,n))
+   print("\n%s%s%s\n"%(h, title, n))
    # Check PCR product size
    if template is None:
       size = 'N/A'
@@ -3761,8 +3762,8 @@ def pcrs(args):
       forward = seqs[0]
       reverse = seqs[1]
       probe   = seqs[2] if len(seqs) == 3 else None
-      print('\nPAIR %s:'%(i+1))
-      show_pcr_stats(forward, reverse, probe, template)
+      show_pcr_stats(forward, reverse, probe, template,
+                     title='PCR Stat Analysis for pair %s'%(i+1))
 
 def test(args):
    ''' Virtual PCR - Simulate PCR and predict PCR product for the provided
