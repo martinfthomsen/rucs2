@@ -3899,13 +3899,24 @@ if __name__ == '__main__':
    
    # Handle wildcards in positives, negatives and references
    if args.positives is not None:
-      args.positives = [x for path in args.positives for x in glob.glob(path)]
+      fi = [x for x in args.positives if check_file_type(x) != 'fasta']
+      if fi:
+         sys.stderr.write(('WARNING: The following positive files were ignored,'
+                           ' due to not being fasta!\n%s\n\n')%('\n'.join(fi)))
+      args.positives = [x for path in args.positives for x in glob.glob(path) if check_file_type(x) is 'fasta']
    if args.negatives is not None:
-      args.negatives = [x for path in args.negatives for x in glob.glob(path)]
+      fi = [x for x in args.negatives if check_file_type(x) != 'fasta']
+      if fi:
+         sys.stderr.write(('WARNING: The following negative files were ignored,'
+                           ' due to not being fasta!\n%s\n\n')%('\n'.join(fi)))
+      args.negatives = [x for path in args.negatives for x in glob.glob(path) if check_file_type(x) is 'fasta']
    if args.references is not None:
-      args.references = [x for path in args.references for x in glob.glob(path)]
+      fi = [x for x in args.references if check_file_type(x) != 'fasta']
+      if fi:
+         sys.stderr.write(('WARNING: The following references were ignored,'
+                           ' due to not being fasta!\n%s\n\n')%('\n'.join(fi)))
+      args.references = [x for path in args.references for x in glob.glob(path) if check_file_type(x) is 'fasta']
    
-   # print(settings)
    # Run Service
    print('Running %s'%(args.entry_point))
    locals().get(args.entry_point)(args)
