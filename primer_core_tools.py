@@ -2924,7 +2924,7 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
       neg_counts[4] += match_count
       
       # Store specificity
-      p['test']['specificity'] = round_sig(speci / nlen, 3) if nlen > 0 else 0
+      p['test']['specificity'] = round_sig(speci / nlen, 3) if nlen > 0 else 1.0
       
       # Store noise
       p['test']['noise'] = round_sig(noise / (plen + nlen), 3)
