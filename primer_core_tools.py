@@ -3744,9 +3744,17 @@ def pcrs(args):
    pairs = get_pairs(args.pairs)
    
    # Get first template entry
-   for seq, n, d in seqs_from_file(args.template):
-      template = seq
-      break
+   if args.template is not None:
+      try:
+         for seq, n, d in seqs_from_file(args.template):
+            template = seq
+            break
+      except:
+         sys.stderr.write('Template: %s\n'%args.template)
+         sys.stderr.write('Warning: Template not valid!\n')
+         template = None
+   else:
+      template = None
    
    # Show PCR stats for each pair
    for i, seqs in enumerate(pairs):
