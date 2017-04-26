@@ -18,16 +18,25 @@ Authors:
 
 
 ## Entry Point Descriptions ##
+To modify the settings and parameters for any entry point, modify or make a
+modified copy of settings.default.cjson.
 
 ### full - Find PCR Primer Pairs for the Unique Core Sequences ###
 This is the main method, which combines fucs and fppp into one serial execution.
 
-Example of usage:
+Example of usage in docker:
 ```
 #!bash
 docker run --rm -v `pwd`:/workdir \
-       rucs full --positives positives/* --negatives negatives/*
+       rucs full --positives positives/* other/positive.fa --negatives negatives/*
 ```
+Notice how you can specify multiple paths with or without wild cards as input.
+This is true for --positives and --negatives, and for vpcr's --references.
+
+Note: To run the tool outside of docker, install the dependencies described in
+the Dockerfile on your local machine, and make a symbolic link to
+primer_core_tools.py in your /usr/local/bin called rucs. That way you can run
+the tool directly using the second line of the command above.
 
 ### fucs - Find Unique Core Sequences ###
 This method finds all the core sequences from the positive dataset, remove
@@ -219,9 +228,6 @@ docker-machine restart default
 eval "$(docker-machine env default)"
 ```
 
-#### MAC OS: docker-compose build cannot download BLAST through FTP? ####
-Try changing your docker preferences, from using system proxy to no proxy.
-
 #### MAC OS: Docker does not mount my directory! ####
 Check if you have added the directory to the file sharing in the docker
 preferences. If not add it, and if you have an old version of docker, consider
@@ -244,7 +250,7 @@ If you find that the machine is using too much space and you are not worried
 about losing the data on the machine, you can delete the machine and recreate it.
 
 Stop and delete the default machine. (WARNING, this will remove all your
-containers, and all data is lost!)
+containers, and all data stored inside the containers is lost!)
 ```
 #!bash
 docker-machine stop default
@@ -273,3 +279,22 @@ docker volume rm $(docker volume ls -qf dangling=true)
 ## Who do I talk to? ##
 
 * Repo owner or admin
+
+
+License
+=======
+
+Copyright (c) 2017, Martin Christen Frølund Thomsen, Technical University of Denmark
+All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

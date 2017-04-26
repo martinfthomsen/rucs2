@@ -1,7 +1,22 @@
 #!/usr/bin/env python3
-''' Primer Core Tools
+''' RUCS - Rapid Identification of PCR Primers Pairs for Unique Core Sequences
 
-AUTHOR:    Martin CF Thomsen
+
+Copyright (c) 2017, Martin Christen Frolund Thomsen, Technical University of Denmark
+All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
 '''
 import sys, os, time, re, gzip, json, types, shutil, glob, bisect
 import primer3
@@ -339,10 +354,16 @@ Probe distance to primer: N/A
    temp_c = p3_args['PRIMER_OPT_TM'] if 'PRIMER_OPT_TM' in p3_args else 60
    thal_type = 1      # type of thermodynamic alignment {1:any, 2:end1, 3:end2, 4:hairpin} (No effect)
    max_loop = 0       # Maximum size of loops in the structure.
+   # NOTE: max_loop must be zero, to avoid Primer3 crashing
    max_nn_length = 60 # Maximum length for nearest-neighbor calcs
    temponly = 1       # Return melting temperature of predicted structure
    dimer = 1          # if non-zero dimer structure is calculated (No effect)
-   # NOTE: max_loop must be zero, to avoid Primer3 crashing
+   tm_threshold = settings['pcr']['priming']['threshold_tm'] if 'threshold_tm' in p3_args else 45
+   max_probe_dist = settings['pcr']['priming']['max_probe_dist'] if 'max_probe_dist' in p3_args else 30
+   min_primer_tm = p3_args['PRIMER_MIN_TM'] if 'PRIMER_MIN_TM' in p3_args else 55
+   max_primer_tm = p3_args['PRIMER_MAX_TM'] if 'PRIMER_MAX_TM' in p3_args else 62
+   min_probe_tm = p3_args['PRIMER_INTERNAL_MIN_TM'] if 'PRIMER_INTERNAL_MIN_TM' in p3_args else 65
+   max_probe_tm = p3_args['PRIMER_INTERNAL_MAX_TM'] if 'PRIMER_INTERNAL_MAX_TM' in p3_args else 72
    
    # Initiate the thermodynamic analyses
    ThermoAnalysis = primer3.thermoanalysis.ThermoAnalysis
@@ -388,9 +409,9 @@ Probe distance to primer: N/A
    tm2 = neg2mask(round(p3_therm.calcTm(reverse),1))
    tm3 = neg2mask(round(p3_therm.calcTm(probe),1)) if probe is not None else 'N/A'
    m1, m2, m3 = n, n, n
-   if isinstance(tm1, float): m1 = g if tm1 > 55 and tm1 < 62 else r
-   if isinstance(tm2, float): m2 = g if tm2 > 55 and tm2 < 62 else r
-   if isinstance(tm3, float): m3 = g if tm3 > 65 and tm3 < 72 else r
+   if isinstance(tm1, float): m1 = g if tm1 > min_primer_tm and tm1 < max_primer_tm else r
+   if isinstance(tm2, float): m2 = g if tm2 > min_primer_tm and tm2 < max_primer_tm else r
+   if isinstance(tm3, float): m3 = g if tm3 > min_probe_tm and tm3 < max_probe_tm else r
    print("Melting Tm:  %s%7s  %s%7s  %s%5s%s"%(m1, tm1, m2, tm2, m3, tm3, n))
    
    # Homo dimer temperature
@@ -398,9 +419,9 @@ Probe distance to primer: N/A
    tm2 = neg2mask(round(p3_therm.calcHomodimer(reverse).tm,1))
    tm3 = neg2mask(round(p3_therm.calcHomodimer(probe).tm,1)) if probe is not None else 'N/A'
    m1, m2, m3 = n, n, n
-   if isinstance(tm1, float): m1 = r if tm1 > 45 else g
-   if isinstance(tm2, float): m2 = r if tm2 > 45 else g
-   if isinstance(tm3, float): m3 = r if tm3 > 45 else g
+   if isinstance(tm1, float): m1 = r if tm1 > tm_threshold else g
+   if isinstance(tm2, float): m2 = r if tm2 > tm_threshold else g
+   if isinstance(tm3, float): m3 = r if tm3 > tm_threshold else g
    print("Homo dimer:  %s%7s  %s%7s  %s%5s%s"%(m1, tm1, m2, tm2, m3, tm3, n))
    
    # Hairpin temperature
@@ -408,9 +429,9 @@ Probe distance to primer: N/A
    tm2 = neg2mask(round(p3_therm.calcHairpin(reverse).tm,1))
    tm3 = neg2mask(round(p3_therm.calcHairpin(probe).tm,1)) if probe is not None else 'N/A'
    m1, m2, m3 = n, n, n
-   if isinstance(tm1, float): m1 = r if tm1 > 45 else g
-   if isinstance(tm2, float): m2 = r if tm2 > 45 else g
-   if isinstance(tm3, float): m3 = r if tm3 > 45 else g
+   if isinstance(tm1, float): m1 = r if tm1 > tm_threshold else g
+   if isinstance(tm2, float): m2 = r if tm2 > tm_threshold else g
+   if isinstance(tm3, float): m3 = r if tm3 > tm_threshold else g
    print("Hairpin:     %s%7s  %s%7s  %s%5s%s\n"%(m1, tm1, m2, tm2, m3, tm3, n))
    
    print("              Fw-Rv  Fw-Pr  Rv-Pr")
@@ -419,9 +440,9 @@ Probe distance to primer: N/A
    tm2 = neg2mask(round(p3_therm.calcHeterodimer(forward, probe).tm,1)) if probe is not None else 'N/A'
    tm3 = neg2mask(round(p3_therm.calcHeterodimer(reverse, probe).tm,1)) if probe is not None else 'N/A'
    m1, m2, m3 = n, n, n
-   if isinstance(tm1, float): m1 = r if tm1 > 45 else g
-   if isinstance(tm2, float): m2 = r if tm2 > 45 else g
-   if isinstance(tm3, float): m3 = r if tm3 > 45 else g
+   if isinstance(tm1, float): m1 = r if tm1 > tm_threshold else g
+   if isinstance(tm2, float): m2 = r if tm2 > tm_threshold else g
+   if isinstance(tm3, float): m3 = r if tm3 > tm_threshold else g
    print("Hetero dimer: %s%5s  %s%5s  %s%5s%s\n"%(m1, tm1, m2, tm2, m3, tm3, n))
    
    # Check Probe not starting with GC
@@ -442,7 +463,7 @@ Probe distance to primer: N/A
             start = rctem.index(reverse) + len(reverse)
             end = rctem.index(probe)
          dist = "%sbp"%(end - start)
-         m = r if end - start > 30 else g
+         m = r if end - start > max_probe_dist else g
       print("Probe distance to primer: %s%s%s\n"%(m, dist, n))
 
 
@@ -2630,7 +2651,7 @@ def filter_primer_alignments(ref, alignments, probes=[]):
    # 1 = unlikely priming   Tm < threshold_tm
    # 2 = potential priming  Tm > threshold_tm
    # 3 = probable priming   Tm = temp_c +- viable_tm_diff
-   # 4 = definate priming   Tm = temp_c +- good_tm_diff
+   # 4 = definite priming   Tm = temp_c +- good_tm_diff
    
    USAGE:
       >>> ref = 'old/reference_tem.fa'
@@ -2963,7 +2984,7 @@ def find_pcr_products(fw_locs, rv_locs, probe_locs, fw_len, rv_len, probe_len):
       1 = unlikely priming  (Tm < threshold_tm)
       2 = potential priming (Tm > threshold_tm)
       3 = probable priming  (Tm = target_tm +- 5*C)
-      4 = definate priming  (Tm = target_tm +- 1*C)
+      4 = definite priming  (Tm = target_tm +- 1*C)
    
    # If Quantitative PCR (qPCR), also known as real-time PCR is chosen, the
    # probe is included in the grading process

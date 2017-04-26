@@ -13,23 +13,24 @@
          "max_gaps":           0, // max number of gaps
          "max_gap_ext":       -1, // max gap extensions
          "max_mismatch_score": 0,
-         "threads":            4  // Number of threads allowed
+         "threads":            1  // Number of threads allowed
       },
       "sam_flags_ignore":     20  // Samtools binary flags used for parsing k-mer alignment to reference
    },
    "pcr":{ // PCR Pair and product parameters
       "no_good_pp":          100, // Number of good primer pairs to identify before stopping the algorithm early
-      "seq_selection":       [0], // Range of sequences IDs (zero-index) from the input to analyse for PCR primer pairs
+      "seq_selection":       [0], // Range of sequences IDs (zero-index) from the input to analyse for PCR primer pairs (set to null to run against all)
       "product_deviation":    50, // Product size deviation which is indistiguishable from target size.
       "min_pair_distance":   100, // Minimum distance, to previous pair, for a new pair to be counted as unique primer pair
       "min_pcr_grade":         1, // Minimum grade for a pcr product to be counted as present
       "max_unique_penalty":    3, // Maximum average penalty score a primer/probe may get to be counted as unique
       "priming":{ // Priming Grade Thresholds and Penalties
          "alignment_similarity":  0.6, // Cut-off similarity. A hetero dimer alignment below this similarity is not considered as binding. passing_grade=1+
-         "threshold_tm":         40,   // Cut-off temperature. Tm's below this is not considered as binding. passing_grade=2+
+         "threshold_tm":         40,   // Cut-off temperature. oligo-template annealing Tm below this threshold is not considered as binding. passing_grade=2+
          "viable_tm_diff":        5,   // Temperature threshold. Tm's within this threshold of target Tm is considered a viable binder. passing_grade=3+
          "good_tm_diff":          1,   // Temperature threshold. Tm's within this threshold of target Tm is considered a good binder. passing_grade=4
-         "threshold_grade":       1,   // minimum passing_grade to be considered as binding
+         "threshold_grade":       1,   // Minimum passing_grade to be considered as binding
+         "max_probe_dist":       30,   // Maximum distance between the probe and primer (This is currently only used for coloring in pcrs)
          "penalties": { // Priming penalty scores
             "positive": {
                "no_grade_4":    20,
