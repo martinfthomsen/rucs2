@@ -2122,7 +2122,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
    >>> n_refs = ['/Users/mcft/Desktop/test/old/genome_neg_1.fna']
    >>> bam_name = 'myseq'
    >>> bwa_settings = None
-   >>> threshold_tm = 40
+   >>> threshold_tm = 45
    >>> pairs = find_validated_primer_pairs(
    ...    contig_file, p_refs, n_refs, bam_name,
    ...    bwa_settings, threshold_tm)

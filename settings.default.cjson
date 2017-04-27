@@ -26,7 +26,7 @@
       "max_unique_penalty":    3, // Maximum average penalty score a primer/probe may get to be counted as unique
       "priming":{ // Priming Grade Thresholds and Penalties
          "alignment_similarity":  0.6, // Cut-off similarity. A hetero dimer alignment below this similarity is not considered as binding. passing_grade=1+
-         "threshold_tm":         40,   // Cut-off temperature. oligo-template annealing Tm below this threshold is not considered as binding. passing_grade=2+
+         "threshold_tm":         45,   // Cut-off temperature. oligo-template annealing Tm below this threshold is not considered as binding. passing_grade=2+
          "viable_tm_diff":        5,   // Temperature threshold. Tm's within this threshold of target Tm is considered a viable binder. passing_grade=3+
          "good_tm_diff":          1,   // Temperature threshold. Tm's within this threshold of target Tm is considered a good binder. passing_grade=4
          "threshold_grade":       1,   // Minimum passing_grade to be considered as binding
@@ -99,7 +99,15 @@
             "PRIMER_INTERNAL_MAX_POLY_X":           5,   // Max allowed of identical consequtive bases
             "PRIMER_INTERNAL_MAX_SELF_ANY":        12,   // Self annealng alignment score
             "PRIMER_INTERNAL_MAX_SELF_END":        12,   // Oligo self annealing (end to end self priming)
-            "PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT": 1    // Use Thermodynamics in stead of alignment (Slow mode)
+            "PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT": 1,   // Use Thermodynamics in stead of alignment (Slow mode)
+            "PRIMER_MAX_HAIRPIN_TH":               45,   // Max hairpin Tm for primers (require thermodynamis to be activated)
+            "PRIMER_PAIR_MAX_COMPL_ANY_TH":        45,   // Primer pair complementarity
+            "PRIMER_PAIR_MAX_COMPL_END_TH":        45,   // Primer pair complementarity (end to end self priming)
+            "PRIMER_MAX_SELF_ANY_TH":              45,   // Self annealng alignment score
+            "PRIMER_MAX_SELF_END_TH":              45,   // Primer self annealing (end to end self priming)
+            "PRIMER_INTERNAL_MAX_HAIRPIN_TH":      45,   // Max hairpin Tm for probe (require thermodynamis to be activated)
+            "PRIMER_INTERNAL_MAX_SELF_ANY_TH":     45,   // Self annealng alignment score
+            "PRIMER_INTERNAL_MAX_SELF_END_TH":     45    // Oligo self annealing (end to end self priming)
          },
          "primer3_seq": { // Primer3 sequence parameters, these are not currently used, but available for manipulation.
             // For more info, see: http://primer3.sourceforge.net/primer3_manual.htm
