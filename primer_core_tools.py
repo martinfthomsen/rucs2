@@ -3906,7 +3906,17 @@ if __name__ == '__main__':
       settings['ucs']['min_seq_len_pos'] = int(args.read_length) * 2
       settings['ucs']['min_seq_len_neg'] = int(args.read_length) * 2
    if args.tm_threshold is not None:
-      settings['pcr']['priming']['threshold_tm'] = int(args.tm_threshold)
+      tm = int(args.tm_threshold)
+      settings['pcr']['priming']['threshold_tm'] = tm
+      p3_settings = settings['pcr']['priming']['primer3']
+      p3_settings['PRIMER_MAX_HAIRPIN_TH'] = tm
+      p3_settings['PRIMER_PAIR_MAX_COMPL_ANY_TH'] = tm
+      p3_settings['PRIMER_PAIR_MAX_COMPL_END_TH'] = tm
+      p3_settings['PRIMER_MAX_SELF_ANY_TH'] = tm
+      p3_settings['PRIMER_MAX_SELF_END_TH'] = tm
+      p3_settings['PRIMER_INTERNAL_MAX_HAIRPIN_TH'] = tm
+      p3_settings['PRIMER_INTERNAL_MAX_SELF_ANY_TH'] = tm
+      p3_settings['PRIMER_INTERNAL_MAX_SELF_END_TH'] = tm
    if args.primer_pair_max_diff_tm is not None:
       settings['pcr']['priming']['primer3']['PRIMER_PAIR_MAX_DIFF_TM'] = float(args.primer_pair_max_diff_tm)
    if args.dna_conc is not None:
