@@ -239,7 +239,7 @@ def find_primer_pairs(contig_file, positives, negatives, contig_names=None,
          log.progress.summary(f)
          log.stats.summary(f)
 
-def virtual_pcr(references, pairs, output='products.tsv', threshold_grade=1):
+def virtual_pcr(references, pairs, output='products.tsv'):
    '''
    USAGE
       >>> refs = ['/full/path/to/ref1.fa', ...]
@@ -252,7 +252,7 @@ def virtual_pcr(references, pairs, output='products.tsv', threshold_grade=1):
    
    refs = create_symbolic_files(references, ref_dir, reuse=True)
    
-   predict_pcr_results(refs, pairs, output=output, threshold_grade=threshold_grade)
+   predict_pcr_results(refs, pairs, output=output)
 
 def show_primer_probe_locs(wdir, no_pos, no_neg, contigs=None, name=None):
    ''' Show the location of primer bindingsites (red) and probebinding sites
@@ -854,6 +854,7 @@ class multirange():
             if ranges is None:
                self.starts, self.ends = [], []
             else:
+               print(ranges)
                raise
    def __iter__(self):
       for i in range(len(self.starts)):
@@ -2061,6 +2062,11 @@ def extract_contigs(seq, gap='n'):
          in_gap = False
          start = i
    
+   end = i - 1
+   if end > start:
+      contig = seq[start:end+1]
+      contigs.append((contig, start))
+   
    return contigs
 
 def find_complementing_kmers(kmers, files, kmer_size=20, min_seq_len=500):
@@ -2203,7 +2209,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
             log.stats.add_row('prims%s'%i, [right.get(h, '-'), left.get(h, '-'),h])
          log.stats.add_row('pair%s'%i, [pair.get('considered', '-'), 'considered'])
          log.stats.add_row('pair%s'%i, [pair.get('unacceptable product size', '-'),
-                                    'unacceptable product size'])
+                                        'unacceptable product size'])
          log.stats.add_row('pair%s'%i, [pair.get('high any compl', '-'), 'high any complementarity'])
          log.stats.add_row('pair%s'%i, [pair.get('high end compl', '-'), 'high end complementarity'])
          log.stats.add_row('pair%s'%i, [pair.get('no internal oligo', '-'), 'no probe'])
@@ -2335,16 +2341,6 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
             penalty_neg += primers[probe]['penalty'][1]
          # Store pair rank
          p['test']['penalty'] = penalty_pos + penalty_neg
-         
-         # Compute Uniqueness
-         max_pen = settings['pcr']['max_unique_penalty']
-         p['test']['unique_flags'] = 0
-         if p['left']['pen_n'] <= nlen * max_pen:
-            p['test']['unique_flags'] += 1
-         if p['right']['pen_n'] <= nlen * max_pen:
-            p['test']['unique_flags'] += 2
-         if qpcr and p['internal']['pen_n'] <= nlen * max_pen:
-            p['test']['unique_flags'] += 4
       
       # Sort primer pairs according to their rank and penalty
       if log is not None:
@@ -2714,7 +2710,7 @@ def filter_primer_alignments(ref, alignments, probes=[]):
                tm = p3_primer.calcHeterodimer(seq, seq2).tm
          
          # Evaluate thermodynamic results
-         grade = 1
+         grade = 1 if tm > 0 else 0
          if primer in probes:
             target_tm = p3_args['PRIMER_INTERNAL_OPT_TM']
          else:
@@ -2815,6 +2811,7 @@ def estimate_primer_rank(alignments, scheme='positive'):
 def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
    ''' Validate and score primer pairs '''
    qpcr = settings['pcr']['priming']['primer3']['PRIMER_PICK_INTERNAL_OLIGO'] == 1
+   mg = settings['pcr']['min_pcr_grade']
    if log is not None:
       log.progress.add('val%s'%seq_id, 'Validating primer pairs', 'pcr')
    plen = len(p_refs)
@@ -2832,9 +2829,13 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
       p_rv = p['right']['sequence']
       probe = p['internal']['sequence'] if qpcr else ''
       target = p['pair']['product_size']
+      hb = target + settings['pcr']['product_deviation']
+      lb = target - settings['pcr']['product_deviation']
       sensi = 0
       speci = 0
       noise = 0
+      # Set all unique flags true for the pair
+      p['test']['unique_flags'] = 7 if qpcr else 3 
       
       # EVALUATE pcr for positive references
       total_count = 0
@@ -2862,13 +2863,37 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
             sys.stderr.write("error: Primer matching failed for positive reference %s!\n"%(i))
             raise
          
-         # FIND potential pcr products
+         # FIND potential pcr products (OBS: Not filtered on grade yet!)
          products, counts = find_pcr_products(fw_locs, rv_locs, probe_locs,
-                                              len(p_fw), len(p_rv), len(probe))
+                                              len(p_fw), len(p_rv), len(probe),
+                                              filter_on_grade=False)
          total_count += counts[0]
          small_count += counts[1]
          large_count += counts[2]
-         therm_count += counts[3]
+         
+         # Post process products
+         filtered_products = []
+         # Find best target match
+         best_target = [False, False, False] # [forward, reverse, probe]
+         for product in products:
+            if product[-1] > lb and product[-1] < hb:
+               target_match = [product[-2][0] >= mg, product[-2][1] >= mg,
+                               qpcr and product[-2][2] >= mg]
+               if sum(target_match) > sum(best_target):
+                  best_target = target_match
+            
+            # Filter products with bad grades
+            if any(g < mg for g in product[-2]):
+               therm_count += 1
+            else:
+               filtered_products.append(product)
+         
+         # Update primer/probe uniqueness flags
+         current_flags = np.array(num2binarray(p['test']['unique_flags'], 3))
+         p['test']['unique_flags'] = binarray2num(current_flags * best_target)
+         
+         # Update products
+         products = filtered_products
          match_count += len(products)
          
          # UPDATE pair with PCR product lengths
@@ -2876,12 +2901,10 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
          p['products']['pos'].append(product_lengths)
          
          # Compute sensitivity
-         hb = target + settings['pcr']['product_deviation']
-         lb = target - settings['pcr']['product_deviation']
-         sensi += any(x[-2] > 2 for x in products if x[-1] > lb and x[-1] < hb)
+         sensi += any(True for x in products if x[-1] > lb and x[-1] < hb)
          
          # Compute noise
-         noise += sum(x[-2] > 1 for x in products if x[-1] <= lb or x[-1] >= hb)
+         noise += sum(True for x in products if x[-1] <= lb or x[-1] >= hb)
       
       pos_counts[0] += total_count
       pos_counts[1] += small_count
@@ -2918,13 +2941,36 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
             print("error: Primer matching failed for negative reference %s!"%(i))
             raise
          
-         # FIND potential pcr products
+         # FIND potential pcr products (OBS: Not filtered on grade yet!)
          products, counts = find_pcr_products(fw_locs, rv_locs, probe_locs,
-                                              len(p_fw), len(p_rv), len(probe))
+                                              len(p_fw), len(p_rv), len(probe),
+                                              filter_on_grade=False)
          total_count += counts[0]
          small_count += counts[1]
          large_count += counts[2]
-         therm_count += counts[3]
+         
+         # Post process products
+         filtered_products = []
+         for product in products:
+            # Identify binding primers/probe
+            good_binders = np.zeros(3, dtype=np.bool)
+            for j, g in enumerate(product[-2]):
+               if g >= mg: good_binders[j] = True
+            
+            if good_binders.any():
+               # Update primer/probe uniqueness flags
+               remove_flags = np.logical_not(good_binders)
+               current_flags = np.array(num2binarray(p['test']['unique_flags'], 3))
+               p['test']['unique_flags'] = binarray2num(current_flags * remove_flags)
+            
+            # Filter products with bad grades
+            if any(g < mg for g in product[-2]):
+               therm_count += 1
+            else:
+               filtered_products.append(product)
+         
+         # Update products
+         products = filtered_products
          match_count += len(products)
          
          # UPDATE pair with PCR product lengths
@@ -2934,10 +2980,10 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
          # Compute specificity
          hb = target + settings['pcr']['product_deviation']
          lb = target - settings['pcr']['product_deviation']
-         speci += not any(x[-2] > 1 for x in products if x[-1] > lb and x[-1] < hb)
+         speci += not any(True for x in products if x[-1] > lb and x[-1] < hb)
          
          # Compute noise
-         noise += sum(x[-2] > 1 for x in products if x[-1] <= lb or x[-1] >= hb)
+         noise += sum(True for x in products if x[-1] <= lb or x[-1] >= hb)
       
       neg_counts[0] += total_count
       neg_counts[1] += small_count
@@ -2976,7 +3022,17 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
    
    return good_pp
 
-def find_pcr_products(fw_locs, rv_locs, probe_locs, fw_len, rv_len, probe_len):
+def binarray2num(arr):
+   ''' Convert binary array to a number. '''
+   return int(np.array(arr)[::-1].dot(1 << np.arange(len(arr) - 1, -1, -1)))
+
+def num2binarray(num, min_len=0):
+   ''' Convert number to binary array, set min_len if you want a minimum array
+   length. '''
+   return list(x == '1' for x in reversed("{0:b}".format(num).zfill(min_len)))
+
+def find_pcr_products(fw_locs, rv_locs, probe_locs, fw_len, rv_len, probe_len,
+                      filter_on_grade=True):
    ''' Find primer pair products
    
    PRIMER/PCR GRADES
@@ -2986,10 +3042,11 @@ def find_pcr_products(fw_locs, rv_locs, probe_locs, fw_len, rv_len, probe_len):
       3 = probable priming  (Tm = target_tm +- 5*C)
       4 = definite priming  (Tm = target_tm +- 1*C)
    
-   # If Quantitative PCR (qPCR), also known as real-time PCR is chosen, the
+   # If quantitative PCR (qPCR), also known as real-time PCR is chosen, the
    # probe is included in the grading process
    '''
    p3_args = settings['pcr']['priming']['primer3']
+   mg = settings['pcr']['min_pcr_grade']
    qpcr = p3_args['PRIMER_PICK_INTERNAL_OLIGO'] == 1
    products = []
    total_count = 0
@@ -3013,32 +3070,28 @@ def find_pcr_products(fw_locs, rv_locs, probe_locs, fw_len, rv_len, probe_len):
             for g_rv, p_rv in p_rv_list['+']:
                # Get PCR grade and product size
                product_size = p_rv + rv_len - p_fw
+               pcr_grades = [g_fw, g_rv]
                if qpcr:
                   if probe_plus is not None:
                      probes = probe_plus[np.logical_and(probe_plus[:,1]>(p_fw+fw_len), probe_plus[:,1]<(p_rv-probe_len))]
                   else:
                      probes = np.array([])
-                  if probes.shape[0] == 0:
-                     pcr_grade = 0
-                  else:
-                     pcr_grade = min([g_fw, g_rv, probes[:,0].max()])
-               else:
-                  pcr_grade = min([g_fw, g_rv])
+                  pcr_grades.append(0 if probes.shape[0] == 0 else probes[:,0].max())
                # Filter bad products
-               if pcr_grade < settings['pcr']['min_pcr_grade']:
+               if filter_on_grade and any(g < mg for g in pcr_grades):
                   therm_count += 1
                   continue
-               # FILTER small products
+               # Filter small products
                if product_size < p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0]:
                   small_count += 1
                   continue
-               # FILTER big products
+               # Filter big products
                if product_size > p3_args['PRIMER_PRODUCT_SIZE_RANGE'][1]:
                   break
                # Add match to alignment_list
                products.append([contig_name, '+', p_fw,
                                 contig_name, '+', p_rv,
-                                pcr_grade, product_size])
+                                pcr_grades, product_size])
       
       # Find pairs on the - strand
       if '-' in p_fw_list and '-' in p_rv_list:
@@ -3047,32 +3100,28 @@ def find_pcr_products(fw_locs, rv_locs, probe_locs, fw_len, rv_len, probe_len):
          for g_fw, p_fw in p_fw_list['-']:
             for g_rv, p_rv in p_rv_list['-']:
                product_size = p_fw + fw_len - p_rv
+               pcr_grades = [g_fw, g_rv]
                if qpcr:
                   if probe_minus is not None:
                      probes = probe_minus[np.logical_and(probe_minus[:,1]>(p_rv+rv_len), probe_minus[:,1]<(p_fw-probe_len))]
                   else:
                      probes = np.array([])
-                  if probes.shape[0] == 0:
-                     pcr_grade = 0
-                  else:
-                     pcr_grade = min([g_fw, g_rv, probes[:,0].max()])
-               else:
-                  pcr_grade = min([g_fw, g_rv])
-               # FILTER unlikely PCR products
-               if pcr_grade < settings['pcr']['min_pcr_grade']:
+                  pcr_grades.append(0 if probes.shape[0] == 0 else probes[:,0].max())
+               # Filter bad products
+               if filter_on_grade and any(g < mg for g in pcr_grades):
                   therm_count += 1
                   continue
-               # FILTER small products
+               # Filter small products
                if product_size < p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0]:
                   small_count += 1
                   continue
-               # FILTER big products
+               # Filter big products
                if product_size > p3_args['PRIMER_PRODUCT_SIZE_RANGE'][1]:
                   break
                # Add match to alignment_list
                products.append([contig_name, '-', p_fw,
                                 contig_name, '-', p_rv,
-                                pcr_grade, product_size])
+                                pcr_grades, product_size])
    
    large_count = total_count - small_count - therm_count - len(products)
    return products, (total_count, small_count, large_count, therm_count)
@@ -3380,7 +3429,7 @@ def text_table(title, headers, rows, table_format='psql'):
                       table, '\n'])
    return table
 
-def predict_pcr_results(refs, pairs, output=None, fail_on_non_match=False, threshold_grade=1):
+def predict_pcr_results(refs, pairs, output=None, fail_on_non_match=False):
    ''' Predict the results of a PCR
    
    USAGE
@@ -3575,49 +3624,46 @@ def color_seq(seq, ranges,
    # print Sequence
    return ''.join(seq2)
 
-def get_primer_and_probe_bindsites(results_file, test_file, no_pos, no_neg):
+def get_primer_and_probe_bindsites(results_file, unique_only=False):
    ''' Extract the sequences and the primer and probe location found in the
    sequences.
-   
-   USAGE
-      >>> print_primer_and_probe_bindsites()
    '''
    count = 0
    pribind_locs = {}
    probind_locs = {}
-   with open(results_file) as file1, open(test_file) as file2:
-      for line_result, line_test in zip(file1, file2):
-         if line_result.strip() == '': continue
-         if line_result[0] == '#': continue
-         tmp_results = line_result.split('\t')
-         tmp_tests = line_test.split('\t')
-         sequence_id = tmp_results[0].strip()
-         target_size = int(tmp_results[1].strip())
-         pos_check = True
-         for x in tmp_tests[0:no_pos]:
-            z = [int(y.strip()) for y in x.split(',') if y.strip() != '']
-            if not target_size in z:
-               pos_check = False
+   with open(results_file) as f:
+      for l in f:
+         if l.isspace(): continue
+         if l.startswith('#'): continue
+         tmp = list(map(lambda x: x.strip(), l.split('\t')))
+         sequence_id = tmp[0]
+         target_size = int(tmp[1])
+         unique_flags = num2binarray(int(tmp[2]),3)
+         sensitivity = float(tmp[3])
+         specificity = float(tmp[4])
+         noise = float(tmp[5])
+         if not sequence_id in pribind_locs:
+            pribind_locs[sequence_id] = multirange()
+            probind_locs[sequence_id] = multirange()
          
-         neg_check = True
-         for x in tmp_tests[no_pos+1:no_pos+no_neg]:
-            if x.strip() != '':
-               neg_check = False
-         
-         if pos_check and neg_check:
-            if not sequence_id in pribind_locs:
-               pribind_locs[sequence_id] = multirange()
-               probind_locs[sequence_id] = multirange()
-            
-            fw_len = int(tmp_results[4].strip())
-            fw_pos = int(tmp_results[6].strip())
+         if not unique_only or unique_flags[0]:
+            fw_len = int(tmp[10])
+            fw_pos = int(tmp[12])
             pribind_locs[sequence_id].add(fw_pos,fw_pos+fw_len-1)
-            rv_len = int(tmp_results[9].strip())
-            rv_pos = int(tmp_results[11].strip())
+         # else:
+         #    print('Ignored Forward: %s %s %s'%(tmp[10], tmp[12], unique_flags))
+         
+         if not unique_only or unique_flags[1]:
+            rv_len = int(tmp[15].strip())
+            rv_pos = int(tmp[17].strip())
             pribind_locs[sequence_id].add(rv_pos-rv_len+1,rv_pos)
+         # else:
+         #    print('Ignored Reverse: %s %s %s'%(tmp[10], tmp[12], unique_flags))
+         
+         if not unique_only or unique_flags[2]:
             try:
-               pb_len = int(tmp_results[14].strip())
-               pb_pos = int(tmp_results[16].strip())
+               pb_len = int(tmp[20].strip())
+               pb_pos = int(tmp[22].strip())
             except: pass
             else:
                probind_locs[sequence_id].add(pb_pos,pb_pos+pb_len-1)

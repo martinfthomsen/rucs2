@@ -284,7 +284,8 @@ docker volume rm $(docker volume ls -qf dangling=true)
 License
 =======
 
-Copyright (c) 2017, Martin Christen Frølund Thomsen, Technical University of Denmark
+Copyright (c) 2017, Martin Christen Frølund Thomsen, Technical University of Denmark.
+
 All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
