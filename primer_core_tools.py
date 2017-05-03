@@ -2062,9 +2062,8 @@ def extract_contigs(seq, gap='n'):
          in_gap = False
          start = i
    
-   end = i
-   if end > start:
-      contig = seq[start:end+1]
+   if not in_gap and len(seq) >= start:
+      contig = seq[start:]
       contigs.append((contig, start))
    
    return contigs
