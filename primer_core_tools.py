@@ -2062,7 +2062,7 @@ def extract_contigs(seq, gap='n'):
          in_gap = False
          start = i
    
-   end = i - 1
+   end = i
    if end > start:
       contig = seq[start:end+1]
       contigs.append((contig, start))
