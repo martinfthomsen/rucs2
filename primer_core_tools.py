@@ -81,7 +81,7 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
       reference = "reference.fa"
       if ref_input is None: ref_input = positives[0]
       
-      save_as_fasta([seq for seq, n, d in seqs_from_file(ref_input)], reference)
+      save_as_fasta([seq for seq, n, d in seqs_from_file(ref_input, to_upper=True)], reference)
       # save_as_fasta(sorted([seq for seq, n, d in seqs_from_file(ref_input)],
       #    key=len), reference)
       
@@ -468,7 +468,7 @@ Probe distance to primer: N/A
 
 
 # ITERATORS
-def seqs_from_file(filename, exit_on_err=False):
+def seqs_from_file(filename, exit_on_err=False, to_upper=False):
    '''Extract sequences from a file
    
    Name:
@@ -532,6 +532,7 @@ def seqs_from_file(filename, exit_on_err=False):
             if queryseqsegments != []:
                # YIELD SEQUENCE AND RESET
                seq = ''.join(queryseqsegments)
+               if to_upper: seq = seq.upper()
                yield (seq, name, desc)
                seq, name, desc = '', '', ''
                del queryseqsegments[:]
@@ -553,6 +554,7 @@ def seqs_from_file(filename, exit_on_err=False):
                break
             else:
                # YIELD SEQUENCE AND RESET
+               if to_upper: seq = seq.upper()
                yield (seq, name, desc)
                seq, name, desc = '', '', ''
          
@@ -564,6 +566,7 @@ def seqs_from_file(filename, exit_on_err=False):
       if queryseqsegments != []:
          # YIELD SEQUENCE
          seq = ''.join(queryseqsegments)
+         if to_upper: seq = seq.upper()
          yield (seq, name, desc)
 
 # CLASSES
@@ -1382,7 +1385,7 @@ def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
    kmers = {}
    seqcount = 0
    file_type = check_file_type([filename])
-   for i, (seq, name, desc) in enumerate(seqs_from_file(filename)):
+   for i, (seq, name, desc) in enumerate(seqs_from_file(filename, to_upper=True)):
       if len(seq) < min_seq_len: continue # Skip small sequences
       # Extract kmers from sequence (GenomePrefix_SequencePrefix_KmerPosition) to 'kmers'
       extract_kmers(kmers, seq, "%s_%d"%(genome_prefix, i), kmer_size,
@@ -2160,7 +2163,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
    skipped = 0
    ignored = 0
    no_pairs = 0
-   for i, (seq, name, desc) in enumerate(seqs_from_file(contig_file)):
+   for i, (seq, name, desc) in enumerate(seqs_from_file(contig_file, to_upper=True)):
       if contig_names is not None and name not in contig_names:
          # Ignore unspecified contigs
          ignored += 1
@@ -3733,7 +3736,7 @@ def find_ucs(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
       reference = "reference.fa"
       if ref_input is None: ref_input = positives[0]
       
-      save_as_fasta([seq for seq, n, d in seqs_from_file(ref_input)], reference)
+      save_as_fasta([seq for seq, n, d in seqs_from_file(ref_input, to_upper=True)], reference)
       
       # Create symlinks for all reference
       reference = create_symbolic_files([reference], ref_dir)[0]
@@ -3813,7 +3816,7 @@ def pcrs(args):
    # Get first template entry
    if args.template is not None:
       try:
-         for seq, n, d in seqs_from_file(args.template):
+         for seq, n, d in seqs_from_file(args.template, to_upper=True):
             template = seq
             break
       except:

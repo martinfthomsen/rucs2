@@ -1,5 +1,5 @@
 ############################################################
-# Dockerfile to build Primer Finder image
+# Dockerfile to build image
 ############################################################
 
 # Set Base Image to Python Anaconda
