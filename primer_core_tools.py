@@ -3724,6 +3724,62 @@ def print_primer_and_probe_bindsites(seq_file, pribind_locs, probind_locs={},
          print(seq)
       print('\n')
 
+def print_multiranges(template, multiranges, entries=None):
+   ''' Markup the template with data from a multirange object with up to 4
+   targets.
+   
+   Text Modifications:
+      The last target: Red
+      The second last: Green
+      The third last : Blue
+      The fourth last: Underlined (_)
+      Red   + Green  = Yellow
+      Red   + Blue   = Magenta
+      Green + Blue   = Cyan
+      R + G + B      = Greyish/White
+   
+   Any modification above is also followed up by making the text bold.
+   
+   USAGE
+      * Template must be a fasta file
+      * Multiranges must be a dictionary, where the keys are the names of the
+        fasta entries, and where each value is a multirange object combining up
+        to 4 multirange objects through addition.
+   '''
+   tag_mods = [['0'],              # No Modifications
+               ['0','1','31'],     # Bold Red
+               ['0','1','32'],     # Bold Green
+               ['0','1','33'],     # Bold Yellow
+               ['0','1','34'],     # Bold Blue
+               ['0','1','35'],     # Bold Magenta
+               ['0','1','36'],     # Bold Cyan
+               ['0','1','37'],     # Bold Whiteish/Grey
+               ['0','1','4'],      # Bold Underlined
+               ['0','1','4','31'], # Bold Underlined Red
+               ['0','1','4','32'], # Bold Underlined Green
+               ['0','1','4','33'], # Bold Underlined Yellow
+               ['0','1','4','34'], # Bold Underlined Blue
+               ['0','1','4','35'], # Bold Underlined Magenta
+               ['0','1','4','36'], # Bold Underlined Cyan
+               ['0','1','4','37']] # Bold Underlined Whiteish/Grey
+   
+   # Fetch Template data
+   for seq, name, desc in seqs_from_file(template):
+      if entries is not None:
+         if not name in entries:
+            continue
+      elif not name in multiranges: continue
+      
+      print('SEQUENCE NAME: %s'%name)
+      if name in multiranges:
+         try:
+            print(color_seq(seq, multiranges[name], tag_mods))
+         except ValueError:
+            print(color_seq(seq, multirange() + multiranges[name], tag_mods))
+      else:
+         print(seq)
+      print('\n')
+
 def find_ucs(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
              clean_run=True, settings_file=None, name=None):
    ''' This script computes the core sequences of the positive genomes and
