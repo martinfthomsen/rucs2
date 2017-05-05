@@ -35,7 +35,7 @@ settings = None
 # Program Entry Points
 def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
          clean_run=True, annotate=True, settings_file=None, name=None):
-   ''' PrimerFinder - a tool for designing PCR primer pairs suitable for
+   ''' RUCS - a tool for designing PCR primer pairs suitable for
    distinguishing closely related strains
    
    Part 1: This script computes the core sequences of the positive genomes and
@@ -75,20 +75,32 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
       products_file = '%sproducts.tsv'%("%s_"%name if name is not None else '')
       results_file_best = '%sresults_best.tsv'%("%s_"%name if name is not None else '')
       
-      log.progress.add('main', 'Running PrimerFinder', None)
+      log.progress.add('main', 'Running RUCS', None)
       
       # Save Sorted Reference
       reference = "reference.fa"
       if ref_input is None: ref_input = positives[0]
       
-      save_as_fasta([seq for seq, n, d in seqs_from_file(ref_input, to_upper=True)], reference)
+      log.progress.add('ref',
+                       'Prepare reference: %s'%os.path.basename(ref_input),
+                       'main')
+      to_upper = settings['input']['to_upper']
+      save_as_fasta([seq for seq, n, d in seqs_from_file(ref_input,
+                                                         to_upper=to_upper)],
+                    reference)
       # save_as_fasta(sorted([seq for seq, n, d in seqs_from_file(ref_input)],
       #    key=len), reference)
+      log.progress['ref'].log_time()
       
       # Create symlinks for all reference
+      log.progress.add('input',
+                       'Prepare inputs: %s positive and %s negative genomes'%(
+                       len(positives), len(negatives)),
+                       'main')
       reference = create_symbolic_files([reference], ref_dir)[0]
       positives = create_symbolic_files(positives, ref_dir)
       negatives = create_symbolic_files(negatives, ref_dir)
+      log.progress['input'].log_time()
       
       # Find unique core sequences
       cs_f, ucs_files = find_unique_core_sequences(positives, negatives,
@@ -171,14 +183,19 @@ def find_primer_pairs(contig_file, positives, negatives, contig_names=None,
       results_file = '%sresults.tsv'%("%s_"%name if name is not None else '')
       results_file_best = '%sresults_best.tsv'%("%s_"%name if name is not None else '')
       
-      log.progress.add('main', 'Running PrimerFinder', None)
+      log.progress.add('main', 'Running RUCS', None)
       
       # Create reference directory to store reference links, and BWA index files
       ref_dir = 'references'
       if not os.path.exists(ref_dir): os.mkdir(ref_dir)
       # Create symlinks for all reference
+      log.progress.add('input',
+                       'Prepare inputs: %s positive and %s negative genomes'%(
+                       len(positives), len(negatives)),
+                       'main')
       positives = create_symbolic_files(positives, ref_dir)
       negatives = create_symbolic_files(negatives, ref_dir)
+      log.progress['input'].log_time()
       
       if contig_names is not None and isinstance(contig_names, str):
          contig_names = [contig_names]
@@ -254,15 +271,14 @@ def virtual_pcr(references, pairs, output='products.tsv'):
    
    predict_pcr_results(refs, pairs, output=output)
 
-def show_primer_probe_locs(wdir, no_pos, no_neg, contigs=None, name=None):
+def show_primer_probe_locs(wdir, contigs=None, name=None):
    ''' Show the location of primer bindingsites (red) and probebinding sites
    (green) using shell text coloring.
    '''
    seq_file    = '%s/unique_core_sequences.disscafs.fa'%(wdir)
    results_file = '%sresults.tsv'%("%s_"%name if name is not None else '')
    products_file = '%sproducts.tsv'%("%s_"%name if name is not None else '')
-   pribind_locs, probind_locs = get_primer_and_probe_bindsites(
-      results_file, products_file, no_pos, no_neg)
+   pribind_locs, probind_locs = get_primer_and_probe_bindsites(results_file)
    print_primer_and_probe_bindsites(seq_file, pribind_locs, probind_locs, contigs=contigs, tag1='41', tag2='32')
 
 def compute_tm(seq1, seq2=None):
@@ -1331,9 +1347,11 @@ def find_intersecting_kmers(files, kmer_size=20, min_seq_len=500):
          log.progress.add('core%s'%i, 'Processing %s'%os.path.basename(genome),
                           'core')
       # EXTRACT K-MERS FROM SEQEUNCE DATA FROM INPUT FILES
+      to_upper = settings['input']['to_upper']
       kmers_i = extract_kmers_from_file(genome, i, kmer_size, '',
                                         settings['ucs']['min_kmer_count'],
-                                        settings['ucs']['rev_comp'], min_seq_len)
+                                        settings['ucs']['rev_comp'],
+                                        min_seq_len, to_upper)
       if log is not None:
          log.progress['core%s'%i].log_time()
          log.stats.add_row('kmer',
@@ -1354,7 +1372,7 @@ def find_intersecting_kmers(files, kmer_size=20, min_seq_len=500):
 
 def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
                             kmer_prefix='', fastq_kmer_count_threshold=20,
-                            revcom=True, min_seq_len=500):
+                            revcom=True, min_seq_len=500, to_upper=False):
    '''
    NAME      Extract K-mers from sequence
    AUTHOR    Martin CF Thomsen
@@ -1385,7 +1403,8 @@ def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
    kmers = {}
    seqcount = 0
    file_type = check_file_type([filename])
-   for i, (seq, name, desc) in enumerate(seqs_from_file(filename, to_upper=True)):
+   for i, (seq, name, desc) in enumerate(seqs_from_file(filename,
+                                                        to_upper=to_upper)):
       if len(seq) < min_seq_len: continue # Skip small sequences
       # Extract kmers from sequence (GenomePrefix_SequencePrefix_KmerPosition) to 'kmers'
       extract_kmers(kmers, seq, "%s_%d"%(genome_prefix, i), kmer_size,
@@ -2084,9 +2103,11 @@ def find_complementing_kmers(kmers, files, kmer_size=20, min_seq_len=500):
          log.progress.add('pan%s'%i, 'Processing %s'%os.path.basename(genome),
                           'pan')
       # Extract K-mers from the B file
+      to_upper = settings['input']['to_upper']
       negative_kmers = extract_kmers_from_file(genome, i, kmer_size, '',
                                                settings['ucs']['min_kmer_count'],
-                                               settings['ucs']['rev_comp'], min_seq_len)
+                                               settings['ucs']['rev_comp'],
+                                               min_seq_len, to_upper)
       # TODO: Filter low counts?
       
       # Remove K-mers from A which are found in B
@@ -2142,6 +2163,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
    '''
    p3_args = settings['pcr']['priming']['primer3']
    qpcr = p3_args['PRIMER_PICK_INTERNAL_OLIGO'] == 1
+   to_upper = settings['input']['to_upper']
    # Input validation
    assert (contig_names is None or isinstance(contig_names, list)), \
           ('Invalid value (contig_names)! Only list allowed.')
@@ -2163,7 +2185,8 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
    skipped = 0
    ignored = 0
    no_pairs = 0
-   for i, (seq, name, desc) in enumerate(seqs_from_file(contig_file, to_upper=True)):
+   for i, (seq, name, desc) in enumerate(seqs_from_file(contig_file,
+                                                        to_upper=to_upper)):
       if contig_names is not None and name not in contig_names:
          # Ignore unspecified contigs
          ignored += 1
@@ -3736,12 +3759,24 @@ def find_ucs(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
       reference = "reference.fa"
       if ref_input is None: ref_input = positives[0]
       
-      save_as_fasta([seq for seq, n, d in seqs_from_file(ref_input, to_upper=True)], reference)
+      log.progress.add('ref',
+                       'Prepare reference: %s'%os.path.basename(ref_input),
+                       'main')
+      to_upper = settings['input']['to_upper']
+      save_as_fasta([seq for seq, n, d in seqs_from_file(ref_input,
+                                                         to_upper=to_upper)],
+                    reference)
+      log.progress['ref'].log_time()
       
       # Create symlinks for all reference
+      log.progress.add('input',
+                       'Prepare inputs: %s positive and %s negative genomes'%(
+                       len(positives), len(negatives)),
+                       'main')
       reference = create_symbolic_files([reference], ref_dir)[0]
       positives = create_symbolic_files(positives, ref_dir)
       negatives = create_symbolic_files(negatives, ref_dir)
+      log.progress['input'].log_time()
       
       # Find unique core sequences
       cs_files, ucs_files = find_unique_core_sequences(positives, negatives,
@@ -3812,11 +3847,12 @@ def pcrs(args):
    primer pairs. '''
    # Get pairs
    pairs = get_pairs(args.pairs)
+   to_upper = settings['input']['to_upper']
    
    # Get first template entry
    if args.template is not None:
       try:
-         for seq, n, d in seqs_from_file(args.template, to_upper=True):
+         for seq, n, d in seqs_from_file(args.template, to_upper=to_upper):
             template = seq
             break
       except:
