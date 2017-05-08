@@ -24,7 +24,7 @@
       "no_good_pp":          100, // Number of good primer pairs to identify before stopping the algorithm early
       "seq_selection":       [0], // Range of sequences IDs (zero-index) from the input to analyse for PCR primer pairs (set to null to run against all)
       "product_deviation":    50, // Product size deviation limit, to determine when the product size is indistiguishable from target size.
-      "min_pair_distance":   100, // Minimum distance, to previous pair, for a new pair to be counted as unique primer pair
+      "min_pair_distance":   100, // Minimum distance, to previous pair, for a new pair to be counted as non-overlapping primer pair
       "min_pcr_grade":         2, // Minimum grade for a pcr product to be counted as present
       "priming":{ // Priming Grade Thresholds and Penalties
          "alignment_similarity":  0.6, // Cut-off similarity. A hetero dimer alignment below this similarity is not considered as binding. A Tm > 0 is required for passing_grade=1+
@@ -103,8 +103,8 @@
             "PRIMER_INTERNAL_MAX_SELF_END":        12,   // Oligo self annealing (end to end self priming)
             "PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT": 1,   // Use Thermodynamics in stead of alignment (Slow mode)
             "PRIMER_MAX_HAIRPIN_TH":               47.0,   // Max hairpin Tm for primers (require thermodynamis to be activated)
-            //"PRIMER_PAIR_MAX_COMPL_ANY_TH":        47.0,   // Primer pair complementarity // This option is removed currently due to weird behaviour!
-            //"PRIMER_PAIR_MAX_COMPL_END_TH":        47.0,   // Primer pair complementarity (end to end self priming) // This option is removed currently due to weird behaviour!
+            "PRIMER_PAIR_MAX_COMPL_ANY_TH":        47.0,   // Primer pair complementarity
+            "PRIMER_PAIR_MAX_COMPL_END_TH":        47.0,   // Primer pair complementarity (end to end self priming)
             "PRIMER_MAX_SELF_ANY_TH":              47.0,   // Self annealng alignment score
             "PRIMER_MAX_SELF_END_TH":              47.0,   // Primer self annealing (end to end self priming)
             "PRIMER_INTERNAL_MAX_HAIRPIN_TH":      47.0,   // Max hairpin Tm for probe (require thermodynamis to be activated)

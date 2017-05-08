@@ -760,7 +760,7 @@ class LogObj(object):
             self.tables[name].add_row(row)
       def summary(self, file_obj=sys.stdout):
          '''  '''
-         for t in self.tables.values():
+         for t in sorted(self.tables.values(), key=lambda x: x.title):
             file_obj.write(text_table(t.title, t.headers, t.rows))
    
    class ProgressObj(object):
@@ -2211,7 +2211,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
       if log is not None:
          log.stats.add_table('prims%s'%i,
                              'Primer3 primer scanning of contig %s'%name,
-                             ['Right', 'Left', 'Category'])
+                             ['Right', 'Left', 'Probe', 'Category'])
          log.stats.add_table('val%s'%i, 'Primer validation for contig %s'%name,
                              ['Primers', 'Category'])
          log.stats.add_table('pair%s'%i,
@@ -2227,18 +2227,38 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
          # Process primer3 notes
          right = dict([x.rsplit(' ', 1) for x in notes['right'].split(', ')])
          left = dict([x.rsplit(' ', 1) for x in notes['left'].split(', ')])
+         probe = dict([x.rsplit(' ', 1) for x in notes.get('internal', '').split(', ') if x != ''])
          pair = dict([x.rsplit(' ', 1) for x in notes['pair'].split(', ')])
-         headers = ['considered', 'GC content failed', 'low tm', 'high tm',
+         headers = ['considered', 'too many Ns', 'GC content failed',
+                    'long poly-x seq', 'low tm', 'high tm',
                     'high hairpin stability', 'ok']
+         headers_pair = ['considered', 'unacceptable product size',
+                         'high any compl', 'high end compl',
+                         'tm diff too large', 'no internal oligo', 'ok']
+         # Warn about headers unaccounted for
+         miss_head = ', '.join(h for h in left if not h in headers)
+         if miss_head:
+            print(('Warning: One or more forward primer headers were not '
+                   'reported: %s')%miss_head)
+         miss_head = ', '.join(h for h in right if not h in headers)
+         if miss_head:
+            print(('Warning: One or more reverse primer headers were not '
+                   'reported: %s')%miss_head)
+         miss_head = ', '.join(h for h in probe if not h in headers)
+         if miss_head:
+            print(('Warning: One or more probe headers were not '
+                   'reported: %s')%miss_head)
+         miss_head = ', '.join(h for h in pair if not h in headers_pair)
+         if miss_head:
+            print(('Warning: One or more pair headers were not '
+                   'reported: %s')%miss_head)
+         # Log Primer3 notes as statistics
          for h in headers:
-            log.stats.add_row('prims%s'%i, [right.get(h, '-'), left.get(h, '-'),h])
-         log.stats.add_row('pair%s'%i, [pair.get('considered', '-'), 'considered'])
-         log.stats.add_row('pair%s'%i, [pair.get('unacceptable product size', '-'),
-                                        'unacceptable product size'])
-         log.stats.add_row('pair%s'%i, [pair.get('high any compl', '-'), 'high any complementarity'])
-         log.stats.add_row('pair%s'%i, [pair.get('high end compl', '-'), 'high end complementarity'])
-         log.stats.add_row('pair%s'%i, [pair.get('no internal oligo', '-'), 'no probe'])
-         log.stats.add_row('pair%s'%i, [pair.get('ok', '-'), 'ok'])
+            log.stats.add_row('prims%s'%i, [right.get(h, '-'), left.get(h, '-'), probe.get(h, '-'), h])
+         
+         for h in headers_pair:
+            log.stats.add_row('pair%s'%i, [pair.get(h, '-'), h])
+         
       if len(pairs) == 0:
          no_pairs += 1
          continue
@@ -2633,7 +2653,7 @@ def primer3_parser(primer3_results):
                primer_pairs[id][key]['position'] = primer3_results[k][0]
                primer_pairs[id][key]['length'] = primer3_results[k][1]
          elif tmp[0] == 'EXPLAIN':
-            notes['pair'] = primer3_results[k]
+            notes[key] = primer3_results[k]
          elif tmp == ['NUM','RETURNED']: pass
          else:
             sys.stderr.write("%s, %s\n"%(k, tmp[0]))
@@ -3036,7 +3056,7 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
    
    if log is not None:
       log.progress['val%s'%seq_id].log_time()
-      log.stats.add_row('pair%s'%seq_id, [len(good_pp), 'high quality pairs'])
+      log.stats.add_row('pair%s'%seq_id, [len(good_pp), 'Non-overlapping pairs'])
       # Create PCR product statistics table
       headers = ['considered', 'too small', 'too big', 'low tm', 'possible']
       log.stats.add_table('pcr%s'%seq_id,
