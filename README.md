@@ -18,8 +18,15 @@ Authors:
 
 
 ## Entry Point Descriptions ##
+The entrypoints provide a quick interface to running the services in this
+software package.
+
 To modify the settings and parameters for any entry point, modify or make a
 modified copy of settings.default.cjson.
+
+If you want more flexibility, the primer_core_tools.py module can be imported
+into a python script, then you will have full access to all features. The
+classes and functions should be well documented in the source code.
 
 ### full - Find PCR Primer Pairs for the Unique Core Sequences ###
 This is the main method, which combines fucs and fppp into one serial execution.
@@ -37,6 +44,9 @@ Note: To run the tool outside of docker, install the dependencies described in
 the Dockerfile on your local machine, and make a symbolic link to
 primer_core_tools.py in your /usr/local/bin called rucs. That way you can run
 the tool directly using the second line of the command above.
+
+Note: You can specify which entries in the template you want analysed. Default
+for full is running against the first entry.
 
 ### fucs - Find Unique Core Sequences ###
 This method finds all the core sequences from the positive dataset, remove

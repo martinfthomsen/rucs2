@@ -69,7 +69,7 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
    ref_dir = 'references'
    if not os.path.exists(ref_dir): os.mkdir(ref_dir)
    try:
-      debug_file = '%sdebug.log'%("%s_"%name if name is not None else '')
+      stats_file = '%sstats.log'%("%s_"%name if name is not None else '')
       pairs_json_file = '%spairs.json'%("%s_"%name if name is not None else '')
       results_file = '%sresults.tsv'%("%s_"%name if name is not None else '')
       products_file = '%sproducts.tsv'%("%s_"%name if name is not None else '')
@@ -161,7 +161,7 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
    finally:
       log.progress['main'].log_time()
       # Store time and stats in debug.log
-      with open(debug_file, 'w') as f:
+      with open(stats_file, 'w') as f:
          log.progress.summary(f)
          log.stats.summary(f)
 
@@ -177,7 +177,7 @@ def find_primer_pairs(contig_file, positives, negatives, contig_names=None,
       load_global_settings(settings_file)
    
    try:
-      debug_file = '%sdebug.log'%("%s_"%name if name is not None else '')
+      stats_file = '%sstats.log'%("%s_"%name if name is not None else '')
       pairs_json_file = '%spairs.json'%("%s_"%name if name is not None else '')
       products_file = '%sproducts.tsv'%("%s_"%name if name is not None else '')
       results_file = '%sresults.tsv'%("%s_"%name if name is not None else '')
@@ -252,12 +252,13 @@ def find_primer_pairs(contig_file, positives, negatives, contig_names=None,
    finally:
       log.progress['main'].log_time()
       # Store time and stats in debug.log
-      with open(debug_file, 'w') as f:
+      with open(stats_file, 'w') as f:
          log.progress.summary(f)
          log.stats.summary(f)
 
 def virtual_pcr(references, pairs, output='products.tsv'):
-   '''
+   ''' Virtual PCR
+   
    USAGE
       >>> refs = ['/full/path/to/ref1.fa', ...]
       >>> pairs = [['forward_primer1_seq', 'reverse_primer1_seq'], ...]
@@ -282,7 +283,7 @@ def show_primer_probe_locs(wdir, contigs=None, name=None):
    print_primer_and_probe_bindsites(seq_file, pribind_locs, probind_locs, contigs=contigs, tag1='41', tag2='32')
 
 def compute_tm(seq1, seq2=None):
-   ''' Compuet the Tm of each of the sequences, and the hetero dimer complex.
+   ''' Compute the Tm of each of the sequences, and the hetero dimer complex.
    
    USAGE:
       >>> compute_tm('CAACATTTTCGTGTCGCCCTT')
@@ -374,11 +375,11 @@ Probe distance to primer: N/A
    max_nn_length = 60 # Maximum length for nearest-neighbor calcs
    temponly = 1       # Return melting temperature of predicted structure
    dimer = 1          # if non-zero dimer structure is calculated (No effect)
-   tm_threshold = settings['pcr']['priming']['threshold_tm'] if 'threshold_tm' in p3_args else 45
+   tm_threshold = settings['pcr']['priming']['threshold_tm'] if 'threshold_tm' in p3_args else 47
    max_probe_dist = settings['pcr']['priming']['max_probe_dist'] if 'max_probe_dist' in p3_args else 30
-   min_primer_tm = p3_args['PRIMER_MIN_TM'] if 'PRIMER_MIN_TM' in p3_args else 55
+   min_primer_tm = p3_args['PRIMER_MIN_TM'] if 'PRIMER_MIN_TM' in p3_args else 57
    max_primer_tm = p3_args['PRIMER_MAX_TM'] if 'PRIMER_MAX_TM' in p3_args else 62
-   min_probe_tm = p3_args['PRIMER_INTERNAL_MIN_TM'] if 'PRIMER_INTERNAL_MIN_TM' in p3_args else 65
+   min_probe_tm = p3_args['PRIMER_INTERNAL_MIN_TM'] if 'PRIMER_INTERNAL_MIN_TM' in p3_args else 67
    max_probe_tm = p3_args['PRIMER_INTERNAL_MAX_TM'] if 'PRIMER_INTERNAL_MAX_TM' in p3_args else 72
    
    # Initiate the thermodynamic analyses
@@ -2164,6 +2165,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
    p3_args = settings['pcr']['priming']['primer3']
    qpcr = p3_args['PRIMER_PICK_INTERNAL_OLIGO'] == 1
    to_upper = settings['input']['to_upper']
+   filter_grade = settings['pcr']['priming']['threshold_grade']
    # Input validation
    assert (contig_names is None or isinstance(contig_names, list)), \
           ('Invalid value (contig_names)! Only list allowed.')
@@ -2212,8 +2214,6 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
          log.stats.add_table('prims%s'%i,
                              'Primer3 primer scanning of contig %s'%name,
                              ['Right', 'Left', 'Probe', 'Category'])
-         log.stats.add_table('val%s'%i, 'Primer validation for contig %s'%name,
-                             ['Primers', 'Category'])
          log.stats.add_table('pair%s'%i,
                              'Primer3 pair scanning of contig %s'%name,
                              ['Pairs', 'Category'])
@@ -2281,7 +2281,11 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
       primers_fa = 'primers.fa'
       save_as_fasta(primers, primers_fa)
       if log is not None:
-         log.stats.add_row('val%s'%i, [len(primers), 'distinct primers'])
+         log.stats.add_table('val%s'%i,
+                             'Primer Prediction Overview (%s) for Contig %s'%(
+                                len(primers), name),
+                             ['Aligned','Grade 1', 'Grade 2', 'Grade 3',
+                              'Grade 4', 'Reference'])
       
       # Create primer-reference mapping matrix
       if log is not None:
@@ -2302,6 +2306,11 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
          # Align sequences to reference
          alignments = blast_to_ref(ref, primers_fa,
                                    settings['pcr']['priming']['blastn_settings'])
+         prim_log = [sum((len(m) > 0 for m in alignments.values())),
+                     0 if filter_grade <= 1 else '-',
+                     0 if filter_grade <= 2 else '-',
+                     0 if filter_grade <= 3 else '-',
+                     0, os.path.basename(ref)]
          # Filter primer matches which fail the thermodynamic test
          alignments = filter_primer_alignments(ref, alignments, probes)
          # Update primer-reference matrix
@@ -2310,11 +2319,18 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
          
          if log is not None:
             log.progress["%s_pos_%s"%(i, j)].log_time()
-            log.stats.add_row('val%s'%i,
-                              [sum([len(m) > 0 for m in alignments.values()]),
-                               'primers with priming potential for %s'%(
-                                  os.path.basename(ref))
-                               ])
+            # Update prim_log with grade data
+            for v in alignments.values():
+               max_g = 0
+               for a in v:
+                  #(contig_name, grade, strand, position)
+                  if a[1] > max_g:
+                     max_g = a[1]
+               
+               if max_g > 0:
+                  prim_log[max_g] += 1
+            
+            log.stats.add_row('val%s'%i, prim_log)
       
       if log is not None:
          log.progress['pos%s'%i].log_time()
@@ -2335,7 +2351,12 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
          # Align sequences to reference
          alignments = blast_to_ref(ref, primers_fa,
                                    settings['pcr']['priming']['blastn_settings'])
-         # Filter primers matches which fail the thermodynamic test
+         prim_log = [sum((len(m) > 0 for m in alignments.values())),
+                     0 if filter_grade <= 1 else '-',
+                     0 if filter_grade <= 2 else '-',
+                     0 if filter_grade <= 3 else '-',
+                     0, os.path.basename(ref)]
+         # Filter primer matches which fail the thermodynamic test
          alignments = filter_primer_alignments(ref, alignments, probes)
          # Update primer-reference matrix
          for p in primers:
@@ -2343,11 +2364,18 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
          
          if log is not None:
             log.progress["%s_neg_%s"%(i, j)].log_time()
-            log.stats.add_row('val%s'%i,
-                              [sum([len(m) > 0 for m in alignments.values()]),
-                               'primers with priming potential for %s'%(
-                                 os.path.basename(ref))
-                               ])
+            # Update prim_log with grade data
+            for v in alignments.values():
+               max_g = 0
+               for a in v:
+                  #(contig_name, grade, strand, position)
+                  if a[1] > max_g:
+                     max_g = a[1]
+               
+               if max_g >= filter_grade:
+                  prim_log[max_g] += 1
+            
+            log.stats.add_row('val%s'%i, prim_log)
       
       if log is not None:
          log.progress['neg%s'%i].log_time()
@@ -3818,7 +3846,7 @@ def find_ucs(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
    if negatives is None:
       negatives = []
    
-   debug_file = '%sdebug.log'%("%s_"%name if name is not None else '')
+   stats_file = '%sstats.log'%("%s_"%name if name is not None else '')
    
    if kmer_size is None:
       kmer_size = settings['ucs']['kmer_size']
@@ -3883,8 +3911,8 @@ def find_ucs(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
       clean_up(ref_dir, clean_run)
    finally:
       log.progress['main'].log_time()
-      # Store time and stats in debug.log
-      with open(debug_file, 'w') as f:
+      # Store time and stats in stats.log
+      with open(stats_file, 'w') as f:
          log.progress.summary(f)
          log.stats.summary(f)
 
