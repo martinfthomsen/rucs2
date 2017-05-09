@@ -1,6 +1,7 @@
 { // Settings and Parameters - DEFAULT
    "input": {
-      "to_upper": true // When this is true, it will change all lowercase letters in input files to upper case. Otherwise, lower case letters will be ignored as unknown bases.
+      "to_upper": true,      // When this is true, it will change all lowercase letters in input files to upper case. Otherwise, lower case letters will be ignored as unknown bases.
+      "use_ram_buffer": true // When this is true, All files will be read RAM when used. This reduces IO load at the expense of additional RAM usage.
    },
    "ucs": { // Parameters for ucs computation
       "kmer_size":            20, // k size used to extract k-mers

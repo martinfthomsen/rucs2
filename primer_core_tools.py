@@ -85,11 +85,11 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
                        'Prepare reference: %s'%os.path.basename(ref_input),
                        'main')
       to_upper = settings['input']['to_upper']
+      buffer = settings['input']['use_ram_buffer']
       save_as_fasta([seq for seq, n, d in seqs_from_file(ref_input,
-                                                         to_upper=to_upper)],
+                                                         to_upper=to_upper,
+                                                         use_ram_buffer=buffer)],
                     reference)
-      # save_as_fasta(sorted([seq for seq, n, d in seqs_from_file(ref_input)],
-      #    key=len), reference)
       log.progress['ref'].log_time()
       
       # Create symlinks for all reference
@@ -485,7 +485,8 @@ Probe distance to primer: N/A
 
 
 # ITERATORS
-def seqs_from_file(filename, exit_on_err=False, to_upper=False):
+def seqs_from_file(filename, exit_on_err=False, to_upper=False,
+                   use_ram_buffer=False):
    '''Extract sequences from a file
    
    Name:
@@ -508,8 +509,8 @@ def seqs_from_file(filename, exit_on_err=False, to_upper=False):
                        'this_is_seq_2\n>head3 desc3\nthis_is_seq_3\n')
    >>> with open('test.fa', 'w') as f: f.write(file_content)
    >>> # Parse and print the fasta file
-   >>> for seq, name, desc in seqs_from_file('test.fa'):
-   ...    print ">%s %s\n%s"%(name, desc, seq)
+   >>> for seq, name, desc in seqs_from_file('test.fa', use_ram_buffer=True):
+   ...    print(">%s %s\n%s"%(name, desc, seq))
    ...
    >head1 desc1
    this_is_seq_1
@@ -534,7 +535,8 @@ def seqs_from_file(filename, exit_on_err=False, to_upper=False):
       else: raise IOError(msg)
    
    # EXTRACT DATA
-   with open_(filename, "r") as f:
+   with open_(filename, "r") as f_obj:
+      f = file_buffer(f_obj, use_ram_buffer, use_ram_buffer)
       queryseqsegments = []
       seq, name, desc = '', '', ''
       line = ''
@@ -590,6 +592,89 @@ def seqs_from_file(filename, exit_on_err=False, to_upper=False):
 class DependencyError(EnvironmentError):
    '''raise this when there's an unsolved program dependency error'''
    pass
+
+class file_buffer():
+   ''' This class wraps around a file object and allows the lines of the file
+   to be stored in the RAM seemlesly. Buffering the file in RAM is an advantage
+   if you want to expedite the IOops as quickly as possible to reduce IO load.
+   This also makes it possible reset the line pointer to any line number.
+   
+   USAGE
+      >>> import sys
+      >>> with open('test.txt', 'w') as f:
+      ...    _ = f.write('1\n2\n3\n')
+      ... 
+      >>> with open('test.txt') as f_obj:
+      ...    f = file_buffer(f_obj)
+      ...    for l in f:
+      ...       _ = sys.stdout.write(l)
+      ...    
+      ...    f.seekline(2)
+      ...    for l in f:
+      ...       _ = sys.stdout.write(l)
+      ...
+      1
+      2
+      3
+      3
+   '''
+   def __init__(self, file_obj, use_ram_buffer=True, pre_load_buffer=True):
+      self.f = file_obj
+      self.use_ram_buffer = use_ram_buffer
+      self.pre_load_buffer = pre_load_buffer
+      if use_ram_buffer:
+         if pre_load_buffer:
+            self.lines = self.f.readlines()
+            self.ll = len(self.lines)
+         else:
+            self.lines = []
+            self.ll = 0
+         self.ln = 0
+   def readline(self):
+      ''' Return next line from file '''
+      if self.use_ram_buffer:
+         self.ln += 1
+         if self.ln > self.ll:
+            if self.pre_load_buffer: # EOF
+               return ''
+            else:
+               # Get new line
+               l = self.f.readline()
+               if l: # Not EOF
+                  self.lines.append(l)
+                  self.ll += 1
+               return l
+         else:
+            # Return line
+            return self.lines[self.ln-1]
+      else:
+         return self.f.readline()
+   def readlines(self):
+      ''' Return next line from file '''
+      if self.use_ram_buffer:
+         if not self.pre_load_buffer:
+            # Read the remainder of the file
+            self.lines.extend(self.f.readlines())
+            self.ll = len(self.lines)
+         ln = self.ln
+         self.ln = self.ll
+         return self.lines[ln:]
+      else:
+         return self.f.readlines()
+   def __iter__(self):
+      l = self.readline()
+      while l:
+         yield l
+         l = self.readline()
+      
+      yield l
+   def seekline(self, ln):
+      ''' Go to requested line number in file '''
+      if ln <= len(self.lines):
+         self.ln = ln
+      else:
+         raise EOFError('seeked line number %s does not exist in %s!\n'%(
+            ln, self.f.name))
 
 class AdvancedDictionary(dict):
    """ This class expands on the dictionary class by making it hierachical
@@ -1314,9 +1399,10 @@ def find_unique_core_sequences(positives, negatives, reference, kmer_size=20):
 
 def analyse_genome(genome, min_seq_len=300):
    ''' Analyse the genome, and annotate sequence and base data. '''
+   buffer = settings['input']['use_ram_buffer']
    # counts (seqs, bases, seqs >threshold, bases >threshold)
    counts = [0, 0, 0, 0]
-   for seq, n, d in seqs_from_file(genome):
+   for seq, n, d in seqs_from_file(genome, use_ram_buffer=buffer):
       seqlen = len(seq)
       counts[0] += 1
       counts[1] += seqlen
@@ -1349,10 +1435,11 @@ def find_intersecting_kmers(files, kmer_size=20, min_seq_len=500):
                           'core')
       # EXTRACT K-MERS FROM SEQEUNCE DATA FROM INPUT FILES
       to_upper = settings['input']['to_upper']
+      buffer = settings['input']['use_ram_buffer']
       kmers_i = extract_kmers_from_file(genome, i, kmer_size, '',
                                         settings['ucs']['min_kmer_count'],
                                         settings['ucs']['rev_comp'],
-                                        min_seq_len, to_upper)
+                                        min_seq_len, to_upper, buffer)
       if log is not None:
          log.progress['core%s'%i].log_time()
          log.stats.add_row('kmer',
@@ -1373,7 +1460,8 @@ def find_intersecting_kmers(files, kmer_size=20, min_seq_len=500):
 
 def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
                             kmer_prefix='', fastq_kmer_count_threshold=20,
-                            revcom=True, min_seq_len=500, to_upper=False):
+                            revcom=True, min_seq_len=500, to_upper=False,
+                            buffer=False):
    '''
    NAME      Extract K-mers from sequence
    AUTHOR    Martin CF Thomsen
@@ -1405,7 +1493,8 @@ def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
    seqcount = 0
    file_type = check_file_type([filename])
    for i, (seq, name, desc) in enumerate(seqs_from_file(filename,
-                                                        to_upper=to_upper)):
+                                                        to_upper=to_upper,
+                                                        use_ram_buffer=buffer)):
       if len(seq) < min_seq_len: continue # Skip small sequences
       # Extract kmers from sequence (GenomePrefix_SequencePrefix_KmerPosition) to 'kmers'
       extract_kmers(kmers, seq, "%s_%d"%(genome_prefix, i), kmer_size,
@@ -1569,7 +1658,7 @@ def save_as_fastq(seqs, file_, names=None):
       sys.stderr.write('Error: could not write sequences to fastq file!\n%s\n'%(e))
       raise
 
-def blast_to_ref(reference, fasta, blast_settings=None):
+def blast_to_ref(reference, fasta, blast_settings=None, buffer=False):
    ''' BLAST the fasta sequences to the reference
    
    -num_alignments: Number of database sequences to show alignments for
@@ -1653,7 +1742,7 @@ def blast_to_ref(reference, fasta, blast_settings=None):
          raise RuntimeError('BLASTn failed during execution')
    
    # Extract alignments
-   primers = dict((i, seq) for i,(seq, n, d) in enumerate(seqs_from_file(fasta)))
+   primers = dict((i, seq) for i,(seq, n, d) in enumerate(seqs_from_file(fasta, use_ram_buffer=buffer)))
    alignments = {}
    with open(so_path) as f:
       for l in f:
@@ -1965,7 +2054,8 @@ def extract_alignment_details(bam, ignore_flags=4):
    return alignments
 
 def compute_consensus_sequences(kmers, reference, kmer_size=20,
-                                charspace='nATGC', name_prefix='consensus'):
+                                charspace='nATGC', name_prefix='consensus',
+                                buffer=False):
    ''' Method for computing scaffolds and contigs from a '''
    scaffolds_file = "%s.scaffolds.fa"%name_prefix
    contigs_file = "%s.contigs.fa"%name_prefix
@@ -1975,7 +2065,7 @@ def compute_consensus_sequences(kmers, reference, kmer_size=20,
    
    # Compute scaffold length
    scaffold_lengths = dict((name, len(seq))
-                           for seq, name, desc in seqs_from_file(reference))
+                           for seq, name, desc in seqs_from_file(reference, use_ram_buffer=buffer))
    
    # Divide k-mers in scaffolds
    kmer_dict = {}
@@ -2105,10 +2195,11 @@ def find_complementing_kmers(kmers, files, kmer_size=20, min_seq_len=500):
                           'pan')
       # Extract K-mers from the B file
       to_upper = settings['input']['to_upper']
+      buffer = settings['input']['use_ram_buffer']
       negative_kmers = extract_kmers_from_file(genome, i, kmer_size, '',
                                                settings['ucs']['min_kmer_count'],
                                                settings['ucs']['rev_comp'],
-                                               min_seq_len, to_upper)
+                                               min_seq_len, to_upper, buffer)
       # TODO: Filter low counts?
       
       # Remove K-mers from A which are found in B
@@ -2166,6 +2257,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
    qpcr = p3_args['PRIMER_PICK_INTERNAL_OLIGO'] == 1
    to_upper = settings['input']['to_upper']
    filter_grade = settings['pcr']['priming']['threshold_grade']
+   buffer = settings['input']['use_ram_buffer']
    # Input validation
    assert (contig_names is None or isinstance(contig_names, list)), \
           ('Invalid value (contig_names)! Only list allowed.')
@@ -2188,7 +2280,8 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
    ignored = 0
    no_pairs = 0
    for i, (seq, name, desc) in enumerate(seqs_from_file(contig_file,
-                                                        to_upper=to_upper)):
+                                                        to_upper=to_upper,
+                                                        use_ram_buffer=buffer)):
       if contig_names is not None and name not in contig_names:
          # Ignore unspecified contigs
          ignored += 1
@@ -2305,7 +2398,8 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
                                        os.path.basename(ref)))
          # Align sequences to reference
          alignments = blast_to_ref(ref, primers_fa,
-                                   settings['pcr']['priming']['blastn_settings'])
+                                   settings['pcr']['priming']['blastn_settings'],
+                                   buffer)
          prim_log = [sum((len(m) > 0 for m in alignments.values())),
                      0 if filter_grade <= 1 else '-',
                      0 if filter_grade <= 2 else '-',
@@ -2350,7 +2444,8 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
                                        os.path.basename(ref)))
          # Align sequences to reference
          alignments = blast_to_ref(ref, primers_fa,
-                                   settings['pcr']['priming']['blastn_settings'])
+                                   settings['pcr']['priming']['blastn_settings'],
+                                   buffer)
          prim_log = [sum((len(m) > 0 for m in alignments.values())),
                      0 if filter_grade <= 1 else '-',
                      0 if filter_grade <= 2 else '-',
@@ -2480,7 +2575,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
       
       # Extract sequences
       sequences = []
-      contigs = dict((n, seq) for seq, n, d in seqs_from_file(contig_file))
+      contigs = dict((n, seq) for seq, n, d in seqs_from_file(contig_file, use_ram_buffer=buffer))
       sid_registry = {}
       for sid, regs in regions.items():
          for i, (start, end) in enumerate(sorted(regs)):
@@ -2729,6 +2824,7 @@ def filter_primer_alignments(ref, alignments, probes=[]):
       >>> filter_primer_alignments(ref, alignments)
       {'CAACATTTTCGTGTCGCCCTT': ['reference_+_1043']}
    '''
+   buffer = settings['input']['use_ram_buffer']
    p3_args = settings['pcr']['priming']['primer3']
    dna_conc = p3_args['PRIMER_DNA_CONC'] if 'PRIMER_DNA_CONC' in p3_args else 50.0
    dna_conc_probe = p3_args['PRIMER_INTERNAL_DNA_CONC'] if 'PRIMER_INTERNAL_DNA_CONC' in p3_args else 50.0
@@ -2754,7 +2850,7 @@ def filter_primer_alignments(ref, alignments, probes=[]):
                              dna_conc_probe, temp_c, max_loop, temponly, dimer,
                              max_nn_length, tm_method, salt_correction_method)
    # EXTRACT contigs from reference
-   contigs = dict((name, seq) for seq, name, desc in seqs_from_file(ref))
+   contigs = dict((name, seq) for seq, name, desc in seqs_from_file(ref, use_ram_buffer=buffer))
    
    # VALIDATE primer alignments
    validated_alignments = {}
@@ -3511,6 +3607,7 @@ def predict_pcr_results(refs, pairs, output=None, fail_on_non_match=False):
       Reverse primer has %s binding locations hereof %s are good binders.
       Potential products sizes: %s
    '''
+   buffer = settings['input']['use_ram_buffer']
    # Prepare primers and probes
    primers = []
    probes = []
@@ -3528,7 +3625,9 @@ def predict_pcr_results(refs, pairs, output=None, fail_on_non_match=False):
    # Align primers to reference
    pcr_results = [['NA' for r in refs] for p in pairs]
    for i, ref in enumerate(refs):
-      alignments = blast_to_ref(ref, primers_fa, settings['pcr']['priming']['blastn_settings'])
+      alignments = blast_to_ref(ref, primers_fa,
+                                settings['pcr']['priming']['blastn_settings'],
+                                buffer)
       # Filter primer matches which fail the thermodynamic test
       alignments = filter_primer_alignments(ref, alignments, probes)
       for j, pair in enumerate(pairs):
@@ -3603,10 +3702,11 @@ def generate_sequence_atlas_data_file(reference_file, core_sequence_file, unique
    ...    'unique_core_sequences.contigs.fa',
    ...    'unique_core_sequences.aux.tsv')
    '''
+   buffer = settings['input']['use_ram_buffer']
    # read reference   -> contigs: name(id), length
    data = {'lanes': ['reference', 'cs', 'ucs', 'depth', 'confidence'],
            'attributes': ['name', 'length'], 'data': []}
-   for i, (seq, name, desc) in enumerate(seqs_from_file(reference_file)):
+   for i, (seq, name, desc) in enumerate(seqs_from_file(reference_file, use_ram_buffer=buffer)):
       data['data'].append({
          'attributes': {
             'name': str(i),
@@ -3623,7 +3723,7 @@ def generate_sequence_atlas_data_file(reference_file, core_sequence_file, unique
    
    # read cs          -> contigs: length, position, name
    css = {}
-   for seq, name, desc in seqs_from_file(core_sequence_file):
+   for seq, name, desc in seqs_from_file(core_sequence_file, use_ram_buffer=buffer):
       id = int(name.split('_')[0])
       if not id in css: css[id] = []
       att = dict(map(lambda x: (y.strip() for y in x.split('=')), desc.split(',')))
@@ -3638,7 +3738,7 @@ def generate_sequence_atlas_data_file(reference_file, core_sequence_file, unique
    
    # read ucs         -> contigs: length, position, name
    ucss = {}
-   for seq, name, desc in seqs_from_file(unique_core_sequence_file):
+   for seq, name, desc in seqs_from_file(unique_core_sequence_file, use_ram_buffer=buffer):
       id = int(name.split('_')[0])
       if not id in ucss: ucss[id] = []
       att = dict(map(lambda x: (y.strip() for y in x.split('=')), desc.split(',')))
@@ -3746,8 +3846,9 @@ def get_primer_and_probe_bindsites(results_file, unique_only=False):
 def print_primer_and_probe_bindsites(seq_file, pribind_locs, probind_locs={},
                                      tag1='31', tag2='32', contigs=None):
    '''  '''
+   buffer = settings['input']['use_ram_buffer']
    # Fetch Sequence data
-   for seq, name, desc in seqs_from_file(seq_file):
+   for seq, name, desc in seqs_from_file(seq_file, use_ram_buffer=buffer):
       if contigs is not None:
          if not name in contigs:
             continue
@@ -3772,7 +3873,7 @@ def print_primer_and_probe_bindsites(seq_file, pribind_locs, probind_locs={},
          print(seq)
       print('\n')
 
-def print_multiranges(template, multiranges, entries=None):
+def print_multiranges(template, multiranges, entries=None, buffer=False):
    ''' Markup the template with data from a multirange object with up to 4
    targets.
    
@@ -3812,7 +3913,7 @@ def print_multiranges(template, multiranges, entries=None):
                ['0','1','4','37']] # Bold Underlined Whiteish/Grey
    
    # Fetch Template data
-   for seq, name, desc in seqs_from_file(template):
+   for seq, name, desc in seqs_from_file(template, use_ram_buffer=buffer):
       if entries is not None:
          if not name in entries:
             continue
@@ -3867,8 +3968,10 @@ def find_ucs(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
                        'Prepare reference: %s'%os.path.basename(ref_input),
                        'main')
       to_upper = settings['input']['to_upper']
+      buffer = settings['input']['use_ram_buffer']
       save_as_fasta([seq for seq, n, d in seqs_from_file(ref_input,
-                                                         to_upper=to_upper)],
+                                                         to_upper=to_upper,
+                                                         use_ram_buffer=buffer)],
                     reference)
       log.progress['ref'].log_time()
       
@@ -3952,11 +4055,13 @@ def pcrs(args):
    # Get pairs
    pairs = get_pairs(args.pairs)
    to_upper = settings['input']['to_upper']
+   buffer = settings['input']['use_ram_buffer']
    
    # Get first template entry
    if args.template is not None:
       try:
-         for seq, n, d in seqs_from_file(args.template, to_upper=to_upper):
+         for seq, n, d in seqs_from_file(args.template, to_upper=to_upper,
+                                         use_ram_buffer=buffer):
             template = seq
             break
       except:
