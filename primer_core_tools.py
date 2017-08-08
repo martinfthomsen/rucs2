@@ -508,6 +508,7 @@ def seqs_from_file(filename, exit_on_err=False, to_upper=False,
    >>> file_content = ('>head1 desc1\nthis_is_seq_1\n>head2 desc2\n'
                        'this_is_seq_2\n>head3 desc3\nthis_is_seq_3\n')
    >>> with open('test.fa', 'w') as f: f.write(file_content)
+   ... 
    >>> # Parse and print the fasta file
    >>> for seq, name, desc in seqs_from_file('test.fa', use_ram_buffer=True):
    ...    print(">%s %s\n%s"%(name, desc, seq))
@@ -587,6 +588,8 @@ def seqs_from_file(filename, exit_on_err=False, to_upper=False,
          seq = ''.join(queryseqsegments)
          if to_upper: seq = seq.upper()
          yield (seq, name, desc)
+      
+      del f
 
 # CLASSES
 class DependencyError(EnvironmentError):
@@ -3369,11 +3372,18 @@ GENETIC CODE TRRANSLATION:
                print(l)
                raise
             else: # Parse BLAST output
-               # Ignore selected terms
-               if any(term in annotation for term in ignore_terms):
+               tmp_annot = []
+               for annot in annotation.split(';'):
+                  # Ignore selected terms
+                  if any(term in annot for term in ignore_terms):
+                     continue
+                  # Replace selected terms
+                  annot = regex.replace_terms(annot).strip()
+                  tmp_annot.append(annot)
+               
+               if not tmp_annot:
                   continue
-               # Replace selected terms
-               annotation = regex.replace_terms(annotation).strip()
+               
                # Store annotation
                if not query in annotations:
                   annotations[query] = []
@@ -3384,13 +3394,14 @@ GENETIC CODE TRRANSLATION:
                   if qend-start >= threshold and end-qstart >= threshold:
                      new_start = qstart if qstart < start else start
                      new_end = qend if qend > end else end
-                     if not annotation in notes:
-                        notes.append(annotation)
+                     for annot in tmp_annot:
+                        if not annot in notes:
+                           notes.append(annot)
                      annotations[query][i] = (new_start, new_end, notes)
                      covered = True
                      break
                if not covered:
-                  annotations[query].append((qstart, qend, [annotation]))
+                  annotations[query].append((qstart, qend, tmp_annot))
       
       return annotations
    
@@ -3425,18 +3436,26 @@ GENETIC CODE TRRANSLATION:
    sim_cutoff = settings['pcr']['annotation']['sim_cutoff']
    ignore_terms = settings['pcr']['annotation']['ignore_terms']
    replace_terms = settings['pcr']['annotation']['replace_terms']
+   db = settings['pcr']['annotation']['blastx_settings']['database']
+   dbs = os.listdir(dbpath if dbpath != '' else os.environ['BLASTDB'])
    # Validate inputs
    if dbpath == '':
       if not 'BLASTDB' in os.environ:
          sys.stderr.write('Annotation not possible! No BLAST DB found.\n')
          return {}
-   if not 'refseq_protein.00.psq' in os.listdir(dbpath if dbpath != '' else os.environ['BLASTDB']):
-      sys.stderr.write('Annotation not possible! refseq_protein.00.psq not '
-                       'found.\n')
+   elif not os.path.exists(dbpath):
+      sys.stderr.write('Annotation not possible! Provided BLAST path does not'
+                       ' exist.\n')
+      return {}
+   else:
+      os.environ['BLASTDB'] = dbpath
+   if not "%s.phr"%db in dbs and not "%s.00.phr"%db in dbs:
+      sys.stderr.write('Annotation not possible, %s not found in %s!\n'%(db,dbs))
       return {}
    
    # assert ' ' not in reference, 'BLAST cannot handle spaces in reference path!'
    defaults = { # Name: (type, arg, default_value)
+      'database':            (str,   '-db',                 'swissprot'),
       'evalue':              (float, '-evalue',                    10.0),
       'word_size':           (int,   '-word_size',                  6  ),
       'task':                (str,   '-task',             'blastx-fast'),
@@ -3452,9 +3471,9 @@ GENETIC CODE TRRANSLATION:
                                                             type(v))
    
    # BLAST fasta to DB
-   cmd = ['blastx', '-db', dbpath+'refseq_protein', '-query', fasta,
-          '-outfmt', ('7 qseqid qstart qend qlen sseqid sstart send slen length'
-                      ' pident nident mismatch gaps stitle')]
+   cmd = ['blastx', '-query', fasta, '-outfmt',
+          ('7 qseqid qstart qend qlen sseqid sstart send slen length pident '
+           'nident mismatch gaps stitle')]
    for s, (t, a, v) in defaults.items():
       if s in blast_settings: cmd.extend([a, str(blast_settings[s])])
       elif v is not None: cmd.extend([a, str(v)])
@@ -4037,7 +4056,7 @@ def fppp(args):
                      quiet=True, clean_run=True, annotate=True)
 
 def anno(args):
-   ''' Annotate sequences using the refseq BLAST DB '''
+   ''' Annotate sequences using a protein BLAST DB '''
    annotations = get_blast_annotations(args.template,
       settings['pcr']['annotation']['blastx_settings'],
       settings['pcr']['annotation']['blast_db_path'])

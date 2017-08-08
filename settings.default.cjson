@@ -1,7 +1,7 @@
-{ // Settings and Parameters - DEFAULT
+{ // Default Settings and Parameters
    "input": {
-      "to_upper": true,      // When this is true, it will change all lowercase letters in input files to upper case. Otherwise, lower case letters will be ignored as unknown bases.
-      "use_ram_buffer": true // When this is true, All files will be read RAM when used. This reduces IO load at the expense of additional RAM usage.
+      "to_upper":       true, // When this is true, it will change all lowercase letters in input files to upper case. Otherwise, lower case letters will be ignored as unknown bases.
+      "use_ram_buffer": true  // When this is true, All files will be stored in RAM when used. This reduces IO load at the expense of additional RAM usage.
    },
    "ucs": { // Parameters for ucs computation
       "kmer_size":            20, // k size used to extract k-mers
@@ -149,12 +149,17 @@
          "blast_db_path":  "",    // Path to BLAST db needed for sequence annotation. Leave as empty string to use BLAST_DB environment path
          "max_cov":         0.5,  // Maximum coverage threshold for a new annotation to be considered an independent annotation
          "sim_cutoff":      0.75, // Annotations containing these keywords are ignored
-         "ignore_terms":   ["hypothetical"], // annotations containing these keywords are ignored
+         "ignore_terms":   ["hypothetical", "Flags:", "Short="], // annotations containing these keywords are ignored
          "replace_terms":  {"\[.+\]": "", // annotations are modified by these replacements: {"pattern":, "replacement"}
                             "--": " ",
                             "MULTISPECIES:": "",
-                            ", partial": ""},
+                            ", partial": "",
+                            "RecName:": "",
+                            "Full=": "",
+                            "AltName:": ""
+                            },
          "blastx_settings": { // Sequence annotation searches
+            "database":         "swissprot", // Protein database to BLASTx against [swissprot, refseq_protein]
             "evalue":                 0.001, // Sensitivity of the BLASTx search
             "word_size":              6,
             "task":       "blastx-fast",

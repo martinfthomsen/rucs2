@@ -1,102 +1,112 @@
 #!/bin/bash
-### Install BLAST DB (refseq_protein) ###
-# USAGE install_db.sh /blast/db
+### Install BLAST DB - Downloads and extractions run in parallel ###
+# USAGE install_db.sh /blast/db swissprot
+# DATABASES: swissprot refseq_protein
+url='ftp://ftp.ncbi.nlm.nih.gov/blast/db/'
 
-# Get NCBI BLAST refseq protein database
-# Set DB DIR
-if [ -z "$1" ]; then
-   export BLASTDB=`pwd`
-elif [ -z "$BLASTDB" ]; then
-   echo ""
+# OS X work-around for missing md5sum
+if ! hash md5sum >/dev/null 2>&1 && hash md5 >/dev/null 2>&1; then
+ # Set alias for md5sum to md5
+ checkmd5sum="md5 -q"
 else
-   export BLASTDB=/blast/db
+ checkmd5sum="md5sum --status -c"
 fi
 
-mkdir $BLASTDB
+# Set BLAST DB DIR
+if [ -z "$1" ]; then
+ if [ -z $BLASTDB ]; then
+  echo 'No database location was specified, and the environment variable BLASTDB is not set!'
+  exit 1
+ fi
+else
+   export BLASTDB=$1
+fi
+# Set BLAST DB
+if [ -z "$2" ]; then
+ echo 'No database was specified, defaulting to refseq_protein!'
+ export database='refseq_protein'
+else
+ export database=$2
+fi
+
+# Create BLAST directory if it does not exist
+if [ ! -d $BLASTDB ]; then
+ mkdir $BLASTDB
+fi
+
+# Switch to the BLAST directory
 cd $BLASTDB
 
-# Download database MD5 sums
-curl -s -o refseq_protein.00.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.00.tar.gz.md5 &
-curl -s -o refseq_protein.01.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.01.tar.gz.md5 &
-curl -s -o refseq_protein.02.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.02.tar.gz.md5 &
-curl -s -o refseq_protein.03.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.03.tar.gz.md5 &
-curl -s -o refseq_protein.04.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.04.tar.gz.md5 &
-curl -s -o refseq_protein.05.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.05.tar.gz.md5 &
-curl -s -o refseq_protein.06.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.06.tar.gz.md5 &
-curl -s -o refseq_protein.07.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.07.tar.gz.md5 &
-curl -s -o refseq_protein.08.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.08.tar.gz.md5 &
-curl -s -o refseq_protein.09.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.09.tar.gz.md5 &
-curl -s -o refseq_protein.10.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.10.tar.gz.md5 &
-curl -s -o refseq_protein.11.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.11.tar.gz.md5 &
-curl -s -o refseq_protein.12.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.12.tar.gz.md5 &
-curl -s -o refseq_protein.13.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.13.tar.gz.md5 &
-curl -s -o refseq_protein.14.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.14.tar.gz.md5 &
-curl -s -o refseq_protein.15.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.15.tar.gz.md5 &
-curl -s -o refseq_protein.16.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.16.tar.gz.md5 &
-curl -s -o refseq_protein.17.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.17.tar.gz.md5 &
-curl -s -o refseq_protein.18.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.18.tar.gz.md5 &
-curl -s -o refseq_protein.19.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.19.tar.gz.md5 &
-curl -s -o refseq_protein.20.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.20.tar.gz.md5 &
-curl -s -o refseq_protein.21.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.21.tar.gz.md5 &
-curl -s -o refseq_protein.22.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.22.tar.gz.md5 &
-curl -s -o refseq_protein.23.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.23.tar.gz.md5 &
-curl -s -o refseq_protein.24.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.24.tar.gz.md5 &
-curl -s -o refseq_protein.25.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.25.tar.gz.md5 &
-curl -s -o refseq_protein.26.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.26.tar.gz.md5 &
-curl -s -o refseq_protein.27.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.27.tar.gz.md5 &
-curl -s -o refseq_protein.28.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.28.tar.gz.md5 &
-curl -s -o refseq_protein.29.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.29.tar.gz.md5 &
-curl -s -o refseq_protein.30.tar.gz.md5 ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.30.tar.gz.md5 &
+# Get list of files to download and install
+curl $url > all_blast_db_files.txt
+files=`egrep $database'.*' all_blast_db_files.txt | grep -v 'md5' | awk '{str = str" "$NF}END{print str}'`
 
-# Download database parts
-curl -s -o refseq_protein.01.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.01.tar.gz &
-curl -s -o refseq_protein.02.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.02.tar.gz &
-curl -s -o refseq_protein.03.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.03.tar.gz &
-curl -s -o refseq_protein.04.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.04.tar.gz &
-curl -s -o refseq_protein.05.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.05.tar.gz &
-curl -s -o refseq_protein.06.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.06.tar.gz &
-curl -s -o refseq_protein.07.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.07.tar.gz &
-curl -s -o refseq_protein.08.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.08.tar.gz &
-curl -s -o refseq_protein.09.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.09.tar.gz &
-curl -s -o refseq_protein.10.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.10.tar.gz &
-curl -s -o refseq_protein.11.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.11.tar.gz &
-curl -s -o refseq_protein.12.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.12.tar.gz &
-curl -s -o refseq_protein.13.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.13.tar.gz &
-curl -s -o refseq_protein.14.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.14.tar.gz &
-curl -s -o refseq_protein.15.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.15.tar.gz &
-curl -s -o refseq_protein.16.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.16.tar.gz &
-curl -s -o refseq_protein.17.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.17.tar.gz &
-curl -s -o refseq_protein.18.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.18.tar.gz &
-curl -s -o refseq_protein.19.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.19.tar.gz &
-curl -s -o refseq_protein.20.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.20.tar.gz &
-curl -s -o refseq_protein.21.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.21.tar.gz &
-curl -s -o refseq_protein.22.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.22.tar.gz &
-curl -s -o refseq_protein.23.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.23.tar.gz &
-curl -s -o refseq_protein.24.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.24.tar.gz &
-curl -s -o refseq_protein.25.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.25.tar.gz &
-curl -s -o refseq_protein.26.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.26.tar.gz &
-curl -s -o refseq_protein.27.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.27.tar.gz &
-curl -s -o refseq_protein.28.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.28.tar.gz &
-curl -s -o refseq_protein.29.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.29.tar.gz &
-curl -s -o refseq_protein.30.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.30.tar.gz &
-curl -s -o refseq_protein.00.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/refseq_protein.00.tar.gz 
+fa=($files)
+echo 'We found '${#fa[@]}' file entries!'
 
-# Sleep 10 minutes to make sure all database fragments are downloaded
-sleep 600
-
-# Check MD5 sums and unpack good downloads
-for f in `ls refseq_protein.*.tar.gz`
-do
- md51=`md5 -q $f`
- md52=`cut -d' ' -f1 $f.md5` 
- if [ "$md51" = "$md52" ]; then
-  echo "$f - OK"
-  tar zxpf $f
+# Download all files
+echo 'Downloading new database entries...'
+for f in $files; do
+ fbase=$(basename $f .tar.gz)
+ curl -s -o $f'.md5' $url$f'.md5'
+ # Verify that the database file does not exist before download
+ if [ ! -f $fbase'.phr' ]; then
+  curl -s -o $f $url$f &
+  sleep 5
  else
-  echo "$f - FAIL"
-  echo "$md51 != $md52" 
+  # Verify if the md5 sum has changed
+  if [ ! -f $f'_old.md5' ] || ! cmp --silent $f'_old.md5' $f'.md5'; then
+   # Remove old outdated files
+   rm -f $fbase*.p*
+   curl -s -o $f $url$f &
+   sleep 5
+  fi
  fi
 done
 
-# If all files were downloaded and unpacked correctly, do some clean up:
-#rm -f refseq_protein.*.tar.gz*
+# Wait for all downloads to finish
+wait
+
+# Verify if md5sum is ok, unpack the good files, and remove the unneeded archive files afterwards
+echo 'Installing new database entries...'
+nonew=true
+for f in $files; do
+ fbase=$(basename $f .tar.gz)
+ # Verify that the database file does not exist before extraction
+ if [ ! -f $fbase'.phr' ]; then
+  # Verify that the tar.gz files exists before extraction
+  if [ -f $f ]; then
+   echo 'Installing new database file ('$fbase')'
+   $checkmd5sum $f.md5 && tar zxpf $f && rm -f $f && mv -f $f'.md5' $f'_old.md5' &
+   sleep 10
+   nonew=false
+  fi
+ fi
+done
+
+# Wait for everything is unpacked
+wait
+
+if $nonew; then
+ echo 'No new database entries were found!'
+fi
+
+# Log failed attempts
+failed=false
+for f in $files; do
+ fbase=$(basename $f .tar.gz)
+ # Verify that the database file does not exist before extraction
+ if [ ! -f $fbase'.phr' ]; then
+  # Verify that the tar.gz files exists before extraction
+  if [ ! -f $f ]; then
+   echo $f' was not downloaded!'
+  else
+   echo $f' was not extracted properly!'
+  fi
+  failed=true
+ fi
+done
+
+if $failed; then
+ echo 'Error not all databases was installed, try again, and see if the second time is a charm...'
+fi

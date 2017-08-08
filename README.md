@@ -1,6 +1,6 @@
 # README #
 
-## RUCS - Rapid Identification of PCR Primers Pairs for Unique Core Sequences ##
+## RUCS - *R*apid Identification of PCR Primers Pairs for *U*nique *C*ore *S*equences ##
 This repository contains the source code for a bioinformatics tool, which have
 several usages:
 
@@ -34,7 +34,7 @@ This is the main method, which combines fucs and fppp into one serial execution.
 Example of usage in docker:
 ```
 #!bash
-docker run --rm -v `pwd`:/workdir \
+docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
        rucs full --positives positives/* other/positive.fa --negatives negatives/*
 ```
 Notice how you can specify multiple paths with or without wild cards as input.
@@ -57,7 +57,7 @@ containing the fragments of the scaffolds which are usable for primer design.
 Example of usage:
 ```
 #!bash
-docker run --rm -v `pwd`:/workdir \
+docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
        rucs fucs --positives positives/* --negatives negatives/*
 ```
 
@@ -75,7 +75,7 @@ information is stored in a tab separated file.
 Example of usage:
 ```
 #!bash
-docker run --rm -v `pwd`:/workdir \
+docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
        rucs fppp --template template.fa --positives positives/* --negatives negatives/*
 ```
 
@@ -90,12 +90,16 @@ docker run --rm -v `pwd`:/workdir \
 ```
 
 ### anno - Annotate Sequences ###
-Annotate provided sequence with BLAST refseq gene annotations
+Annotate provided sequence with BLAST protein annotations.
+A BLAST protein database must be installed. we recommend the swissprot database.
+It is reccommended to use the environment variable $BLASTDB to point to the
+BLAST repository, but a full path to the directory can also be provided.
 
-Example of usage: (No docker)
+Example of usage:
 ```
 #!bash
-primer_core_tools.py anno --template template.fa
+docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
+       rucs anno --template template.fa
 ```   
 
 ### pcrs - Show PCR statistics ###
@@ -108,6 +112,7 @@ Example of usage:
 docker run --rm -v `pwd`:/workdir \
        rucs spst --pairs pair_file.tsv --template template.fa
 ```
+
 
 ## How do I get set up? ##
 
@@ -126,7 +131,7 @@ docker-machine start default # To start on MAC OS
 git clone https://bitbucket.org/genomicepidemiology/rucs.git
 cd rucs
 docker-compose build
-docker run --rm -v `pwd`:/workdir rucs test
+docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
 ```
 
 **Not using docker?** Check that all dependencies are in your local PATH and
@@ -142,8 +147,8 @@ Commands for downloading and preparing BLAST annotation DB:
 #!bash
 BLASTDB /blastdb
 mkdir $BLASTDB
-/usr/bin/update_blastdb --passive refseq_protein # taxdb
-gunzip -cd refseq_protein.tar.gz | (cd $BLASTDB; tar xvf - )
+/usr/bin/update_blastdb --passive swissprot
+gunzip -cd swissprot.tar.gz | (cd $BLASTDB; tar xvf - )
 ```
 
 Downloading the refseq_protein database can take a while, since the database
@@ -153,8 +158,11 @@ free to use the script install_db.sh.
 
 **OBS: If you don't need the annotation capabilities, you can opt out of this!**
 
-**OBS: BLASTX does not work in docker, so to even use this feature, you need to
-install the dependencies and scripts locally on your machine.**
+## Usage example? ##
+A usage example of the online tool can be on the instruction page:
+https://cge.cbs.dtu.dk/services/rucs/instructions.php
+
+The online tool is a direct implementation of this repository.
 
 ## Result Explanation ##
 
@@ -243,6 +251,16 @@ Check if you have added the directory to the file sharing in the docker
 preferences. If not add it, and if you have an old version of docker, consider
 updating to a new docker version.
 
+#### MAC OS: BLAST annotation fails without errors! ####
+This is probably caused by lack of RAM. For MACs and Windows, a virtual machine
+is used to run a Linux environment where Docker can run. This machine has a
+limit on how much of the host's RAM it may access. Check if you have enough RAM
+allocated, or try to increase the amount of RAM for your machine. Otherwise,
+consider using a smaller BLAST database.
+
+The answer to "MAC OS: Docker takes up too much space?" presents a way to
+remove the default machine and create a new with more CPU, RAM and disk space.
+
 #### MAC OS: Docker takes up too much space? ####
 Check the disk space use on the machine:
 1. ssh into the virtual machine
@@ -264,11 +282,18 @@ containers, and all data stored inside the containers is lost!)
 ```
 #!bash
 docker-machine stop default
-docker-machine rm default
-docker-machine create --driver virtualbox --virtualbox-disk-size "15360" default
+docker-machine rm -f default
+docker-machine create -d virtualbox --virtualbox-cpu-count=4 \
+                                    --virtualbox-memory=12288 \
+                                    --virtualbox-disk-size=15360 \
+                                    default
 ```
+--virtualbox-cpu-count sets the number of CPUs allowed to be used (4 CPUs in this example)
 
---virtualbox-disk-size sets the disk size in MB. This example sets it to 15GB...
+--virtualbox-memory sets the amount of RAM allowed to be used (12GB RAM in this example)
+
+--virtualbox-disk-size sets the disk size. (15GB in this example)
+
 Now you can check the diskspace again, and it should be all good again.
 Next step is now to reinstall all your images...
 
