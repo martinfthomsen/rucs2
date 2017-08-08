@@ -31,7 +31,7 @@ classes and functions should be well documented in the source code.
 ### full - Find PCR Primer Pairs for the Unique Core Sequences ###
 This is the main method, which combines fucs and fppp into one serial execution.
 
-Example of usage in docker:
+Example of usage:
 ```
 #!bash
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
@@ -113,21 +113,43 @@ docker run --rm -v `pwd`:/workdir \
        rucs spst --pairs pair_file.tsv --template template.fa
 ```
 
-
 ## How do I get set up? ##
-
 1. Install docker (follow this guide: https://docs.docker.com/engine/getstarted/step_one/)
 2. Start docker deamon
-3. Clone this repository
-4. Build docker image
-5. (optional) Download BLAST annotation database
-6. Run test and see if everything is ok
-7. Ready to use
+3. (optional) Download BLAST annotation database
+4. Install docker image (see below for options)
 
 Commands for installation:
 ```
 #!bash
 docker-machine start default # To start on MAC OS
+```
+
+### Pull image from DockerHub (option 1) ###
+https://hub.docker.com/r/genomicepidemiology/rucs/
+
+1. Pull image
+2. Tag image
+3. Run test and see if everything is ok
+4. Ready to use
+
+Commands for installation:
+```
+#!bash
+docker image pull genomicepidemiology/rucs
+docker tag genomicepidemiology/rucs rucs
+docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
+```
+
+### Clone Git repository and build image (option 2) ###
+1. Clone this repository
+2. Build docker image
+3. Run test and see if everything is ok
+4. Ready to use
+
+Commands for installation:
+```
+#!bash
 git clone https://bitbucket.org/genomicepidemiology/rucs.git
 cd rucs
 docker-compose build
@@ -145,7 +167,7 @@ python3 -c 'import gzip, json, types, shutil, glob, bisect, primer3, numpy, subp
 Commands for downloading and preparing BLAST annotation DB:
 ```
 #!bash
-BLASTDB /blastdb
+BLASTDB=/blastdb
 mkdir $BLASTDB
 /usr/bin/update_blastdb --passive swissprot
 gunzip -cd swissprot.tar.gz | (cd $BLASTDB; tar xvf - )

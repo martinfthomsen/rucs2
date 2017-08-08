@@ -35,11 +35,6 @@ RUN mkdir -p /tools/test
 ENV PATH $PATH:/tools/
 WORKDIR /tools
 
-# Copy repository files to /tools/
-COPY ./primer_core_tools.py /tools/
-COPY ./settings.default.cjson /tools/
-COPY ./test/* /tools/test/
-
 # Install BLAST (newest blast is only available through ftp, sadly not via apt-get)
 ENV BLASTDB /blastdb
 ENV PATH $PATH:/tools/ncbi-blast/bin
@@ -61,6 +56,11 @@ RUN git clone https://github.com/samtools/htslib /tools/htslib && \
     cd /tools/samtools && \
     make && \
     make install
+
+# Copy repository files to /tools/
+COPY ./primer_core_tools.py /tools/
+COPY ./settings.default.cjson /tools/
+COPY ./test/* /tools/test/
 
 # Set convenience aliases
 RUN echo "alias ls='ls -h --color=tty'" >> ~/.bashrc && \

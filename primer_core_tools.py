@@ -3437,18 +3437,24 @@ GENETIC CODE TRRANSLATION:
    ignore_terms = settings['pcr']['annotation']['ignore_terms']
    replace_terms = settings['pcr']['annotation']['replace_terms']
    db = settings['pcr']['annotation']['blastx_settings']['database']
-   dbs = os.listdir(dbpath if dbpath != '' else os.environ['BLASTDB'])
    # Validate inputs
    if dbpath == '':
       if not 'BLASTDB' in os.environ:
-         sys.stderr.write('Annotation not possible! No BLAST DB found.\n')
+         sys.stderr.write('Annotation not possible. BLASTDB environment '
+                          'variable not set!\n')
+         return {}
+      elif not os.path.exists(os.environ['BLASTDB']):
+         sys.stderr.write('Annotation not possible. BLASTDB path does not '
+                          'exist!\n')
          return {}
    elif not os.path.exists(dbpath):
-      sys.stderr.write('Annotation not possible! Provided BLAST path does not'
-                       ' exist.\n')
+      sys.stderr.write('Annotation not possible. Provided BLAST DB path does '
+                       'not exist!\n')
       return {}
    else:
       os.environ['BLASTDB'] = dbpath
+   
+   dbs = os.listdir(os.environ['BLASTDB'])
    if not "%s.phr"%db in dbs and not "%s.00.phr"%db in dbs:
       sys.stderr.write('Annotation not possible, %s not found in %s!\n'%(db,dbs))
       return {}
