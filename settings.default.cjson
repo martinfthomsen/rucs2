@@ -156,7 +156,8 @@
                             ", partial": "",
                             "RecName:": "",
                             "Full=": "",
-                            "AltName:": ""
+                            "AltName:": "",
+                            "Probable": ""
                             },
          "blastx_settings": { // Sequence annotation searches
             "database":         "swissprot", // Protein database to BLASTx against [swissprot, refseq_protein]
