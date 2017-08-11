@@ -153,6 +153,7 @@ Commands for installation:
 git clone https://bitbucket.org/genomicepidemiology/rucs.git
 cd rucs
 docker-compose build
+docker tag genomicepidemiology/rucs rucs
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
 ```
 

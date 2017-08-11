@@ -3,7 +3,7 @@ version: '2'
 services:
   rucs:
     build: .
-    image: genomicepidemiology/rucs:1.0.1
+    image: rucs
     volumes:
       - .:/workdir
       - ${BLASTDB}:/blastdb
