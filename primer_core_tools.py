@@ -326,7 +326,7 @@ def show_pcr_stats(forward, reverse, probe=None, template=None,
                    settings_file=None, title='PCR Stat Analysis'):
    '''
    USAGE:
-          settings_file = 'settings.default.cjson'
+          settings_file = '/Users/mcft/Work/CGE/repositories/primerfinder/settings.default.cjson'
       >>> forward = 'TGAACATACACGGCACAGA'
       >>> reverse = 'CGTAAGCCACGCCTAGT'
       >>> probe = 'TGTTCGTCGTCGGTGAGACGGC'
@@ -1715,7 +1715,7 @@ def blast_to_ref(reference, fasta, blast_settings=None, buffer=False):
    # Create BLAST DB
    name = os.path.basename(reference).rsplit('.',1)[0]
    if not os.path.exists("%s.nin"%(reference)):
-      cmd = ['makeblastdb', '-title', name, '-in', reference, '-parse_seqids']
+      cmd = ['makeblastdb-2.2.31', '-title', name, '-in', reference, '-parse_seqids']
       if 'dbtype' in blast_settings:
          cmd.extend(['-dbtype', blast_settings['dbtype']])
       else:
@@ -1729,7 +1729,7 @@ def blast_to_ref(reference, fasta, blast_settings=None, buffer=False):
    del defaults['dbtype']
    
    # BLAST fasta to DB
-   cmd = ['blastn', '-db', reference, '-query', fasta,
+   cmd = ['blastn-2.2.31', '-db', reference, '-query', fasta,
           '-outfmt', '6 qseqid sseqid sstrand qstart qend sstart send qseq sseq'] # evalue
    for s, (t, a, v) in defaults.items():
       if s in blast_settings: cmd.extend([a, str(blast_settings[s])])
@@ -2241,9 +2241,9 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
    ''' if you do not have scaffolds, the contigs can be passed here
    
    USAGE
-   >>> contig_file = 'contigs_tem.fa'
-   >>> p_refs = ['genome_pos_1.fna']
-   >>> n_refs = ['genome_neg_1.fna']
+   >>> contig_file = '/Users/mcft/Desktop/test/old/contigs_tem.fa'
+   >>> p_refs = ['/Users/mcft/Desktop/test/old/genome_pos_1.fna']
+   >>> n_refs = ['/Users/mcft/Desktop/test/old/genome_neg_1.fna']
    >>> bam_name = 'myseq'
    >>> bwa_settings = None
    >>> threshold_tm = 45
@@ -3334,7 +3334,7 @@ GENETIC CODE TRRANSLATION:
    USAGE
       >>> import re
       >>> annotations = get_blast_annotations(fasta)
-      get_blast_annotations('unique_core_sequences.contigs.fa', dbpath='/path/to/blastdb/')
+      get_blast_annotations('unique_core_sequences.contigs.fa', dbpath='/Applications/cmdline/blastdb/')
    '''
    def extract_annotations(so_path, ignore_terms, replace_terms, max_cov):
       ''' Extract BLAST annotations from tsv file '''
@@ -3440,24 +3440,23 @@ GENETIC CODE TRRANSLATION:
    # Validate inputs
    if dbpath == '':
       if not 'BLASTDB' in os.environ:
-         sys.stderr.write('Warning: BLAST annotation was not possible. BLASTDB '
-                          'environment variable not set!\n')
+         sys.stderr.write('Annotation not possible. BLASTDB environment '
+                          'variable not set!\n')
          return {}
       elif not os.path.exists(os.environ['BLASTDB']):
-         sys.stderr.write('Warning: BLAST annotation was not possible. BLASTDB '
-                          'path does not exist!\n')
+         sys.stderr.write('Annotation not possible. BLASTDB path does not '
+                          'exist!\n')
          return {}
    elif not os.path.exists(dbpath):
-      sys.stderr.write('Warning: BLAST annotation was not possible. Provided '
-                       'BLAST DB path does not exist!\n')
+      sys.stderr.write('Annotation not possible. Provided BLAST DB path does '
+                       'not exist!\n')
       return {}
    else:
       os.environ['BLASTDB'] = dbpath
    
    dbs = os.listdir(os.environ['BLASTDB'])
    if not "%s.phr"%db in dbs and not "%s.00.phr"%db in dbs:
-      sys.stderr.write(('Warning: BLAST annotation was not possible, %s not '
-                        'found in %s!\n')%(db,dbs))
+      sys.stderr.write('Annotation not possible, %s not found in %s!\n'%(db,dbs))
       return {}
    
    # assert ' ' not in reference, 'BLAST cannot handle spaces in reference path!'
@@ -3478,7 +3477,7 @@ GENETIC CODE TRRANSLATION:
                                                             type(v))
    
    # BLAST fasta to DB
-   cmd = ['blastx', '-query', fasta, '-outfmt',
+   cmd = ['blastx-2.2.31', '-query', fasta, '-outfmt',
           ('7 qseqid qstart qend qlen sseqid sstart send slen length pident '
            'nident mismatch gaps stitle')]
    for s, (t, a, v) in defaults.items():
@@ -3721,6 +3720,7 @@ def predict_pcr_results(refs, pairs, output=None, fail_on_non_match=False):
 def generate_sequence_atlas_data_file(reference_file, core_sequence_file, unique_core_sequence_file, aux_file, file_name='results.json'):
    ''' Generate Sequence Atlas data file (json)
    
+   >>> os.chdir('/Users/mcft/Desktop/test/mrc-1')
    >>> generate_sequence_atlas_data_file(
    ...    'reference.fa',
    ...    'core_sequences.contigs.fa',
@@ -4112,10 +4112,6 @@ def test(args):
    pos = ["%s/test/bla.fa"%(test_dir)]
    neg = ["%s/test/sul.fa"%(test_dir)]
    main(pos, neg, None, quiet=True, clean_run=False, annotate=True)
-   if os.path.exists('results.tsv'):
-      print('Test completed successfully!')
-   else:
-      print('Test completed with errors!')
 
 def get_pairs(pairs_file):
    ''' Extract the pairs from the file. '''
