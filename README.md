@@ -11,7 +11,7 @@ several usages:
 5. Show PCR statistics for a given primer set to a given template
 6. Combine all of the above functionalities in a pipeline to provide a tool for rapid identification of PCR primer Pairs for the unique target sequences of a positive dataset versus a negative dataset
 
-Authors: 
+Authors:
    Martin Christen Frølund Thomsen,
    Henrik Hasman,
    Ole Lund
@@ -113,25 +113,22 @@ docker run --rm -v `pwd`:/workdir \
        rucs spst --pairs pair_file.tsv --template template.fa
 ```
 
-## How do I get set up? ##
-1. Install docker (follow this guide: https://docs.docker.com/engine/getstarted/step_one/)
-2. Start docker deamon
-3. (optional) Download BLAST annotation database
-4. Install docker image (see below for options)
+## Installation and setup? ##
+1. Install and start docker
+2. Install the RUCS program
+3. Download BLAST annotation database
 
-Commands for installation:
-```
-#!bash
-docker-machine start default # To start on MAC OS
-```
+### Install the RUCS program ###
+There are several ways to install the RUCS programs
 
-### Pull image from DockerHub (option 1) ###
+
+
+#### Pull image from DockerHub (option 1) - The easiest ####
 https://hub.docker.com/r/genomicepidemiology/rucs/
 
 1. Pull image
 2. Tag image
-3. Run test and see if everything is ok
-4. Ready to use
+3. Run test and see if everything is ok and ready to use
 
 Commands for installation:
 ```
@@ -141,50 +138,119 @@ docker tag genomicepidemiology/rucs rucs
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
 ```
 
-### Clone Git repository and build image (option 2) ###
+#### Clone Git repository and build image (option 2) - the more challenging ####
 1. Clone this repository
 2. Build docker image
-3. Run test and see if everything is ok
-4. Ready to use
+3. Run test and see if everything is ok and ready to use
 
 Commands for installation:
 ```
 #!bash
-git clone https://bitbucket.org/genomicepidemiology/rucs.git
-cd rucs
+git clone https://github.com/martinfthomsen/rucs2
+cd rucs2
 docker-compose build
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
 ```
 
-**Not using docker?** Check that all dependencies are in your local PATH and
-Python modules are properly installed:
+#### Direct install (option 3) - the most challenging ####
+**Not using docker?** You can check out what to install and configure on your
+system from the Dockerfile.
+After everything is installed and ready, Verify that all dependencies are in
+your local PATH and the Python modules are properly installed:
 ```
 #!bash
 which python3 samtools bwa blastn blastx makeblastdb
 python3 -c 'import gzip, json, types, shutil, glob, bisect, primer3, numpy, subprocess, difflib, tabulate'
 ```
 
-Commands for downloading and preparing BLAST annotation DB:
+
+### Download BLAST annotation database ###
+A BLAST protein database must be installed separately if you want RUCS to
+annotate the results with protein annotations. we recommend installing the
+swissprot database. It is recommended to use the environment variable $BLASTDB
+to point to the BLAST database.
 ```
 #!bash
 BLASTDB=/blastdb
 mkdir $BLASTDB
-/usr/bin/update_blastdb --passive swissprot
-gunzip -cd swissprot.tar.gz | (cd $BLASTDB; tar xvf - )
+docker run --rm --entrypoint update_blastdb.pl -v $BLASTDB:/workdir rucs --decompress swissprot
 ```
 
+If you are using the the $BLASTDB environment variable, it is recommended to set
+it in your bash_profile file:
+```
+#!bash
+echo "BLASTDB=$BLASTDB" >> ~/.bash_profile
+```
+
+Alternatively, it is possible to run the local script to this repo
+(install_db.sh), to download multiple databases in parallel:
+```
+#!bash
+./install_db.sh $BLASTDB swissprot
+ ```
+The alternative script also downloads the file all_blast_db_files.txt, which
+lists all available blast databases.
+and a ...-metadata.json file with details of the database
+
+You can also choose to download other databases such as refseq_protein.
 Downloading the refseq_protein database can take a while, since the database
 is > 20 GB...
-If you want to download all the databases in parallel for quicker download, feel
-free to use the script install_db.sh.
 
 **OBS: If you don't need the annotation capabilities, you can opt out of this!**
 
-## Usage example? ##
-A usage example of the online tool can be on the instruction page:
-https://cge.cbs.dtu.dk/services/rucs/instructions.php
 
-The online tool is a direct implementation of this repository.
+## Usage example? ##
+
+
+### See help menu ###
+To see the help page, run the following command:
+```
+#!bash
+docker run --rm rucs --help
+ ```
+
+### Example of full run using default options ###
+This example assumes that the $BLASTDB environment variable is set. Here are the
+steps:
+1. Create run directory
+2. Setup positive dataset
+   - download/copy the positive sequences
+3. Setup negative dataset
+   - download/copy the negative sequences
+4. Run the full RUCS command
+5. Inspect the results, etc.
+
+
+```
+#!bash
+mkdir ~/my_first_rucs_analysis && cd $_
+docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
+       rucs full --positives positives/* other/positive.fa --negatives negatives/*
+
+ ```
+
+### Example of running in interactive mode ###
+This example assumes the same setup steps as the example of the full run
+(step 1-3) has been performed.
+Steps:
+4. Run the docker image in interactive mode
+5. Run the full analysis command directly on the main script
+6. Inspect the results, etc.
+
+```
+#!bash
+docker run -it --entrypoint /bin/bash --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs
+primer_core_tools.py full --positives positives/* other/positive.fa --negatives negatives/*
+
+```
+In the interactive mode, you are inside the RUCS container, and you will only be
+able to interact with the container and the material you bring with you through
+mounting, like the workdir and blastdb in the command above.
+You can run any command available in there and manipulate what ever files you
+wish. OBS! Only changes made in the mounted directories are kept after you exit
+the container.
+
 
 ## Result Explanation ##
 
