@@ -3,10 +3,11 @@
 ############################################################
 
 # Load base Docker image
-FROM python:3.5.3-jessie
+FROM python:3
 
 # Disable Debian frontend interaction promts
 ENV DEBIAN_FRONTEND noninteractive
+
 
 # Install dependencies with apt-get
 RUN set -ex; \
@@ -40,12 +41,12 @@ ENV BLASTDB /blastdb
 ENV PATH $PATH:/tools/ncbi-blast/bin
 RUN mkdir ncbi-blast && \
     wget -r --no-parent -nv -A 'ncbi-blast-*+-x64-linux.tar.gz' -O ncbi-blast.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/ && \
-    tar -xzf ncbi-blast.tar.gz -C ncbi-blast --strip-components=1 && \
+    tar -xzf ncbi-blast.tar.gz -C ncbi-blast --strip-components=2 && \
     rm ncbi-blast.tar.gz
 
 # Install BWA
 ENV PATH ${PATH}:/tools/bwa
-RUN git clone --branch v0.7.15 https://github.com/lh3/bwa /tools/bwa && \
+RUN git clone https://github.com/lh3/bwa /tools/bwa && \
     cd bwa && \
     make
 
@@ -53,6 +54,8 @@ RUN git clone --branch v0.7.15 https://github.com/lh3/bwa /tools/bwa && \
 ENV HTSDIR /tools/htslib
 RUN git clone https://github.com/samtools/htslib /tools/htslib && \
     git clone https://github.com/samtools/samtools /tools/samtools && \
+    cd /tools/htslib && \
+    git submodule update --init --recursive && \
     cd /tools/samtools && \
     make && \
     make install

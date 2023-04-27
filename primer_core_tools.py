@@ -1756,7 +1756,7 @@ def blast_to_ref(reference, fasta, blast_settings=None, buffer=False):
             # Parse BLAST line
             flds = l.split('\t')
             query = int(flds[0])
-            contig_name = flds[1]
+            contig_name = flds[1].split('|')[1] if '|' in flds[1] else flds[1]
             strand = '-' if flds[2] == 'minus' else '+'
             qstart, qend, sstart, send = map(int, flds[3:7])
             qseq, sseq = flds[7:]
