@@ -60,9 +60,22 @@ RUN git clone https://github.com/samtools/htslib /tools/htslib && \
     make && \
     make install
 
+# Install Entrez Direct command-line tools
+ENV PATH ${PATH}:/tools/edirect
+RUN wget https://ftp.ncbi.nlm.nih.gov/entrez/entrezdirect/edirect.tar.gz && \
+    tar zxpf edirect.tar.gz && \
+    rm edirect.tar.gz && \
+    cd edirect && \
+    wget https://ftp.ncbi.nlm.nih.gov/entrez/entrezdirect/xtract.Linux.gz && \
+    wget https://ftp.ncbi.nlm.nih.gov/entrez/entrezdirect/rchive.Linux.gz && \
+    wget https://ftp.ncbi.nlm.nih.gov/entrez/entrezdirect/transmute.Linux.gz && \
+    gunzip -f *.gz && \
+    chmod +x xtract.Linux rchive.Linux transmute.Linux
+
 # Copy repository files to /tools/
 COPY ./primer_core_tools.py /tools/
 COPY ./settings.default.cjson /tools/
+COPY ./download_genomes.sh /tools/
 COPY ./test/* /tools/test/
 
 # Set convenience aliases

@@ -111,6 +111,29 @@ docker run --rm -v `pwd`:/workdir \
        rucs spst --pairs pair_file.tsv --template template.fa
 ```
 
+## Other hidden features ##
+The RUCS image comes with some hidden but convenient features/functionalities
+that can make your experience with the tool easier.
+
+### Downloading Genomes through Entrez Direct ###
+The RUCS image contains the Entrez Direct cmd-line tools and a small wrapper to
+make it easier for the user to download genomes when you know an accession ID
+like CP000672.1 or ARBW00000000.
+
+To use the download script, the entrypoint must be changed, and a directory
+where the downloaded files should be stored must be mounted to the internal
+/workdir. And last but not least, the accession IDs must be provided as
+arguments.
+
+The download script can be invoked like so:
+```
+#!bash
+docker run -it --entrypoint download_genomes.sh --rm -v `pwd`/positives:/workdir rucs CP000672.1 ARBW00000000
+```
+Just switch out "`pwd`/positives" with your preferred download directory, and
+"CP000672.1 ARBW00000000", with your list of space-separated accessions.
+
+
 ## Installation and setup? ##
 1. Install and start docker
 2. Install the RUCS program
@@ -217,10 +240,13 @@ steps:
 4. Run the full RUCS command
 5. Inspect the results, etc.
 
-
 ```
 #!bash
 mkdir ~/my_first_rucs_analysis && cd $_
+mkdir positives negatives
+docker run -it --entrypoint download_genomes.sh --rm -v `pwd`/positives:/workdir rucs CP000672.1 ARBW00000000
+docker run -it --entrypoint download_genomes.sh --rm -v `pwd`/negatives:/workdir rucs JWIZ01
+gzip -d positives/* negatives/*
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
        rucs full --positives positives/* other/positive.fa --negatives negatives/*
 
