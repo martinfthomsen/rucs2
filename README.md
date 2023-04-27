@@ -1,8 +1,9 @@
 # README #
+This repo was forked from the original RUCS repo (2023): https://bitbucket.org/genomicepidemiology/rucs
 
 ## RUCS - *R*apid Identification of PCR Primers Pairs for *U*nique *C*ore *S*equences ##
 This repository contains the source code for a bioinformatics tool, which have
-several usages:
+several usage cases:
 
 1. Find sequences which are unique to a dataset of positive samples compared to a dataset of negative samples
 2. Identify PCR primer pairs for a given set of sequences
@@ -12,10 +13,7 @@ several usages:
 6. Combine all of the above functionalities in a pipeline to provide a tool for rapid identification of PCR primer Pairs for the unique target sequences of a positive dataset versus a negative dataset
 
 Authors:
-   Martin Christen Frølund Thomsen,
-   Henrik Hasman,
-   Ole Lund
-
+   Martin Christen Frølund Thomsen
 
 ## Entry Point Descriptions ##
 The entrypoints provide a quick interface to running the services in this
@@ -120,8 +118,6 @@ docker run --rm -v `pwd`:/workdir \
 
 ### Install the RUCS program ###
 There are several ways to install the RUCS programs
-
-
 
 #### Pull image from DockerHub (option 1) - The easiest ####
 https://hub.docker.com/r/genomicepidemiology/rucs/
@@ -309,82 +305,12 @@ for the provided pairs directly on the screen.
 
 
 ## Troubleshoot ##
-#### MAC OS: Cannot run build command ####
-Try running this command to resolve any environment issues:
-```
-#!bash
-eval "$(docker-machine env default)"
-```
-
-#### MAC OS: Could not resolve 'http.debian.net' ####
-To solve this, you need to set the DNS of your docker machine.
-
-1. Edit ~/.docker/machine/machines/default/config.json
-2. Locate "Dns" under "HostOptions" and "EngineOptions"
-3. Add "8.8.8.8" to the list
-```
-#!markup
-    "Dns": ["8.8.8.8"],
-```
-
-Then restart the machine
-```
-#!bash
-docker-machine restart default
-eval "$(docker-machine env default)"
-```
-
-#### MAC OS: Docker does not mount my directory! ####
-Check if you have added the directory to the file sharing in the docker
-preferences. If not add it, and if you have an old version of docker, consider
-updating to a new docker version.
-
 #### MAC OS: BLAST annotation fails without errors! ####
 This is probably caused by lack of RAM. For MACs and Windows, a virtual machine
 is used to run a Linux environment where Docker can run. This machine has a
 limit on how much of the host's RAM it may access. Check if you have enough RAM
 allocated, or try to increase the amount of RAM for your machine. Otherwise,
 consider using a smaller BLAST database.
-
-The answer to "MAC OS: Docker takes up too much space?" presents a way to
-remove the default machine and create a new with more CPU, RAM and disk space.
-
-#### MAC OS: Docker takes up too much space? ####
-Check the disk space use on the machine:
-1. ssh into the virtual machine
-```
-#!bash
-docker-machine ssh default
-```
-2. Check the disk usage
-```
-#!bash
-df -h
-```
-
-If you find that the machine is using too much space and you are not worried
-about losing the data on the machine, you can delete the machine and recreate it.
-
-Stop and delete the default machine. (WARNING, this will remove all your
-containers, and all data stored inside the containers is lost!)
-```
-#!bash
-docker-machine stop default
-docker-machine rm -f default
-docker-machine create -d virtualbox --virtualbox-cpu-count=4 \
-                                    --virtualbox-memory=12288 \
-                                    --virtualbox-disk-size=15360 \
-                                    default
-```
---virtualbox-cpu-count sets the number of CPUs allowed to be used (4 CPUs in this example)
-
---virtualbox-memory sets the amount of RAM allowed to be used (12GB RAM in this example)
-
---virtualbox-disk-size sets the disk size. (15GB in this example)
-
-Now you can check the diskspace again, and it should be all good again.
-Next step is now to reinstall all your images...
-
 
 ## Docker Cleanup Commands ##
 ```
@@ -400,13 +326,16 @@ docker volume rm $(docker volume ls -qf dangling=true)
 ```
 
 ## Who do I talk to? ##
-
-* Repo owner or admin
+You can report your issues here: https://github.com/martinfthomsen/rucs2/issues
 
 
 License
 =======
 
+RUCS 2: https://github.com/martinfthomsen/rucs2
+Copyright (c) 2023, Martin Christen Frølund Thomsen.
+
+Original RUCS: https://bitbucket.org/genomicepidemiology/rucs
 Copyright (c) 2017, Martin Christen Frølund Thomsen, Technical University of Denmark.
 
 All rights reserved.
