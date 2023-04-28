@@ -1,6 +1,11 @@
 # README #
 This repo was forked from the original RUCS repo (2023): https://bitbucket.org/genomicepidemiology/rucs
 
+This tool was created as part of a research project.
+
+For publication of results made using this tool, please cite:
+Martin Christen Frølund Thomsen, Henrik Hasman, Henrik Westh, Hülya Kaya, Ole Lund, RUCS: rapid identification of PCR primers for unique core sequences, Bioinformatics, Volume 33, Issue 24, December 2017, Pages 3917–3921, https://doi.org/10.1093/bioinformatics/btx526
+
 ## RUCS - *R*apid Identification of PCR Primers Pairs for *U*nique *C*ore *S*equences ##
 This repository contains the source code for a bioinformatics tool, which have
 several usage cases:
