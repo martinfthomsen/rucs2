@@ -1,8 +1,14 @@
 # README #
+This repo was forked from the original RUCS repo (2023): https://bitbucket.org/genomicepidemiology/rucs
+
+This tool was created as part of a research project.
+
+For publication of results made using this tool, please cite:
+Martin Christen Frølund Thomsen, Henrik Hasman, Henrik Westh, Hülya Kaya, Ole Lund, RUCS: rapid identification of PCR primers for unique core sequences, Bioinformatics, Volume 33, Issue 24, December 2017, Pages 3917–3921, https://doi.org/10.1093/bioinformatics/btx526
 
 ## RUCS - *R*apid Identification of PCR Primers Pairs for *U*nique *C*ore *S*equences ##
 This repository contains the source code for a bioinformatics tool, which have
-several usages:
+several usage cases:
 
 1. Find sequences which are unique to a dataset of positive samples compared to a dataset of negative samples
 2. Identify PCR primer pairs for a given set of sequences
@@ -11,11 +17,8 @@ several usages:
 5. Show PCR statistics for a given primer set to a given template
 6. Combine all of the above functionalities in a pipeline to provide a tool for rapid identification of PCR primer Pairs for the unique target sequences of a positive dataset versus a negative dataset
 
-Authors: 
-   Martin Christen Frølund Thomsen,
-   Henrik Hasman,
-   Ole Lund
-
+Authors:
+   Martin Christen Frølund Thomsen
 
 ## Entry Point Descriptions ##
 The entrypoints provide a quick interface to running the services in this
@@ -113,25 +116,43 @@ docker run --rm -v `pwd`:/workdir \
        rucs spst --pairs pair_file.tsv --template template.fa
 ```
 
-## How do I get set up? ##
-1. Install docker (follow this guide: https://docs.docker.com/engine/getstarted/step_one/)
-2. Start docker deamon
-3. (optional) Download BLAST annotation database
-4. Install docker image (see below for options)
+## Other hidden features ##
+The RUCS image comes with some hidden but convenient features/functionalities
+that can make your experience with the tool easier.
 
-Commands for installation:
+### Downloading Genomes through Entrez Direct ###
+The RUCS image contains the Entrez Direct cmd-line tools and a small wrapper to
+make it easier for the user to download genomes when you know an accession ID
+like CP000672.1 or ARBW00000000.
+
+To use the download script, the entrypoint must be changed, and a directory
+where the downloaded files should be stored must be mounted to the internal
+/workdir. And last but not least, the accession IDs must be provided as
+arguments.
+
+The download script can be invoked like so:
 ```
 #!bash
-docker-machine start default # To start on MAC OS
+docker run -it --entrypoint download_genomes.sh --rm -v `pwd`/positives:/workdir rucs CP000672.1 ARBW00000000
 ```
+Just switch out "`pwd`/positives" with your preferred download directory, and
+"CP000672.1 ARBW00000000", with your list of space-separated accessions.
 
-### Pull image from DockerHub (option 1) ###
+
+## Installation and setup? ##
+1. Install and start docker
+2. Install the RUCS program
+3. Download BLAST annotation database
+
+### Install the RUCS program ###
+There are several ways to install the RUCS programs
+
+#### Pull image from DockerHub (option 1) - The easiest ####
 https://hub.docker.com/r/genomicepidemiology/rucs/
 
 1. Pull image
 2. Tag image
-3. Run test and see if everything is ok
-4. Ready to use
+3. Run test and see if everything is ok and ready to use
 
 Commands for installation:
 ```
@@ -141,51 +162,122 @@ docker tag genomicepidemiology/rucs rucs
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
 ```
 
-### Clone Git repository and build image (option 2) ###
+#### Clone Git repository and build image (option 2) - the more challenging ####
 1. Clone this repository
 2. Build docker image
-3. Run test and see if everything is ok
-4. Ready to use
+3. Run test and see if everything is ok and ready to use
 
 Commands for installation:
 ```
 #!bash
-git clone https://bitbucket.org/genomicepidemiology/rucs.git
-cd rucs
+git clone https://github.com/martinfthomsen/rucs2
+cd rucs2
 docker-compose build
-docker tag genomicepidemiology/rucs rucs
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
 ```
 
-**Not using docker?** Check that all dependencies are in your local PATH and
-Python modules are properly installed:
+#### Direct install (option 3) - the most challenging ####
+**Not using docker?** You can check out what to install and configure on your
+system from the Dockerfile.
+After everything is installed and ready, Verify that all dependencies are in
+your local PATH and the Python modules are properly installed:
 ```
 #!bash
 which python3 samtools bwa blastn blastx makeblastdb
 python3 -c 'import gzip, json, types, shutil, glob, bisect, primer3, numpy, subprocess, difflib, tabulate'
 ```
 
-Commands for downloading and preparing BLAST annotation DB:
+
+### Download BLAST annotation database ###
+A BLAST protein database must be installed separately if you want RUCS to
+annotate the results with protein annotations. we recommend installing the
+swissprot database. It is recommended to use the environment variable $BLASTDB
+to point to the BLAST database.
 ```
 #!bash
 BLASTDB=/blastdb
 mkdir $BLASTDB
-/usr/bin/update_blastdb --passive swissprot
-gunzip -cd swissprot.tar.gz | (cd $BLASTDB; tar xvf - )
+docker run --rm --entrypoint update_blastdb.pl -v $BLASTDB:/workdir rucs --decompress swissprot
 ```
 
+If you are using the the $BLASTDB environment variable, it is recommended to set
+it in your bash_profile file:
+```
+#!bash
+echo "BLASTDB=$BLASTDB" >> ~/.bash_profile
+```
+
+Alternatively, it is possible to run the local script to this repo
+(install_db.sh), to download multiple databases in parallel:
+```
+#!bash
+./install_db.sh $BLASTDB swissprot
+ ```
+The alternative script also downloads the file all_blast_db_files.txt, which
+lists all available blast databases.
+and a ...-metadata.json file with details of the database
+
+You can also choose to download other databases such as refseq_protein.
 Downloading the refseq_protein database can take a while, since the database
 is > 20 GB...
-If you want to download all the databases in parallel for quicker download, feel
-free to use the script install_db.sh.
 
 **OBS: If you don't need the annotation capabilities, you can opt out of this!**
 
-## Usage example? ##
-A usage example of the online tool can be on the instruction page:
-https://cge.cbs.dtu.dk/services/rucs/instructions.php
 
-The online tool is a direct implementation of this repository.
+## Usage example? ##
+
+
+### See help menu ###
+To see the help page, run the following command:
+```
+#!bash
+docker run --rm rucs --help
+ ```
+
+### Example of full run using default options ###
+This example assumes that the $BLASTDB environment variable is set. Here are the
+steps:
+1. Create run directory
+2. Setup positive dataset
+   - download/copy the positive sequences
+3. Setup negative dataset
+   - download/copy the negative sequences
+4. Run the full RUCS command
+5. Inspect the results, etc.
+
+```
+#!bash
+mkdir ~/my_first_rucs_analysis && cd $_
+mkdir positives negatives
+docker run -it --entrypoint download_genomes.sh --rm -v `pwd`/positives:/workdir rucs CP000672.1 ARBW00000000
+docker run -it --entrypoint download_genomes.sh --rm -v `pwd`/negatives:/workdir rucs JWIZ01
+gzip -d positives/* negatives/*
+docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
+       rucs full --positives positives/* other/positive.fa --negatives negatives/*
+
+ ```
+
+### Example of running in interactive mode ###
+This example assumes the same setup steps as the example of the full run
+(step 1-3) has been performed.
+Steps:
+4. Run the docker image in interactive mode
+5. Run the full analysis command directly on the main script
+6. Inspect the results, etc.
+
+```
+#!bash
+docker run -it --entrypoint /bin/bash --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs
+primer_core_tools.py full --positives positives/* other/positive.fa --negatives negatives/*
+
+```
+In the interactive mode, you are inside the RUCS container, and you will only be
+able to interact with the container and the material you bring with you through
+mounting, like the workdir and blastdb in the command above.
+You can run any command available in there and manipulate what ever files you
+wish. OBS! Only changes made in the mounted directories are kept after you exit
+the container.
+
 
 ## Result Explanation ##
 
@@ -244,82 +336,12 @@ for the provided pairs directly on the screen.
 
 
 ## Troubleshoot ##
-#### MAC OS: Cannot run build command ####
-Try running this command to resolve any environment issues:
-```
-#!bash
-eval "$(docker-machine env default)"
-```
-
-#### MAC OS: Could not resolve 'http.debian.net' ####
-To solve this, you need to set the DNS of your docker machine.
-
-1. Edit ~/.docker/machine/machines/default/config.json
-2. Locate "Dns" under "HostOptions" and "EngineOptions"
-3. Add "8.8.8.8" to the list
-```
-#!markup
-    "Dns": ["8.8.8.8"],
-```
-
-Then restart the machine
-```
-#!bash
-docker-machine restart default
-eval "$(docker-machine env default)"
-```
-
-#### MAC OS: Docker does not mount my directory! ####
-Check if you have added the directory to the file sharing in the docker
-preferences. If not add it, and if you have an old version of docker, consider
-updating to a new docker version.
-
 #### MAC OS: BLAST annotation fails without errors! ####
 This is probably caused by lack of RAM. For MACs and Windows, a virtual machine
 is used to run a Linux environment where Docker can run. This machine has a
 limit on how much of the host's RAM it may access. Check if you have enough RAM
 allocated, or try to increase the amount of RAM for your machine. Otherwise,
 consider using a smaller BLAST database.
-
-The answer to "MAC OS: Docker takes up too much space?" presents a way to
-remove the default machine and create a new with more CPU, RAM and disk space.
-
-#### MAC OS: Docker takes up too much space? ####
-Check the disk space use on the machine:
-1. ssh into the virtual machine
-```
-#!bash
-docker-machine ssh default
-```
-2. Check the disk usage
-```
-#!bash
-df -h
-```
-
-If you find that the machine is using too much space and you are not worried
-about losing the data on the machine, you can delete the machine and recreate it.
-
-Stop and delete the default machine. (WARNING, this will remove all your
-containers, and all data stored inside the containers is lost!)
-```
-#!bash
-docker-machine stop default
-docker-machine rm -f default
-docker-machine create -d virtualbox --virtualbox-cpu-count=4 \
-                                    --virtualbox-memory=12288 \
-                                    --virtualbox-disk-size=15360 \
-                                    default
-```
---virtualbox-cpu-count sets the number of CPUs allowed to be used (4 CPUs in this example)
-
---virtualbox-memory sets the amount of RAM allowed to be used (12GB RAM in this example)
-
---virtualbox-disk-size sets the disk size. (15GB in this example)
-
-Now you can check the diskspace again, and it should be all good again.
-Next step is now to reinstall all your images...
-
 
 ## Docker Cleanup Commands ##
 ```
@@ -335,13 +357,16 @@ docker volume rm $(docker volume ls -qf dangling=true)
 ```
 
 ## Who do I talk to? ##
-
-* Repo owner or admin
+You can report your issues here: https://github.com/martinfthomsen/rucs2/issues
 
 
 License
 =======
 
+RUCS 2: https://github.com/martinfthomsen/rucs2
+Copyright (c) 2023, Martin Christen Frølund Thomsen.
+
+Original RUCS: https://bitbucket.org/genomicepidemiology/rucs
 Copyright (c) 2017, Martin Christen Frølund Thomsen, Technical University of Denmark.
 
 All rights reserved.

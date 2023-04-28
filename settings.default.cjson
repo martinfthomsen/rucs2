@@ -149,14 +149,15 @@
          "blast_db_path":  "",    // Path to BLAST db needed for sequence annotation. Leave as empty string to use BLAST_DB environment path
          "max_cov":         0.5,  // Maximum coverage threshold for a new annotation to be considered an independent annotation
          "sim_cutoff":      0.75, // Annotations containing these keywords are ignored
-         "ignore_terms":   ["hypothetical", "Flags:", "Short="], // annotations containing these keywords are ignored
+         "ignore_terms":   ["hypothetical", "Flags:", "Short=", "PSEUDOGENE:"], // annotations containing these keywords are ignored
          "replace_terms":  {"\[.+\]": "", // annotations are modified by these replacements: {"pattern":, "replacement"}
                             "--": " ",
                             "MULTISPECIES:": "",
                             ", partial": "",
                             "RecName:": "",
                             "Full=": "",
-                            "AltName:": ""
+                            "AltName:": "",
+                            "Probable": ""
                             },
          "blastx_settings": { // Sequence annotation searches
             "database":         "swissprot", // Protein database to BLASTx against [swissprot, refseq_protein]
