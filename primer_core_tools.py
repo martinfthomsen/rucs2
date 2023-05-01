@@ -311,9 +311,9 @@ def compute_tm(seq1, seq2=None):
    p3_therm = ThermoAnalysis(thal_type, mv_conc, dv_conc, dntp_conc, dna_conc,
                               temp_c, max_loop, temponly, dimer, max_nn_length,
                               tm_method, salt_correction_method)
-   tm_seq1 = round_sig(p3_therm.calcTm(seq1))
+   tm_seq1 = round_sig(p3_therm.calc_tm(seq1))
    if seq2 is not None:
-      tm_seq2 = round_sig(p3_therm.calcTm(seq2))
+      tm_seq2 = round_sig(p3_therm.calc_tm(seq2))
       tm_dimer = round_sig(p3_therm.calc_heterodimer(seq1, seq2).tm)
    else:
       tm_seq2 = tm_seq1
