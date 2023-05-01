@@ -2788,7 +2788,7 @@ def primer3_parser(primer3_results):
 
    return list(map(primer_pairs.get, sorted(primer_pairs.keys()))), notes
 
-def round_sig(number, sig_fig=3, lmin=-10**300, lmax=10**300):
+def round_sig(number, sig_fig=3, lmin=-1.0e+300, lmax=1.0e+300):
    ''' Round the number to the specified number of significant figures
 
    USAGE
@@ -2798,6 +2798,7 @@ def round_sig(number, sig_fig=3, lmin=-10**300, lmax=10**300):
       >>> round_sig(1.7976931348623157e+308, lmax=100)
       100
       >>> round_sig(0)
+      0
       >>> for i in range(6): print(i+1, round_sig(123.456, sig_fig=i+1))
       ...
       1 100.0
@@ -2807,11 +2808,14 @@ def round_sig(number, sig_fig=3, lmin=-10**300, lmax=10**300):
       5 123.46
       6 123.456
    '''
-   number = max(lmin, min(number, lmax))
-   if number != 0 and isinstance(number, float):
-      return round(number, -int(np.log10(abs(number))) -1 + sig_fig)
+   if number == 0 or number == 1:
+        return number
+   elif number < lmin:
+       return lmin
+   elif number > lmax:
+       return lmax
    else:
-      return number
+      return round(number, -int(np.log10(abs(number))) -1 + sig_fig)
 
 def filter_primer_alignments(ref, alignments, probes=[]):
    ''' Remove primer alignments where the heterodimer thermodynamics do not
