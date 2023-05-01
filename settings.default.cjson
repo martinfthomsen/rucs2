@@ -5,6 +5,7 @@
    },
    "ucs": { // Parameters for ucs computation
       "kmer_size":            20, // k size used to extract k-mers
+      "max_ns":             1000, // Maximum stretches of 'n' allowed in dissected scaffolds
       "min_seq_len_pos":     500, // Minimum sequence length for contigs in positive samples to be considered for k-mer extraction. Threshold for limiting k-mers from untrustworthy sequences
       "min_seq_len_neg":     500, // Minimum sequence length for contigs in negative samples to be considered for k-mer extraction. Threshold for limiting k-mers from untrustworthy sequences
       "charspace":       "nATGC", // The alphabet used by the program. The "any" symbol is asumed to be the first symbol.
@@ -20,6 +21,10 @@
          "threads":            1  // Number of threads allowed
       },
       "sam_flags_ignore":     20  // Samtools binary flags used for parsing k-mer alignment to reference
+   },
+   "explore": { // Parameters for explorative computations
+      "kmer_count_threshold": 1,    // kmers found below this limit within each file is ignored
+      "z_threshold":          1.96 //3.2   //1.96  // z-score threshold for when a k-mer is considered significant
    },
    "pcr":{ // PCR Pair and product parameters
       "no_good_pp":          100, // Number of good primer pairs to identify before stopping the algorithm early
