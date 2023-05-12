@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 ''' RUCS - Rapid Identification of PCR Primers Pairs for Unique Core Sequences
 
+RUCS 2: https://github.com/martinfthomsen/rucs2
+Copyright (c) 2023, Martin Christen Frølund Thomsen.
 
-Copyright (c) 2017, Martin Christen Frolund Thomsen, Technical University of Denmark
+Original RUCS: https://bitbucket.org/genomicepidemiology/rucs
+Copyright (c) 2017, Martin Christen Frølund Thomsen, Technical University of Denmark.
+
 All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
