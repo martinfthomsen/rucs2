@@ -25,7 +25,11 @@ for accession in $acc_list; do
         | while read -r line ;
         do
             fname=$(echo $line | grep -o 'GCA_.*' | sed 's/$/_genomic.fna.gz/') ;
-            echo "found $fname..."
-            wget -q --output-document $accession"_"$fname "$line/$fname";
+            if test -f $accession"_"$fname || test -f $accession"_"${fname%.*}; then
+                echo "found $fname! File previously downloaded! skipping..."
+            else
+                echo "found $fname! Downloading..."
+                wget -q --output-document $accession"_"$fname "$line/$fname";
+            fi
         done
 done
