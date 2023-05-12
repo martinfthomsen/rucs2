@@ -23,8 +23,10 @@
       "sam_flags_ignore":     20  // Samtools binary flags used for parsing k-mer alignment to reference
    },
    "explore": { // Parameters for explorative computations
-      "kmer_count_threshold": 1,    // kmers found below this limit within each file is ignored
-      "z_threshold":          1.96 //3.2   //1.96  // z-score threshold for when a k-mer is considered significant
+      "kmer_count_threshold":    1,    // kmers found below this limit within each file is ignored
+      "sensitivity_threshold":   0.6,  // The sensitivity threshold defines how often a kmer must be found in the positive set to be included in the results. If provided as an integer the number is considered as a minimum count.
+      "fall-out_threshold":      0.2,   // The fall-out threshold defines how often k-mers may be found in the negative set and still be included in the results. If provided as an integer the number is considered as a maximum count.
+      "align_percent_threshold": 0.05  // The alignment percent threshold defines the acceptable amount of kmers to not be aligned to a contig. These k-mers are lost from further analysis to speed up the process. Set to 0, if you want as much data as possible.
    },
    "pcr":{ // PCR Pair and product parameters
       "no_good_pp":          100, // Number of good primer pairs to identify before stopping the algorithm early

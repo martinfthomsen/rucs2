@@ -4126,8 +4126,16 @@ def explore_representation(positives, negatives, kmer_size=None):
    '''
    min_seq_len = settings['pcr']['priming']['primer3']['PRIMER_PRODUCT_SIZE_RANGE'][0]
    kmer_count_threshold = settings['explore']['kmer_count_threshold']
-   z_threshold = settings['explore']['z_threshold']
+   sensitivity_threshold = settings['explore']['sensitivity_threshold']
+   fall_out_threshold = settings['explore']['fall-out_threshold']
+   align_percent_threshold = settings['explore']['align_percent_threshold']
    kmer_seps = ['A', 'T', 'G', 'C']
+   p_count = len(positives)
+   n_count = len(negatives)
+   ors_sens_threshold = sensitivity_threshold * p_count if type(sensitivity_threshold) is float else sensitivity_threshold
+   ors_fo_threshold = fall_out_threshold * n_count if type(fall_out_threshold) is float else fall_out_threshold
+   urs_sens_threshold = sensitivity_threshold * n_count if type(sensitivity_threshold) is float else sensitivity_threshold
+   urs_fo_threshold = fall_out_threshold * p_count if type(fall_out_threshold) is float else fall_out_threshold
 
    if log is not None:
       # Initialize k-mer and sequences statistics logging
@@ -4178,7 +4186,6 @@ def explore_representation(positives, negatives, kmer_size=None):
 
    if log is not None:
       log.progress['neg'].log_time()
-      log.progress.add('zfilter', 'Filtering insignificant k-mers', 'explore')
       log.stats.add_row('kmer', [neg_kmer_count, 'Number of negative k-mers'])
 
    # Pickle the kmer-keys and kmer_counts_neg dictionary and remove object to save space
@@ -4193,21 +4200,9 @@ def explore_representation(positives, negatives, kmer_size=None):
    gc.collect()
 
    # Compute z-score and filter insignificant kmers
-   p_count = len(positives)
-   n_count = len(negatives)
-   z_scores = {}
-      # z = (P1-P2)/sqrt(PP*(1-PP)*(1/n1+1/n2))
-      pooled_p = (kmer_counts_pos[kmer] + kmer_counts_neg[kmer]) / (p_count + n_count)
-      if pooled_p > 0 and pooled_p < 1:
-         z_scores[kmer] = (kmer_counts_pos[kmer]/p_count - kmer_counts_neg[kmer]/n_count) / np.sqrt(pooled_p*(1-pooled_p)*(1/p_count + 1/n_count))
-         # print(kmer_counts_pos[kmer], kmer_counts_neg[kmer], p_count, n_count, pooled_p, z_scores[kmer])
-      else:
-         z_scores[kmer] = 0
-      # Filter insignificant k-mers
-      if z_scores[kmer] < z_threshold:
-         del kmer_counts_pos[kmer]
-      if z_scores[kmer] > -z_threshold:
-         del kmer_counts_neg[kmer]
+   if log is not None:
+      log.progress.add('filter', 'Filtering k-mers', 'explore')
+
    pos_kmer_count = 0
    neg_kmer_count = 0
    # Process the kmer-sets independently
@@ -4227,6 +4222,18 @@ def explore_representation(positives, negatives, kmer_size=None):
          if not kmer in kmer_counts_pos: kmer_counts_pos[kmer] = 0
          if not kmer in kmer_counts_neg: kmer_counts_neg[kmer] = 0
 
+         # Filter k-mers not passing sensitivity and specificity threshold
+         ors_fail = kmer_counts_pos[kmer] < ors_sens_threshold or \
+                    kmer_counts_neg[kmer] > ors_fo_threshold
+         urs_fail = kmer_counts_neg[kmer] < urs_sens_threshold or \
+                    kmer_counts_pos[kmer] > urs_fo_threshold
+
+         if ors_fail:
+            del kmer_counts_pos[kmer]
+
+         if urs_fail:
+            del kmer_counts_neg[kmer]
+
 
       pos_kmer_count += len(kmer_counts_pos)
       neg_kmer_count += len(kmer_counts_neg)
@@ -4243,7 +4250,7 @@ def explore_representation(positives, negatives, kmer_size=None):
       gc.collect()
 
    if log is not None:
-      log.progress['zfilter'].log_time()
+      log.progress['filter'].log_time()
       log.stats.add_row('kmer', [pos_kmer_count, 'Number of significant positive k-mers'])
       log.stats.add_row('kmer', [neg_kmer_count, 'Number of significant negative k-mers'])
 
@@ -4263,7 +4270,8 @@ def explore_representation(positives, negatives, kmer_size=None):
    combined_disscafs_ors = 'ors.disscafs.fa'
    with open(combined_contigs_ors, 'w') as f_cont, open(combined_disscafs_ors, 'w') as f_diss:
       for ref in positives:
-         if max_pos and len(kmer_counts_pos) / max_pos > 0.05:
+         align_percent = len(sig_pos_kmers) / max_pos
+         if max_pos and align_percent > align_percent_threshold:
             prefix = 'ors_%s'%(os.path.basename(ref).rsplit('.', 1)[0])
             # Store k-mers as fastq
             pos_kmers_fq = 'pos_kmers.fq'
@@ -4320,7 +4328,8 @@ def explore_representation(positives, negatives, kmer_size=None):
    combined_disscafs_urs = 'urs.disscafs.fa'
    with open(combined_contigs_urs, 'w') as f_cont, open(combined_disscafs_urs, 'w') as f_diss:
       for ref in negatives:
-         if max_neg and len(kmer_counts_neg) / max_neg > 0.05:
+         align_percent = len(sig_neg_kmers) / max_neg
+         if max_neg and align_percent > align_percent_threshold:
             prefix = 'urs_%s'%(os.path.basename(ref).rsplit('.', 1)[0])
             # Store k-mers as fastq
             neg_kmers_fq = 'neg_kmers.fq'
