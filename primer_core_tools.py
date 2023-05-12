@@ -4340,19 +4340,19 @@ def explore(positives, negatives, kmer_size=None, quiet=False, clean_run=True,
 # Set entry Points Methods
 def full(args):
    ''' Run full diagnostic: fucs + fppp '''
-   main(args.positives, args.negatives, args.reference, quiet=True,
+   main(args.positives, args.negatives, args.reference, quiet=args.quiet,
         clean_run=True, annotate=True)
 
 def fucs(args):
    ''' Find Unique Core Sequences '''
-   find_ucs(args.positives, args.negatives, args.reference, quiet=True,
+   find_ucs(args.positives, args.negatives, args.reference, quiet=args.quiet,
             clean_run=True)
 
 def fppp(args):
    ''' Find PCR Primer Pairs '''
    settings['pcr']['seq_selection'] = None
    find_primer_pairs(args.template, args.positives, args.negatives,
-                     quiet=True, clean_run=True, annotate=True)
+                     quiet=args.quiet, clean_run=True, annotate=True)
 
 def anno(args):
    ''' Annotate sequences using a protein BLAST DB '''
@@ -4399,7 +4399,7 @@ def pcrs(args):
 
 def expl(args):
    ''' Explore the positive and negative genomes for overrepresented k-mers'''
-   explore(args.positives, args.negatives, quiet=True, clean_run=True)
+   explore(args.positives, args.negatives, quiet=args.quiet, clean_run=True)
 
 def test(args):
    ''' Virtual PCR - Simulate PCR and predict PCR product for the provided
@@ -4408,7 +4408,7 @@ def test(args):
    test_dir = os.path.dirname(os.path.realpath(__file__))
    pos = ["%s/test/bla.fa"%(test_dir)]
    neg = ["%s/test/sul.fa"%(test_dir)]
-   main(pos, neg, None, quiet=True, clean_run=False, annotate=True)
+   main(pos, neg, None, quiet=args.quiet, clean_run=False, annotate=True)
    if os.path.exists('results.tsv'):
       print('Test completed successfully!')
    else:
@@ -4509,6 +4509,10 @@ if __name__ == '__main__':
                        help=("This will overwrite the set value in the settings"))
    parser.add_argument("--z_threshold", default=None,
                        help=("This will overwrite the set value in the settings"))
+   # Standard arguments
+   parser.add_argument("-v", "--verbose", default=False, action='store_true',
+                       help=("This option write live information of the "
+                             "progress to the screen"))
    args = parser.parse_args()
 
    entry_points = ['full', 'fucs', 'fppp', 'vpcr', 'anno', 'pcrs', 'expl', 'test']
@@ -4595,6 +4599,8 @@ if __name__ == '__main__':
          sys.stderr.write(('WARNING: The following references were ignored,'
                            ' due to not being fasta!\n%s\n\n')%('\n'.join(fi)))
       args.references = [x for path in args.references for x in glob.glob(path) if check_file_type(x) == 'fasta']
+
+   args.quiet = False if args.verbose else True
 
    # Run Service
    print('Running %s'%(args.entry_point))
