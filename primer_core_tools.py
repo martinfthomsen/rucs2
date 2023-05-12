@@ -22,7 +22,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 '''
-import sys, os, time, re, gzip, json, types, shutil, glob, bisect
+import sys, os, time, re, gzip, json, types, shutil, glob, bisect, pickle, gc
 import primer3
 import numpy as np
 from subprocess import call, Popen, PIPE, STDOUT as subprocess_stdout
@@ -4066,7 +4066,7 @@ def find_ucs(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
          log.stats.summary(f)
 
 def count_kmers(files, kmer_size=20, kmer_count_threshold=1, min_seq_len=500,
-                log_entry=None):
+                sep_on_first=0, log_entry=None):
    ''' Count in how many files, a given k-mer is found. '''
    #Extract kmers
    kmers = {}
@@ -4092,16 +4092,31 @@ def count_kmers(files, kmer_size=20, kmer_count_threshold=1, min_seq_len=500,
                             ])
       # COMPUTE K-MER COUNT
       for kmer in kmers_i:
-         if not kmer in kmers:
-            kmers[kmer] = 1
+         if sep_on_first > 0:
+            sep = kmer[0:sep_on_first].upper()
+            if not sep in kmers:
+                kmers[sep] = {}
+            if not kmer in kmers[sep]:
+               kmers[sep][kmer] = 1
+            else:
+               kmers[sep][kmer] += 1
          else:
-            kmers[kmer] += 1
+            if not kmer in kmers:
+               kmers[kmer] = 1
+            else:
+               kmers[kmer] += 1
 
    # Filter low occuring k-mers
    if kmer_count_threshold > 1:
-      for kmer in kmers:
-         if kmers[kmer] < 2:
-            del kmers[kmer]
+      if sep_on_first > 0:
+         for sep in kmers:
+            for kmer in kmers[sep]:
+               if kmers[kmer] < kmer_count_threshold:
+                  del kmers[kmer]
+      else:
+         for kmer in kmers:
+            if kmers[kmer] < kmer_count_threshold:
+               del kmers[kmer]
 
    return kmers
 
@@ -4112,6 +4127,7 @@ def explore_representation(positives, negatives, kmer_size=None):
    min_seq_len = settings['pcr']['priming']['primer3']['PRIMER_PRODUCT_SIZE_RANGE'][0]
    kmer_count_threshold = settings['explore']['kmer_count_threshold']
    z_threshold = settings['explore']['z_threshold']
+   kmer_seps = ['A', 'T', 'G', 'C']
 
    if log is not None:
       # Initialize k-mer and sequences statistics logging
@@ -4124,37 +4140,62 @@ def explore_representation(positives, negatives, kmer_size=None):
    # Count k-mers from positive references
    if log is not None:
       log.progress.add('pos', 'Counting Positive k-mers', 'explore')
+
    kmer_counts_pos = count_kmers(positives, kmer_size, kmer_count_threshold,
                                  min_seq_len=settings['ucs']['min_seq_len_pos'],
-                                 log_entry='pos')
-   if len(kmer_counts_pos) == 0:
+                                 sep_on_first=1, log_entry='pos')
+
+   pos_kmer_count = sum(map(len, kmer_counts_pos.values()))
+   if pos_kmer_count == 0:
       raise UserWarning('No positive k-mers were found!')
+
    if log is not None:
       log.progress['pos'].log_time()
-      log.stats.add_row('kmer',
-                        [len(kmer_counts_pos), 'Number of positive k-mers'])
+      log.stats.add_row('kmer',[pos_kmer_count, 'Number of positive k-mers'])
+
+   # Pickle the kmer-keys and kmer_counts_pos dictionary and remove object to save space
+   if log is not None:
+      log.progress.add('store_pos_kmercounts', 'store k-mers counts', 'pos')
+
+   for sep in kmer_seps:
+      with open(f'kmer_counts_pos_{sep}.pkl', 'wb') as f:
+         pickle.dump(kmer_counts_pos[sep], f)
+
+   del kmer_counts_pos
+   gc.collect()
+
+   # Count k-mers from negative references
+   if log is not None:
       log.progress.add('neg', 'Counting Negative k-mers', 'explore')
 
-   # Count k-mers from positive references
    kmer_counts_neg = count_kmers(negatives, kmer_size, kmer_count_threshold,
                                  min_seq_len=settings['ucs']['min_seq_len_pos'],
-                                 log_entry='neg')
-   if len(kmer_counts_neg) == 0:
+                                 sep_on_first=1, log_entry='neg')
+
+   neg_kmer_count = sum(map(len, kmer_counts_neg.values()))
+   if neg_kmer_count == 0:
       raise UserWarning('No negative k-mers were found!')
+
    if log is not None:
       log.progress['neg'].log_time()
-      log.stats.add_row('kmer',
-                        [len(kmer_counts_neg), 'Number of negative k-mers'])
       log.progress.add('zfilter', 'Filtering insignificant k-mers', 'explore')
+      log.stats.add_row('kmer', [neg_kmer_count, 'Number of negative k-mers'])
+
+   # Pickle the kmer-keys and kmer_counts_neg dictionary and remove object to save space
+   if log is not None:
+      log.progress.add('store_neg_kmercounts', 'store k-mers counts', 'neg')
+
+   for sep in kmer_seps:
+      with open(f'kmer_counts_neg_{sep}.pkl', 'wb') as f:
+         pickle.dump(kmer_counts_neg[sep], f)
+
+   del kmer_counts_neg
+   gc.collect()
 
    # Compute z-score and filter insignificant kmers
-   pooled_kmers = set(list(kmer_counts_pos.keys()) + list(kmer_counts_neg.keys()))
    p_count = len(positives)
    n_count = len(negatives)
    z_scores = {}
-   for kmer in pooled_kmers:
-      if not kmer in kmer_counts_pos: kmer_counts_pos[kmer] = 0
-      if not kmer in kmer_counts_neg: kmer_counts_neg[kmer] = 0
       # z = (P1-P2)/sqrt(PP*(1-PP)*(1/n1+1/n2))
       pooled_p = (kmer_counts_pos[kmer] + kmer_counts_neg[kmer]) / (p_count + n_count)
       if pooled_p > 0 and pooled_p < 1:
@@ -4167,19 +4208,57 @@ def explore_representation(positives, negatives, kmer_size=None):
          del kmer_counts_pos[kmer]
       if z_scores[kmer] > -z_threshold:
          del kmer_counts_neg[kmer]
+   pos_kmer_count = 0
+   neg_kmer_count = 0
+   # Process the kmer-sets independently
+   for sep in kmer_seps:
+      if log is not None:
+         log.progress.add(f'filter_{sep}', f'Processing k-mers ({sep})...', 'filter')
+
+      # Load kmer counts
+      with open(f'kmer_counts_pos_{sep}.pkl', 'rb') as f:
+         kmer_counts_pos = pickle.load(f)
+
+      with open(f'kmer_counts_neg_{sep}.pkl', 'rb') as f:
+         kmer_counts_neg = pickle.load(f)
+
+      # Identify significantly over- or under-represented k-mers
+      for kmer in kmer_counts_pos.keys() | kmer_counts_pos.keys():
+         if not kmer in kmer_counts_pos: kmer_counts_pos[kmer] = 0
+         if not kmer in kmer_counts_neg: kmer_counts_neg[kmer] = 0
+
+
+      pos_kmer_count += len(kmer_counts_pos)
+      neg_kmer_count += len(kmer_counts_neg)
+
+      gc.collect()
+      # Pickle the significant k-mer counts dictionary
+      with open(f'kmer_counts_pos_sig_{sep}.pkl', 'wb') as f:
+         pickle.dump(set(kmer_counts_pos.keys()), f)
+
+      with open(f'kmer_counts_neg_sig_{sep}.pkl', 'wb') as f:
+         pickle.dump(set(kmer_counts_neg.keys()), f)
+
+      del kmer_counts_pos, kmer_counts_neg
+      gc.collect()
 
    if log is not None:
       log.progress['zfilter'].log_time()
-      log.stats.add_row('kmer',
-                        [len(kmer_counts_pos), 'Number of significant positive k-mers'])
-      log.stats.add_row('kmer',
-                        [len(kmer_counts_neg), 'Number of significant negative k-mers'])
+      log.stats.add_row('kmer', [pos_kmer_count, 'Number of significant positive k-mers'])
+      log.stats.add_row('kmer', [neg_kmer_count, 'Number of significant negative k-mers'])
 
    # Create consensus sequences for the over represented k-mers
    if log is not None:
-      log.progress.add('make_ors', 'Computing k-mer contigs and scaffolds','explore')
-   # Align to pos refs until at least 95% of kmers has been aligned to a ref
-   max_pos = len(kmer_counts_pos)
+      log.progress.add('make_ors', 'Computing k-mer contigs and scaffolds (ORS)','explore')
+
+   # Load all significant positive kmer counts
+   sig_pos_kmers = set()
+   for sep in kmer_seps:
+      with open(f'kmer_counts_pos_sig_{sep}.pkl', 'rb') as f:
+         sig_pos_kmers.update(pickle.load(f))
+
+   # Align to pos refs until enough k-mers has been aligned to a ref
+   max_pos = len(sig_pos_kmers)
    combined_contigs_ors = 'ors.contigs.fa'
    combined_disscafs_ors = 'ors.disscafs.fa'
    with open(combined_contigs_ors, 'w') as f_cont, open(combined_disscafs_ors, 'w') as f_diss:
@@ -4188,7 +4267,7 @@ def explore_representation(positives, negatives, kmer_size=None):
             prefix = 'ors_%s'%(os.path.basename(ref).rsplit('.', 1)[0])
             # Store k-mers as fastq
             pos_kmers_fq = 'pos_kmers.fq'
-            save_as_fastq(kmer_counts_pos, pos_kmers_fq)
+            save_as_fastq(sig_pos_kmers, pos_kmers_fq)
             # Align k-mers to reference (Note: Unmapped k-mers are lost in this process)
             pos_kmers = align_to_ref(ref, pos_kmers_fq, settings['ucs']['bwa_settings'],
                                     prefix, settings['ucs']['sam_flags_ignore'],
@@ -4208,20 +4287,35 @@ def explore_representation(positives, negatives, kmer_size=None):
             else: f_diss.write('\n')
 
             # Remove aligned k-mers
-            for kmer in pos_kmers:
-               del kmer_counts_pos[kmer]
+            if log is not None:
+               log.progress.add(f'remove_kmers_{ref}', f'Removing the {len(pos_kmers)} k-mers that was aligned sucessfully...', 'make_ors')
+
+            sig_pos_kmers -= pos_kmers.keys()
+
+            if log is not None:
+               log.progress.add(f'status_{ref}', f'{len(sig_pos_kmers)} k-mers out of {max_pos} ({int(len(sig_pos_kmers) / max_pos * 100)}%) remains to be aligned.', 'make_ors')
 
    if log is not None:
       log.progress['make_ors'].log_time()
       counts = analyse_genome(combined_contigs_ors, min_seq_len)
       log.stats.add_row('seqs', [os.path.basename(combined_contigs_ors)] + counts)
 
+   # Delete sig_pos_kmers list to save space
+   del sig_pos_kmers
+   gc.collect()
+
    # Create consensus sequences for the under represented k-mers
    if log is not None:
-      log.progress.add('make_urs', 'Computing k-mer contigs and scaffolds','explore')
+      log.progress.add('make_urs', 'Computing k-mer contigs and scaffolds (URS)','explore')
 
-   # WHILE loop pos refs until at least 95% of kmers has been aligned to a ref
-   max_neg = len(kmer_counts_neg)
+   # Load all significant negative kmer counts
+   sig_neg_kmers = set()
+   for sep in kmer_seps:
+      with open(f'kmer_counts_neg_sig_{sep}.pkl', 'rb') as f:
+         sig_neg_kmers.update(pickle.load(f))
+
+   # WHILE loop neg refs until enough k-mers has been aligned to a ref
+   max_neg = len(sig_neg_kmers)
    combined_contigs_urs = 'urs.contigs.fa'
    combined_disscafs_urs = 'urs.disscafs.fa'
    with open(combined_contigs_urs, 'w') as f_cont, open(combined_disscafs_urs, 'w') as f_diss:
@@ -4230,7 +4324,7 @@ def explore_representation(positives, negatives, kmer_size=None):
             prefix = 'urs_%s'%(os.path.basename(ref).rsplit('.', 1)[0])
             # Store k-mers as fastq
             neg_kmers_fq = 'neg_kmers.fq'
-            save_as_fastq(kmer_counts_neg, neg_kmers_fq)
+            save_as_fastq(sig_neg_kmers, neg_kmers_fq)
             # Align k-mers to reference (Note: Unmapped k-mers are lost in this process)
             neg_kmers = align_to_ref(ref, neg_kmers_fq, settings['ucs']['bwa_settings'],
                                      prefix, settings['ucs']['sam_flags_ignore'],
@@ -4250,8 +4344,13 @@ def explore_representation(positives, negatives, kmer_size=None):
             else: f_diss.write('\n')
 
             # Remove aligned k-mers
-            for kmer in neg_kmers:
-               del kmer_counts_neg[kmer]
+            if log is not None:
+               log.progress.add(f'remove_kmers_{ref}', f'Removing the {len(neg_kmers)} k-mers that was aligned sucessfully...', 'make_urs')
+
+            sig_neg_kmers -= neg_kmers.keys()
+
+            if log is not None:
+               log.progress.add(f'status_{ref}', f'{len(sig_neg_kmers)} k-mers out of {max_neg} ({int(len(sig_neg_kmers) / max_neg *100)}%) remains to be aligned.', 'make_urs')
 
    if log is not None:
       log.progress['make_urs'].log_time()
@@ -4304,7 +4403,7 @@ def explore(positives, negatives, kmer_size=None, quiet=False, clean_run=True,
       negatives = create_symbolic_files(negatives, ref_dir, reuse=True)
       log.progress['input'].log_time()
 
-      # Find unique core sequences
+      # Find over- and under-represented sequences
       ors_files, urs_files = explore_representation(positives, negatives, kmer_size)
 
       # Print Sequence Analysis Table
