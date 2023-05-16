@@ -1524,7 +1524,7 @@ def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
       # Filter K-mers with low occurences
       if log is not None and log_entry is not None:
          log.progress.add(f'flt_{os.path.basename(filename)}',
-                          f'Filtering k-mers with low coverage...', log_entry)
+                          f'Filtering k-mers with low coverage', log_entry)
       sum_ = 0
       kmer_count = len(kmers)
       for kmer, count in kmers.items():
@@ -2261,7 +2261,7 @@ def find_complementing_kmers(kmers, files, kmer_size=20, min_seq_len=500):
 
       # Remove K-mers from A which are found in B
       if log is not None:
-          log.progress.add(f'comp_{os.path.basename(genome)}', 'Filtering the negative k-mers found in {os.path.basename(genome)}...','pan')
+          log.progress.add(f'comp_{os.path.basename(genome)}', 'Filtering the negative k-mers found in {os.path.basename(genome)}','pan')
       kmers = set_op('complement', kmers, negative_kmers, method='list')
       if log is not None:
          log.progress[f'comp_{os.path.basename(genome)}'].log_time()
@@ -4124,7 +4124,7 @@ def count_kmers(files, kmer_size=20, kmer_count_threshold=1, min_seq_len=500,
                                         min_seq_len, to_upper, buffer, log_entry)
       # COMPUTE K-MER COUNT
       if log is not None and log_entry is not None:
-         log.progress.add(f'kmercount_{os.path.basename(genome)}', f'Computing k-mer counts for {os.path.basename(genome)}...', log_entry)
+         log.progress.add(f'kmercount_{os.path.basename(genome)}', f'Computing k-mer counts for {os.path.basename(genome)}', log_entry)
 
       for kmer in kmers_i:
          if sep_on_first > 0:
@@ -4145,7 +4145,7 @@ def count_kmers(files, kmer_size=20, kmer_count_threshold=1, min_seq_len=500,
 
    # Filter low occuring k-mers
    if log is not None and log_entry is not None:
-      log.progress.add(f'filter_kmers_{log_entry}', f'Filter low occuring k-mers...', log_entry)
+      log.progress.add(f'filter_kmers_{log_entry}', f'Filter low occuring k-mers', log_entry)
    if kmer_count_threshold > 1:
       if sep_on_first > 0:
          for sep in kmers:
@@ -4249,7 +4249,7 @@ def explore_representation(positives, negatives, kmer_size=None):
    # Process the kmer-sets independently
    for sep in kmer_seps:
       if log is not None:
-         log.progress.add(f'filter_{sep}', f'Processing k-mers ({sep})...', 'filter')
+         log.progress.add(f'filter_{sep}', f'Processing k-mers ({sep})', 'filter')
 
       # Load kmer counts
       with open(f'kmer_counts_pos_{sep}.pkl', 'rb') as f:
@@ -4336,7 +4336,7 @@ def explore_representation(positives, negatives, kmer_size=None):
 
             # Remove aligned k-mers
             if log is not None:
-               log.progress.add(f'remove_kmers_{ref}', f'Removing the {len(pos_kmers)} k-mers that was aligned sucessfully...', 'make_ors')
+               log.progress.add(f'remove_kmers_{ref}', f'Removing the {len(pos_kmers)} k-mers that was aligned sucessfully', 'make_ors')
 
             sig_pos_kmers -= pos_kmers.keys()
 
@@ -4394,7 +4394,7 @@ def explore_representation(positives, negatives, kmer_size=None):
 
             # Remove aligned k-mers
             if log is not None:
-               log.progress.add(f'remove_kmers_{ref}', f'Removing the {len(neg_kmers)} k-mers that was aligned sucessfully...', 'make_urs')
+               log.progress.add(f'remove_kmers_{ref}', f'Removing the {len(neg_kmers)} k-mers that was aligned sucessfully', 'make_urs')
 
             sig_neg_kmers -= neg_kmers.keys()
 
