@@ -78,7 +78,7 @@
             "PRIMER_WT_TM_LT":                      1.0, // Penalty weight for primer temp lower than optimum
             "PRIMER_WT_TM_GT":                      1.0, // Penalty weight for primer temp higher than optimum
             "PRIMER_PAIR_MAX_DIFF_TM":              1.0, // Maximum acceptable (unsigned) difference between the melting temperatures of the left and right primers.(default 100)
-            "PRIMER_MAX_END_GC":                    3,   // Max number of GC bases in 3" end 
+            "PRIMER_MAX_END_GC":                    3,   // Max number of GC bases in 3" end
             "PRIMER_MAX_END_STABILITY":           100.0, // Max end stability
             "PRIMER_WT_END_STABILITY":              0.0, // Penalty weight for end stability
             "PRIMER_MAX_NS_ACCEPTED":               0,   // Max number of Ns accepted in any primer
@@ -126,14 +126,14 @@
             "SEQUENCE_PRIMER_PAIR_OK_REGION_LIST": null, // [[<left_start>,<left_length>,<right_start>,<right_length>], ...] (NOTE: Use -1 to leave empty)
             "SEQUENCE_INCLUDED_REGION": null,            // eg. [[36,342], ...]
             "SEQUENCE_EXCLUDED_REGION": null,            // eg. [[36,342], ...]
-            "SEQUENCE_INTERNAL_EXCLUDED_REGION": null,   // 
-            "SEQUENCE_PRIMER": null,                     // 
-            "SEQUENCE_INTERNAL_OLIGO": null,             // 
-            "SEQUENCE_PRIMER_REVCOMP": null,             // 
-            "SEQUENCE_FORCE_LEFT_START": null,           // 
-            "SEQUENCE_FORCE_LEFT_END": null,             // 
-            "SEQUENCE_FORCE_RIGHT_START": null,          // 
-            "SEQUENCE_FORCE_RIGHT_END": null             // 
+            "SEQUENCE_INTERNAL_EXCLUDED_REGION": null,   //
+            "SEQUENCE_PRIMER": null,                     //
+            "SEQUENCE_INTERNAL_OLIGO": null,             //
+            "SEQUENCE_PRIMER_REVCOMP": null,             //
+            "SEQUENCE_FORCE_LEFT_START": null,           //
+            "SEQUENCE_FORCE_LEFT_END": null,             //
+            "SEQUENCE_FORCE_RIGHT_START": null,          //
+            "SEQUENCE_FORCE_RIGHT_END": null             //
          },
          "blastn_settings": { // Primer binding searches
             "num_alignments":  1000,

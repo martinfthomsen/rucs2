@@ -1440,23 +1440,13 @@ def find_intersecting_kmers(files, kmer_size=20, min_seq_len=500):
    for i, genome in enumerate(files):
       # ADD GENOME TO SET
       gname = genome.split('/')[-1]
-      if log is not None:
-         log.progress.add('core%s'%i, 'Processing %s'%os.path.basename(genome),
-                          'core')
       # EXTRACT K-MERS FROM SEQEUNCE DATA FROM INPUT FILES
       to_upper = settings['input']['to_upper']
       buffer = settings['input']['use_ram_buffer']
       kmers_i = extract_kmers_from_file(genome, i, kmer_size, '',
                                         settings['ucs']['min_kmer_count'],
                                         settings['ucs']['rev_comp'],
-                                        min_seq_len, to_upper, buffer)
-      if log is not None:
-         log.progress['core%s'%i].log_time()
-         log.stats.add_row('kmer',
-                           [len(kmers_i),
-                            'Extraction of k-mers from %s'%(
-                              os.path.basename(genome))
-                            ])
+                                        min_seq_len, to_upper, buffer, 'core')
       # COMPUTE INTERSECTION
       if i > 0: kmers = set_op('intersection', kmers, kmers_i, method='list')
       else: kmers = kmers_i
@@ -1471,7 +1461,7 @@ def find_intersecting_kmers(files, kmer_size=20, min_seq_len=500):
 def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
                             kmer_prefix='', fastq_kmer_count_threshold=20,
                             revcom=True, min_seq_len=500, to_upper=False,
-                            buffer=False):
+                            buffer=False, log_entry=None):
    '''
    NAME      Extract K-mers from sequence
    AUTHOR    Martin CF Thomsen
@@ -1498,6 +1488,9 @@ def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
       {'this_is_seq_4': 1, 'this_is_seq_3': 1,
        'this_is_seq_2': 1, 'this_is_seq_1': 1}
    '''
+   if log is not None and log_entry is not None:
+      log.progress.add(f'ext_{os.path.basename(filename)}',
+                       f'Processing {os.path.basename(filename)}', log_entry)
    # Extract K-mers from the sequences
    kmers = {}
    seqcount = 0
@@ -1518,20 +1511,31 @@ def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
          kmerstot += len(seq) - kmer_size + 1
 
       seqcount += 1
+
+   if log is not None and log_entry is not None:
+      kmersum = sum(kmers.values())
+      log.stats.add_row('kmer', [len(kmers), f'Extracted k-mers from {os.path.basename(filename)}'])
+      log.stats.add_row('kmer', [kmerstot - kmersum, f"Skipped k-mers from {os.path.basename(filename)}"])
+      log.stats.add_row('kmer', [kmersum - len(kmers), f'Doublicate k-mers from {os.path.basename(filename)}'])
+      log.progress[f'ext_{os.path.basename(filename)}'].log_time()
+
    # File type dependend filtering
    if file_type == 'fastq':
       # Filter K-mers with low occurences
-      sys.stderr.write("# Filtering K-mers with low coverage...\n")
+      if log is not None and log_entry is not None:
+         log.progress.add(f'flt_{os.path.basename(filename)}',
+                          f'Filtering k-mers with low coverage...', log_entry)
       sum_ = 0
       kmer_count = len(kmers)
       for kmer, count in kmers.items():
          if count < fastq_kmer_count_threshold:
             del kmers[kmer]
             sum_ += count
-            #sys.stderr.write("K-mer (%s) removed due to low occurrence (%s)!\n"%(kmer, count))
-      sys.stderr.write(("%s K-mers filtered with an average coverage of %.4f!"
-                        "\n")%(count_kmers, float(sum_)/count_kmers))
       kmer_count -= len(kmers)
+      if log is not None and log_entry is not None:
+         log.stats.add_row('kmer', [kmer_count, f'Filtered k-mers from {os.path.basename(filename)} with an average coverage of {sum_/kmer_count:.4f}'])
+         log.progress[f'flt_{os.path.basename(filename)}'].log_time()
+
    return kmers
 
 def extract_kmers(kmers, seq, size=20, kmer_prefix='', charspace=list('ATGC')):
@@ -2246,27 +2250,21 @@ def find_complementing_kmers(kmers, files, kmer_size=20, min_seq_len=500):
 
    # Loop through set B files
    for i, genome in enumerate(files):
-      if log is not None:
-         log.progress.add('pan%s'%i, 'Processing %s'%os.path.basename(genome),
-                          'pan')
       # Extract K-mers from the B file
       to_upper = settings['input']['to_upper']
       buffer = settings['input']['use_ram_buffer']
       negative_kmers = extract_kmers_from_file(genome, i, kmer_size, '',
                                                settings['ucs']['min_kmer_count'],
                                                settings['ucs']['rev_comp'],
-                                               min_seq_len, to_upper, buffer)
+                                               min_seq_len, to_upper, buffer, 'pan')
       # TODO: Filter low counts?
 
       # Remove K-mers from A which are found in B
+      if log is not None:
+          log.progress.add(f'comp_{os.path.basename(genome)}', 'Filtering the negative k-mers found in {os.path.basename(genome)}...','pan')
       kmers = set_op('complement', kmers, negative_kmers, method='list')
       if log is not None:
-         log.progress['pan%s'%i].log_time()
-         log.stats.add_row('kmer',
-                           [len(negative_kmers),
-                            'Extraction k-mers from %s'%(
-                              os.path.basename(genome))
-                            ])
+         log.progress[f'comp_{os.path.basename(genome)}'].log_time()
 
    if log is not None:
       log.progress['pan'].log_time()
@@ -4117,24 +4115,17 @@ def count_kmers(files, kmer_size=20, kmer_count_threshold=1, min_seq_len=500,
    for i, genome in enumerate(files):
       # ADD GENOME TO SET
       gname = genome.split('/')[-1]
-      if log is not None and log_entry is not None:
-         log.progress.add('genome_%s_%s'%(log_entry, i), 'Processing %s'%os.path.basename(genome),
-                          log_entry)
       # EXTRACT K-MERS FROM SEQEUNCE DATA FROM INPUT FILES
       to_upper = settings['input']['to_upper']
       buffer = settings['input']['use_ram_buffer']
       kmers_i = extract_kmers_from_file(genome, i, kmer_size, '',
                                         settings['ucs']['min_kmer_count'],
                                         settings['ucs']['rev_comp'],
-                                        min_seq_len, to_upper, buffer)
-      if log is not None and log_entry is not None:
-         log.progress['genome_%s_%s'%(log_entry, i)].log_time()
-         log.stats.add_row('kmer',
-                           [len(kmers_i),
-                            'Extraction of k-mers from %s'%(
-                              os.path.basename(genome))
-                            ])
+                                        min_seq_len, to_upper, buffer, log_entry)
       # COMPUTE K-MER COUNT
+      if log is not None and log_entry is not None:
+         log.progress.add(f'kmercount_{os.path.basename(genome)}', f'Computing k-mer counts for {os.path.basename(genome)}...', log_entry)
+
       for kmer in kmers_i:
          if sep_on_first > 0:
             sep = kmer[0:sep_on_first].upper()
@@ -4149,8 +4140,12 @@ def count_kmers(files, kmer_size=20, kmer_count_threshold=1, min_seq_len=500,
                kmers[kmer] = 1
             else:
                kmers[kmer] += 1
+         if log is not None and log_entry is not None:
+            log.progress[f'kmercount_{os.path.basename(genome)}'].log_time()
 
    # Filter low occuring k-mers
+   if log is not None and log_entry is not None:
+      log.progress.add(f'filter_kmers_{log_entry}', f'Filter low occuring k-mers...', log_entry)
    if kmer_count_threshold > 1:
       if sep_on_first > 0:
          for sep in kmers:
@@ -4161,6 +4156,8 @@ def count_kmers(files, kmer_size=20, kmer_count_threshold=1, min_seq_len=500,
          for kmer in kmers:
             if kmers[kmer] < kmer_count_threshold:
                del kmers[kmer]
+   if log is not None and log_entry is not None:
+      log.progress[f'filter_kmers_{log_entry}'].log_time()
 
    return kmers
 
@@ -4277,7 +4274,6 @@ def explore_representation(positives, negatives, kmer_size=None):
 
          if urs_fail:
             del kmer_counts_neg[kmer]
-
 
       pos_kmer_count += len(kmer_counts_pos)
       neg_kmer_count += len(kmer_counts_neg)
