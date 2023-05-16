@@ -1501,36 +1501,40 @@ def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
    # Extract K-mers from the sequences
    kmers = {}
    seqcount = 0
+   kmerstot = 0
    file_type = check_file_type([filename])
    for i, (seq, name, desc) in enumerate(seqs_from_file(filename,
                                                         to_upper=to_upper,
                                                         use_ram_buffer=buffer)):
       if len(seq) < min_seq_len: continue # Skip small sequences
+
       # Extract kmers from sequence (GenomePrefix_SequencePrefix_KmerPosition) to 'kmers'
-      extract_kmers(kmers, seq, "%s_%d"%(genome_prefix, i), kmer_size,
-                   kmer_prefix)
+      extract_kmers(kmers, seq, kmer_size, kmer_prefix)
+      kmerstot += len(seq) - kmer_size + 1
+
       # Extract kmers from the reverse complement sequence
       if revcom:
-         extract_kmers(kmers, reverse_complement(seq), "%s_%d"%(genome_prefix, i),
-                      kmer_size, kmer_prefix)
+         extract_kmers(kmers, reverse_complement(seq), kmer_size, kmer_prefix)
+         kmerstot += len(seq) - kmer_size + 1
+
       seqcount += 1
    # File type dependend filtering
    if file_type == 'fastq':
       # Filter K-mers with low occurences
       sys.stderr.write("# Filtering K-mers with low coverage...\n")
       sum_ = 0
-      count_kmers = len(kmers)
+      kmer_count = len(kmers)
       for kmer, count in kmers.items():
          if count < fastq_kmer_count_threshold:
             del kmers[kmer]
             sum_ += count
             #sys.stderr.write("K-mer (%s) removed due to low occurrence (%s)!\n"%(kmer, count))
-      count_kmers -= len(kmers)
       sys.stderr.write(("%s K-mers filtered with an average coverage of %.4f!"
                         "\n")%(count_kmers, float(sum_)/count_kmers))
+      kmer_count -= len(kmers)
    return kmers
 
-def extract_kmers(kmers, seq, position_prefix, size=20, kmer_prefix=''):
+def extract_kmers(kmers, seq, size=20, kmer_prefix='', charspace=list('ATGC')):
    '''
    NAME      Extract K-mers from sequence
    AUTHOR    Martin CF Thomsen
@@ -1541,34 +1545,74 @@ def extract_kmers(kmers, seq, position_prefix, size=20, kmer_prefix=''):
    ARGUMENTS
       kmers: The dictionary where the found K-mers are stored.
       seq: The sequence from which the kmers are generated.
-      position_prefix: A prefix which is added to the position note.
       size: The size of the generated kmers. (Sequences shorter than the K-mer
          size will not generate K-mers.)
       kmer_prefix: A prefix used to filter which K-mers are stored. (Only
          K-mers starting with this prefix will be added.)
    USAGE
-      >>> kmers = {}
-      >>> seq = "abcdefghijklmnopqrstuvwxyz"
-      >>> extract_kmers(kmers, seq, 'alphabet', 20, '')
-      >>> kmers
-      {'abcdefghijklmnopqrst': ['alphabet_0'],
-       'defghijklmnopqrstuvw': ['alphabet_3'],
-       'bcdefghijklmnopqrstu': ['alphabet_1'],
-       'efghijklmnopqrstuvwx': ['alphabet_4'],
-       'cdefghijklmnopqrstuv': ['alphabet_2'],
-       'fghijklmnopqrstuvwxy': ['alphabet_5'],
-       'ghijklmnopqrstuvwxyz': ['alphabet_6']}
+      >>> let = {}; extract_kmers(let, "abcdefghijklmnopqrstuvwxyz", 5, '', 'efghijkl'); let
+      {'efghi': 1, 'fghij': 1, 'ghijk': 1, 'hijkl': 1}
+      >>> kmers = {}; extract_kmers(kmers, 'ATGTCSTAGAGGNGCTA', 5); kmers
+      {'ATGTC': 1, 'TAGAG': 1, 'AGAGG': 1}
+      >>> kmers = {}; extract_kmers(kmers, 'AAAGGNGCTA', 5); kmers
+      {'AAAGG': 1}
+      >>> kmers = {}; extract_kmers(kmers, 'ACGNAATTGCACTGATACCGCCGGCNTGNGAGAGGCAAGCGATGACGAG'); kmers
+      {'AATTGCACTGATACCGCCGG': 1, 'ATTGCACTGATACCGCCGGC': 1, 'GAGAGGCAAGCGATGACGAG': 1}
+      >>> kmers = {}; extract_kmers(kmers, 'NACGAATTGCACTGCCGCCGGCNTGNGAGAGGCAAGCGATGACGAG'); kmers
+      {'ACGAATTGCACTGCCGCCGG': 1, 'CGAATTGCACTGCCGCCGGC': 1, 'GAGAGGCAAGCGATGACGAG': 1}
+      >>> kmers = {}; extract_kmers(kmers, 'AAAGTNNAAAA',5); kmers
+      {'AAAGT': 1}
+      >>> kmers = {}; extract_kmers(kmers, 'AAAGTNAAAAN',5); kmers
+      {'AAAGT': 1}
    '''
    # ITERATE THE SEQUENCE TO FIND K-MERS
    kmer_prefix_len = len(kmer_prefix)
-   seqiter = range(len(seq)-size+1)
-   for j in seqiter:
+   # Find a valid starting sequence
+   j = 0
+   h = j + size - 2
+   while h >= j:
+      if seq[h] in charspace:
+         h -= 1
+      else:
+         # Reset and search again
+         j = h + 1
+         h = j + size - 2
+         if h > len(seq):
+            j = len(seq)
+            break
+   # Find k-mers
+   while j <= len(seq) - size:
+      if seq[j+size-1] not in charspace:
+         # Skip size ahead to get past the invalid character
+         j += size
+         # Find the first valid sequence
+         if j < len(seq)-size+1:
+            eol = False
+            h = j + size - 1
+            while h >= j:
+               if seq[h] in charspace:
+                  h -= 1
+               else:
+                  # Reset and search again
+                  j = h + 1
+                  h = j + size - 1
+                  if h > len(seq) - 1:
+                     eol = True
+                     j = len(seq)
+                     break
+         else:
+            # No more possible kmers - skip the rest
+            j = len(seq)
+            eol = True
+         if eol:
+            break
       kmer = seq[j:j+size]
       # CHECK IF K-MER STARTS WITH SPECIFIED PREFIX
       if kmer_prefix == kmer[:kmer_prefix_len]:
          # ADD K-MER
          if kmer in kmers: kmers[kmer] += 1
          else: kmers[kmer] = 1
+      j += 1
 
 def reverse_complement(seq):
    ''' Compute the reverse complementary DNA string.
