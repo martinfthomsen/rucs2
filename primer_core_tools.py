@@ -1896,15 +1896,15 @@ def bwa(ref, fastq, paired_fastq=None, bwa_settings=None, output_prefix='aln'):
    # Validate inputs -M? -R? -N?
    # http://bio-bwa.sourceforge.net/bwa.shtml
    defaults = { # Name: (type, arg, default_value)
-      'max_mismatch':       (int, '-n',             6), # edit distance
-      'max_mismatch_score': (int, '-M',            10), # edit distance
-      'max_gaps':           (int, '-o',             1), # max number of gaps
-      'max_gap_ext':        (int, '-e',             0), # max gap extensions
-      'gap_penalty_open':   (int, '-O',            10), # gap penalty open
-      'gap_penalty_ext':    (int, '-E',            10), # gap penalty extension
-      'seed_length':        (int, '-l',            35), # Length of the seed
-      'max_mismatch_seed':  (int, '-k',             0), # edit distance in seed
-      'threads':            (int, '-t',             4)  # paralelisation using multi threads
+      'max_mismatch':       (int, '-n',   6), # edit distance
+      'max_mismatch_score': (int, '-M',  10), # edit distance
+      'max_gaps':           (int, '-o',   1), # max number of gaps
+      'max_gap_ext':        (int, '-e',   0), # max gap extensions
+      'gap_penalty_open':   (int, '-O',  10), # gap penalty open
+      'gap_penalty_ext':    (int, '-E',  10), # gap penalty extension
+      'seed_length':        (int, '-l',  35), # Length of the seed
+      'max_mismatch_seed':  (int, '-k',   0), # edit distance in seed
+      'threads':            (int, '-t',   4)  # paralelisation using multi threads
    }
    if bwa_settings is None: bwa_settings = {}
    for s, v in bwa_settings.items():
@@ -4144,20 +4144,25 @@ def count_kmers(files, kmer_size=20, kmer_count_threshold=1, min_seq_len=500,
             log.progress[f'kmercount_{os.path.basename(genome)}'].log_time()
 
    # Filter low occuring k-mers
-   if log is not None and log_entry is not None:
-      log.progress.add(f'filter_kmers_{log_entry}', f'Filter low occuring k-mers', log_entry)
    if kmer_count_threshold > 1:
+      if log is not None and log_entry is not None:
+         log.progress.add(f'filter_kmers_{log_entry}', f'Filter low occuring k-mers', log_entry)
       if sep_on_first > 0:
+         kc_before = sum(len(kmers[sep]) for sep in kmers)
          for sep in kmers:
             for kmer in kmers[sep]:
                if kmers[kmer] < kmer_count_threshold:
                   del kmers[kmer]
+         kc_after = sum(len(kmers[sep]) for sep in kmers)
       else:
+         kc_before = len(kmers)
          for kmer in kmers:
             if kmers[kmer] < kmer_count_threshold:
                del kmers[kmer]
-   if log is not None and log_entry is not None:
-      log.progress[f'filter_kmers_{log_entry}'].log_time()
+         kc_after = len(kmers)
+      if log is not None and log_entry is not None:
+         log.stats.add_row('kmer',[kc_before - kc_after, 'Number of low occuring k-mers filtered'])
+         log.progress[f'filter_kmers_{log_entry}'].log_time()
 
    return kmers
 
@@ -4198,12 +4203,9 @@ def explore_representation(positives, negatives, kmer_size=None):
    if pos_kmer_count == 0:
       raise UserWarning('No positive k-mers were found!')
 
-   if log is not None:
-      log.progress['pos'].log_time()
-      log.stats.add_row('kmer',[pos_kmer_count, 'Number of positive k-mers'])
-
    # Pickle the kmer-keys and kmer_counts_pos dictionary and remove object to save space
    if log is not None:
+      log.stats.add_row('kmer',[pos_kmer_count, 'Number of positive k-mers'])
       log.progress.add('store_pos_kmercounts', 'store k-mers counts', 'pos')
 
    for sep in kmer_seps:
@@ -4215,6 +4217,8 @@ def explore_representation(positives, negatives, kmer_size=None):
 
    # Count k-mers from negative references
    if log is not None:
+      log.progress['store_pos_kmercounts'].log_time()
+      log.progress['pos'].log_time()
       log.progress.add('neg', 'Counting Negative k-mers', 'explore')
 
    kmer_counts_neg = count_kmers(negatives, kmer_size, kmer_count_threshold,
@@ -4225,12 +4229,9 @@ def explore_representation(positives, negatives, kmer_size=None):
    if neg_kmer_count == 0:
       raise UserWarning('No negative k-mers were found!')
 
-   if log is not None:
-      log.progress['neg'].log_time()
-      log.stats.add_row('kmer', [neg_kmer_count, 'Number of negative k-mers'])
-
    # Pickle the kmer-keys and kmer_counts_neg dictionary and remove object to save space
    if log is not None:
+      log.stats.add_row('kmer', [neg_kmer_count, 'Number of negative k-mers'])
       log.progress.add('store_neg_kmercounts', 'store k-mers counts', 'neg')
 
    for sep in kmer_seps:
@@ -4242,6 +4243,8 @@ def explore_representation(positives, negatives, kmer_size=None):
 
    # Compute z-score and filter insignificant kmers
    if log is not None:
+      log.progress['store_neg_kmercounts'].log_time()
+      log.progress['neg'].log_time()
       log.progress.add('filter', 'Filtering k-mers', 'explore')
 
    pos_kmer_count = 0
@@ -4289,6 +4292,9 @@ def explore_representation(positives, negatives, kmer_size=None):
       del kmer_counts_pos, kmer_counts_neg
       gc.collect()
 
+      if log is not None:
+         log.progress[f'filter_{sep}'].log_time()
+
    if log is not None:
       log.progress['filter'].log_time()
       log.stats.add_row('kmer', [pos_kmer_count, 'Number of significant positive k-mers'])
@@ -4314,13 +4320,19 @@ def explore_representation(positives, negatives, kmer_size=None):
          if max_pos and align_percent > align_percent_threshold:
             prefix = 'ors_%s'%(os.path.basename(ref).rsplit('.', 1)[0])
             # Store k-mers as fastq
+            if log is not None:
+               log.progress.add(f'make_fq_{ref}', f'Preparing k-mers for alignment (make fastq)', 'make_ors')
             pos_kmers_fq = 'pos_kmers.fq'
             save_as_fastq(sig_pos_kmers, pos_kmers_fq)
+            if log is not None:
+               log.progress[f'make_fq_{ref}'].log_time()
             # Align k-mers to reference (Note: Unmapped k-mers are lost in this process)
             pos_kmers = align_to_ref(ref, pos_kmers_fq, settings['ucs']['bwa_settings'],
                                     prefix, settings['ucs']['sam_flags_ignore'],
                                     log_entry='make_ors')
             # Compute sequences
+            if log is not None:
+               log.progress.add(f'make_sequences_{ref}', 'Building contigs and scaffolds', 'make_ors')
             ors_files = compute_consensus_sequences(pos_kmers, ref, kmer_size,
                                                    settings['ucs']['charspace'],
                                                    prefix+'cons')
@@ -4336,12 +4348,14 @@ def explore_representation(positives, negatives, kmer_size=None):
 
             # Remove aligned k-mers and thier reverse complement
             if log is not None:
+               log.progress[f'make_sequences_{ref}'].log_time()
                log.progress.add(f'remove_kmers_{ref}', f'Removing the k-mers that was aligned sucessfully', 'make_ors')
 
             sig_pos_kmers -= pos_kmers.keys()
             sig_pos_kmers -= set(reverse_complement(k) for k in pos_kmers.keys())
 
             if log is not None:
+               log.progress[f'remove_kmers_{ref}'].log_time()
                log.progress.add(f'status_{ref}', f'{len(sig_pos_kmers)} k-mers out of {max_pos} ({int(len(sig_pos_kmers) / max_pos * 100)}%) remains to be aligned.', 'make_ors')
 
    if log is not None:
