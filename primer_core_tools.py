@@ -4262,20 +4262,15 @@ def explore_representation(positives, negatives, kmer_size=None):
          kmer_counts_neg = pickle.load(f)
 
       # Identify significantly over- or under-represented k-mers
-         if not kmer in kmer_counts_pos: kmer_counts_pos[kmer] = 0
-         if not kmer in kmer_counts_neg: kmer_counts_neg[kmer] = 0
       for kmer in kmer_counts_pos.keys() | kmer_counts_neg.keys():
+         pkc = kmer_counts_pos[kmer] if kmer in kmer_counts_pos else 0
+         nkc = kmer_counts_neg[kmer] if kmer in kmer_counts_neg else 0
 
          # Filter k-mers not passing sensitivity and specificity threshold
-         ors_fail = kmer_counts_pos[kmer] < ors_sens_threshold or \
-                    kmer_counts_neg[kmer] > ors_fo_threshold
-         urs_fail = kmer_counts_neg[kmer] < urs_sens_threshold or \
-                    kmer_counts_pos[kmer] > urs_fo_threshold
-
-         if ors_fail:
+         if pkc < ors_sens_threshold or nkc > ors_fo_threshold:
             del kmer_counts_pos[kmer]
-
-         if urs_fail:
+         
+         if nkc < urs_sens_threshold or pkc > urs_fo_threshold:
             del kmer_counts_neg[kmer]
 
       pos_kmer_count += len(kmer_counts_pos)
