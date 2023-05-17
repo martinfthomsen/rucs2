@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 ''' RUCS - Rapid Identification of PCR Primers Pairs for Unique Core Sequences
 
+RUCS 2: https://github.com/martinfthomsen/rucs2
+Copyright (c) 2023, Martin Christen Frølund Thomsen.
 
-Copyright (c) 2017, Martin Christen Frolund Thomsen, Technical University of Denmark
+Original RUCS: https://bitbucket.org/genomicepidemiology/rucs
+Copyright (c) 2017, Martin Christen Frølund Thomsen, Technical University of Denmark.
+
 All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +22,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 '''
-import sys, os, time, re, gzip, json, types, shutil, glob, bisect
+import sys, os, time, re, gzip, json, types, shutil, glob, bisect, pickle, gc
 import primer3
 import numpy as np
 from subprocess import call, Popen, PIPE, STDOUT as subprocess_stdout
@@ -97,9 +101,9 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
                        'Prepare inputs: %s positive and %s negative genomes'%(
                        len(positives), len(negatives)),
                        'main')
-      reference = create_symbolic_files([reference], ref_dir)[0]
-      positives = create_symbolic_files(positives, ref_dir)
-      negatives = create_symbolic_files(negatives, ref_dir)
+      reference = create_symbolic_files([reference], ref_dir, reuse=True)[0]
+      positives = create_symbolic_files(positives, ref_dir, reuse=True)
+      negatives = create_symbolic_files(negatives, ref_dir, reuse=True)
       log.progress['input'].log_time()
 
       # Find unique core sequences
@@ -193,8 +197,8 @@ def find_primer_pairs(contig_file, positives, negatives, contig_names=None,
                        'Prepare inputs: %s positive and %s negative genomes'%(
                        len(positives), len(negatives)),
                        'main')
-      positives = create_symbolic_files(positives, ref_dir)
-      negatives = create_symbolic_files(negatives, ref_dir)
+      positives = create_symbolic_files(positives, ref_dir, reuse=True)
+      negatives = create_symbolic_files(negatives, ref_dir, reuse=True)
       log.progress['input'].log_time()
 
       if contig_names is not None and isinstance(contig_names, str):
@@ -311,9 +315,9 @@ def compute_tm(seq1, seq2=None):
    p3_therm = ThermoAnalysis(thal_type, mv_conc, dv_conc, dntp_conc, dna_conc,
                               temp_c, max_loop, temponly, dimer, max_nn_length,
                               tm_method, salt_correction_method)
-   tm_seq1 = round_sig(p3_therm.calcTm(seq1))
+   tm_seq1 = round_sig(p3_therm.calc_tm(seq1))
    if seq2 is not None:
-      tm_seq2 = round_sig(p3_therm.calcTm(seq2))
+      tm_seq2 = round_sig(p3_therm.calc_tm(seq2))
       tm_dimer = round_sig(p3_therm.calc_heterodimer(seq1, seq2).tm)
    else:
       tm_seq2 = tm_seq1
@@ -1405,13 +1409,16 @@ def analyse_genome(genome, min_seq_len=300):
    buffer = settings['input']['use_ram_buffer']
    # counts (seqs, bases, seqs >threshold, bases >threshold)
    counts = [0, 0, 0, 0]
-   for seq, n, d in seqs_from_file(genome, use_ram_buffer=buffer):
-      seqlen = len(seq)
-      counts[0] += 1
-      counts[1] += seqlen
-      if seqlen >= min_seq_len:
-         counts[2] += 1
-         counts[3] += seqlen
+   try:
+      for seq, n, d in seqs_from_file(genome, use_ram_buffer=buffer):
+         seqlen = len(seq)
+         counts[0] += 1
+         counts[1] += seqlen
+         if seqlen >= min_seq_len:
+            counts[2] += 1
+            counts[3] += seqlen
+   except IOError as e:
+      pass
 
    return counts
 
@@ -1433,23 +1440,13 @@ def find_intersecting_kmers(files, kmer_size=20, min_seq_len=500):
    for i, genome in enumerate(files):
       # ADD GENOME TO SET
       gname = genome.split('/')[-1]
-      if log is not None:
-         log.progress.add('core%s'%i, 'Processing %s'%os.path.basename(genome),
-                          'core')
       # EXTRACT K-MERS FROM SEQEUNCE DATA FROM INPUT FILES
       to_upper = settings['input']['to_upper']
       buffer = settings['input']['use_ram_buffer']
       kmers_i = extract_kmers_from_file(genome, i, kmer_size, '',
                                         settings['ucs']['min_kmer_count'],
                                         settings['ucs']['rev_comp'],
-                                        min_seq_len, to_upper, buffer)
-      if log is not None:
-         log.progress['core%s'%i].log_time()
-         log.stats.add_row('kmer',
-                           [len(kmers_i),
-                            'Extraction of k-mers from %s'%(
-                              os.path.basename(genome))
-                            ])
+                                        min_seq_len, to_upper, buffer, 'core')
       # COMPUTE INTERSECTION
       if i > 0: kmers = set_op('intersection', kmers, kmers_i, method='list')
       else: kmers = kmers_i
@@ -1464,7 +1461,7 @@ def find_intersecting_kmers(files, kmer_size=20, min_seq_len=500):
 def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
                             kmer_prefix='', fastq_kmer_count_threshold=20,
                             revcom=True, min_seq_len=500, to_upper=False,
-                            buffer=False):
+                            buffer=False, log_entry=None, reuse=False):
    '''
    NAME      Extract K-mers from sequence
    AUTHOR    Martin CF Thomsen
@@ -1491,39 +1488,77 @@ def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
       {'this_is_seq_4': 1, 'this_is_seq_3': 1,
        'this_is_seq_2': 1, 'this_is_seq_1': 1}
    '''
-   # Extract K-mers from the sequences
-   kmers = {}
-   seqcount = 0
-   file_type = check_file_type([filename])
-   for i, (seq, name, desc) in enumerate(seqs_from_file(filename,
-                                                        to_upper=to_upper,
-                                                        use_ram_buffer=buffer)):
-      if len(seq) < min_seq_len: continue # Skip small sequences
-      # Extract kmers from sequence (GenomePrefix_SequencePrefix_KmerPosition) to 'kmers'
-      extract_kmers(kmers, seq, "%s_%d"%(genome_prefix, i), kmer_size,
-                   kmer_prefix)
-      # Extract kmers from the reverse complement sequence
-      if revcom:
-         extract_kmers(kmers, reverse_complement(seq), "%s_%d"%(genome_prefix, i),
-                      kmer_size, kmer_prefix)
-      seqcount += 1
-   # File type dependend filtering
-   if file_type == 'fastq':
-      # Filter K-mers with low occurences
-      sys.stderr.write("# Filtering K-mers with low coverage...\n")
-      sum_ = 0
-      count_kmers = len(kmers)
-      for kmer, count in kmers.items():
-         if count < fastq_kmer_count_threshold:
-            del kmers[kmer]
-            sum_ += count
-            #sys.stderr.write("K-mer (%s) removed due to low occurrence (%s)!\n"%(kmer, count))
-      count_kmers -= len(kmers)
-      sys.stderr.write(("%s K-mers filtered with an average coverage of %.4f!"
-                        "\n")%(count_kmers, float(sum_)/count_kmers))
+   if reuse and os.path.exists(f'ext_kmer_reuse_{os.path.basename(filename)}.pkl'):
+      # Extract K-mers from previous result file
+      if log is not None and log_entry is not None:
+         log.progress.add(f'ext_{os.path.basename(filename)}',
+                          f'Reloading previous extracted k-mers for {os.path.basename(filename)}', log_entry)
+
+      with open(f'ext_kmer_reuse_{os.path.basename(filename)}.pkl', 'rb') as f:
+         kmers = pickle.load(f)
+
+      if log is not None and log_entry is not None:
+         kmersum = sum(kmers.values())
+         log.stats.add_row('kmer', [len(kmers), f'Extracted k-mers from {os.path.basename(filename)}'])
+         log.stats.add_row('kmer', [kmersum - len(kmers), f'Doublicate k-mers from {os.path.basename(filename)}'])
+         log.progress[f'ext_{os.path.basename(filename)}'].log_time()
+   else:
+      if log is not None and log_entry is not None:
+         log.progress.add(f'ext_{os.path.basename(filename)}',
+                          f'Extracting k-mers from {os.path.basename(filename)}', log_entry)
+      # Extract K-mers from the sequences
+      kmers = {}
+      seqcount = 0
+      kmerstot = 0
+      file_type = check_file_type([filename])
+      for i, (seq, name, desc) in enumerate(seqs_from_file(filename,
+                                                           to_upper=to_upper,
+                                                           use_ram_buffer=buffer)):
+         if len(seq) < min_seq_len: continue # Skip small sequences
+
+         # Extract kmers from sequence (GenomePrefix_SequencePrefix_KmerPosition) to 'kmers'
+         extract_kmers(kmers, seq, kmer_size, kmer_prefix)
+         kmerstot += len(seq) - kmer_size + 1
+
+         # Extract kmers from the reverse complement sequence
+         if revcom:
+            extract_kmers(kmers, reverse_complement(seq), kmer_size, kmer_prefix)
+            kmerstot += len(seq) - kmer_size + 1
+
+         seqcount += 1
+
+      if log is not None and log_entry is not None:
+         kmersum = sum(kmers.values())
+         log.stats.add_row('kmer', [len(kmers), f'Extracted k-mers from {os.path.basename(filename)}'])
+         log.stats.add_row('kmer', [kmerstot - kmersum, f"Skipped k-mers from {os.path.basename(filename)}"])
+         log.stats.add_row('kmer', [kmersum - len(kmers), f'Doublicate k-mers from {os.path.basename(filename)}'])
+         log.progress[f'ext_{os.path.basename(filename)}'].log_time()
+
+      # File type dependend filtering
+      if file_type == 'fastq':
+         # Filter K-mers with low occurences
+         if log is not None and log_entry is not None:
+            log.progress.add(f'flt_{os.path.basename(filename)}',
+                             f'Filtering k-mers with low coverage', log_entry)
+         sum_ = 0
+         kmer_count = len(kmers)
+         for kmer, count in kmers.items():
+            if count < fastq_kmer_count_threshold:
+               del kmers[kmer]
+               sum_ += count
+         kmer_count -= len(kmers)
+         if log is not None and log_entry is not None:
+            log.stats.add_row('kmer', [kmer_count, f'Filtered k-mers from {os.path.basename(filename)} with an average    coverage of {sum_/kmer_count:.4f}'])
+            log.progress[f'flt_{os.path.basename(filename)}'].log_time()
+
+      if reuse:
+         # Store k-mer extraction results for later reuse
+         with open(f'ext_kmer_reuse_{os.path.basename(filename)}.pkl', 'wb') as f:
+            pickle.dump(kmers, f)
+
    return kmers
 
-def extract_kmers(kmers, seq, position_prefix, size=20, kmer_prefix=''):
+def extract_kmers(kmers, seq, size=20, kmer_prefix='', charspace=list('ATGC')):
    '''
    NAME      Extract K-mers from sequence
    AUTHOR    Martin CF Thomsen
@@ -1534,34 +1569,74 @@ def extract_kmers(kmers, seq, position_prefix, size=20, kmer_prefix=''):
    ARGUMENTS
       kmers: The dictionary where the found K-mers are stored.
       seq: The sequence from which the kmers are generated.
-      position_prefix: A prefix which is added to the position note.
       size: The size of the generated kmers. (Sequences shorter than the K-mer
          size will not generate K-mers.)
       kmer_prefix: A prefix used to filter which K-mers are stored. (Only
          K-mers starting with this prefix will be added.)
    USAGE
-      >>> kmers = {}
-      >>> seq = "abcdefghijklmnopqrstuvwxyz"
-      >>> extract_kmers(kmers, seq, 'alphabet', 20, '')
-      >>> kmers
-      {'abcdefghijklmnopqrst': ['alphabet_0'],
-       'defghijklmnopqrstuvw': ['alphabet_3'],
-       'bcdefghijklmnopqrstu': ['alphabet_1'],
-       'efghijklmnopqrstuvwx': ['alphabet_4'],
-       'cdefghijklmnopqrstuv': ['alphabet_2'],
-       'fghijklmnopqrstuvwxy': ['alphabet_5'],
-       'ghijklmnopqrstuvwxyz': ['alphabet_6']}
+      >>> let = {}; extract_kmers(let, "abcdefghijklmnopqrstuvwxyz", 5, '', 'efghijkl'); let
+      {'efghi': 1, 'fghij': 1, 'ghijk': 1, 'hijkl': 1}
+      >>> kmers = {}; extract_kmers(kmers, 'ATGTCSTAGAGGNGCTA', 5); kmers
+      {'ATGTC': 1, 'TAGAG': 1, 'AGAGG': 1}
+      >>> kmers = {}; extract_kmers(kmers, 'AAAGGNGCTA', 5); kmers
+      {'AAAGG': 1}
+      >>> kmers = {}; extract_kmers(kmers, 'ACGNAATTGCACTGATACCGCCGGCNTGNGAGAGGCAAGCGATGACGAG'); kmers
+      {'AATTGCACTGATACCGCCGG': 1, 'ATTGCACTGATACCGCCGGC': 1, 'GAGAGGCAAGCGATGACGAG': 1}
+      >>> kmers = {}; extract_kmers(kmers, 'NACGAATTGCACTGCCGCCGGCNTGNGAGAGGCAAGCGATGACGAG'); kmers
+      {'ACGAATTGCACTGCCGCCGG': 1, 'CGAATTGCACTGCCGCCGGC': 1, 'GAGAGGCAAGCGATGACGAG': 1}
+      >>> kmers = {}; extract_kmers(kmers, 'AAAGTNNAAAA',5); kmers
+      {'AAAGT': 1}
+      >>> kmers = {}; extract_kmers(kmers, 'AAAGTNAAAAN',5); kmers
+      {'AAAGT': 1}
    '''
    # ITERATE THE SEQUENCE TO FIND K-MERS
    kmer_prefix_len = len(kmer_prefix)
-   seqiter = range(len(seq)-size+1)
-   for j in seqiter:
+   # Find a valid starting sequence
+   j = 0
+   h = j + size - 2
+   while h >= j:
+      if seq[h] in charspace:
+         h -= 1
+      else:
+         # Reset and search again
+         j = h + 1
+         h = j + size - 2
+         if h > len(seq):
+            j = len(seq)
+            break
+   # Find k-mers
+   while j <= len(seq) - size:
+      if seq[j+size-1] not in charspace:
+         # Skip size ahead to get past the invalid character
+         j += size
+         # Find the first valid sequence
+         if j < len(seq)-size+1:
+            eol = False
+            h = j + size - 1
+            while h >= j:
+               if seq[h] in charspace:
+                  h -= 1
+               else:
+                  # Reset and search again
+                  j = h + 1
+                  h = j + size - 1
+                  if h > len(seq) - 1:
+                     eol = True
+                     j = len(seq)
+                     break
+         else:
+            # No more possible kmers - skip the rest
+            j = len(seq)
+            eol = True
+         if eol:
+            break
       kmer = seq[j:j+size]
       # CHECK IF K-MER STARTS WITH SPECIFIED PREFIX
       if kmer_prefix == kmer[:kmer_prefix_len]:
          # ADD K-MER
          if kmer in kmers: kmers[kmer] += 1
          else: kmers[kmer] = 1
+      j += 1
 
 def reverse_complement(seq):
    ''' Compute the reverse complementary DNA string.
@@ -1794,7 +1869,7 @@ def blast_to_ref(reference, fasta, blast_settings=None, buffer=False):
    return alignments
 
 def align_to_ref(reference, fastq, bwa_settings=None, output_prefix='aln',
-                 ignore_flags=4):
+                 ignore_flags=4, log_entry='ucs'):
    ''' Align the sequences in the fastq to the reference
 
    output is a dictionary of the sequences containing all the alignment hits as
@@ -1807,17 +1882,17 @@ def align_to_ref(reference, fastq, bwa_settings=None, output_prefix='aln',
       {'CAACATTTTCGTGTCGCCCTT': ['TEM-1b_10'], 'TGAAGCCATACCAAACGACGA': ['TEM-1b_504']}
    '''
    if log is not None:
-      log.progress.add('aln',
+      log.progress.add(output_prefix,
                        "Aligning %s to %s"%(os.path.basename(fastq),
                                             os.path.basename(reference)),
-                       'ucs')
+                       log_entry)
    # Align sequences to reference
    bam = bwa(reference, fastq, None, bwa_settings, output_prefix)
    # Extract alignment details
    alignments = extract_alignment_details(bam, ignore_flags)
 
    if log is not None:
-      log.progress['aln'].log_time()
+      log.progress[output_prefix].log_time()
       log.stats.add_row('kmer', [len(alignments),
                                  "Aligning %s to %s"%(
                                     os.path.basename(fastq),
@@ -1841,15 +1916,15 @@ def bwa(ref, fastq, paired_fastq=None, bwa_settings=None, output_prefix='aln'):
    # Validate inputs -M? -R? -N?
    # http://bio-bwa.sourceforge.net/bwa.shtml
    defaults = { # Name: (type, arg, default_value)
-      'max_mismatch':       (int, '-n',             6), # edit distance
-      'max_mismatch_score': (int, '-M',            10), # edit distance
-      'max_gaps':           (int, '-o',             1), # max number of gaps
-      'max_gap_ext':        (int, '-e',             0), # max gap extensions
-      'gap_penalty_open':   (int, '-O',            10), # gap penalty open
-      'gap_penalty_ext':    (int, '-E',            10), # gap penalty extension
-      'seed_length':        (int, '-l',            35), # Length of the seed
-      'max_mismatch_seed':  (int, '-k',             0), # edit distance in seed
-      'threads':            (int, '-t',             4)  # paralelisation using multi threads
+      'max_mismatch':       (int, '-n',   6), # edit distance
+      'max_mismatch_score': (int, '-M',  10), # edit distance
+      'max_gaps':           (int, '-o',   1), # max number of gaps
+      'max_gap_ext':        (int, '-e',   0), # max gap extensions
+      'gap_penalty_open':   (int, '-O',  10), # gap penalty open
+      'gap_penalty_ext':    (int, '-E',  10), # gap penalty extension
+      'seed_length':        (int, '-l',  35), # Length of the seed
+      'max_mismatch_seed':  (int, '-k',   0), # edit distance in seed
+      'threads':            (int, '-t',   4)  # paralelisation using multi threads
    }
    if bwa_settings is None: bwa_settings = {}
    for s, v in bwa_settings.items():
@@ -2065,10 +2140,11 @@ def compute_consensus_sequences(kmers, reference, kmer_size=20,
    auxiliary_file="%s.aux.tsv"%name_prefix
    dissected_scafs_file = "%s.disscafs.fa"%name_prefix
    clen = len(charspace)
+   max_ns = settings['ucs']['max_ns']
 
    # Compute scaffold length
-   scaffold_lengths = dict((name, len(seq))
-                           for seq, name, desc in seqs_from_file(reference, use_ram_buffer=buffer))
+   scaffold_lengths = dict((name, (len(seq), i))
+                           for i, (seq, name, desc) in enumerate(seqs_from_file(reference, use_ram_buffer=buffer)))
 
    # Divide k-mers in scaffolds
    kmer_dict = {}
@@ -2084,14 +2160,15 @@ def compute_consensus_sequences(kmers, reference, kmer_size=20,
       _ = f.write('# Base\tContig\tPosition\tDepth\tConfidence\n')
       scaffolds = []
       DNAbins = np.asarray(list(charspace))[np.newaxis].T
-      for scaffold in kmer_dict:
+      for scaffold in sorted(kmer_dict.keys(), key=lambda x: scaffold_lengths[x][1]):
          # Build scaffold matrix
-         mat = np.zeros([scaffold_lengths[scaffold],clen], dtype=int)
+         mat = np.zeros([scaffold_lengths[scaffold][0],clen], dtype=int)
          for kmer in kmer_dict[scaffold]:
             for p in kmer_dict[scaffold][kmer]:
-               dlen = scaffold_lengths[scaffold] - p
-               if dlen >= kmer_size: dlen = kmer_size
-               mat[p:p+dlen,:] += (DNAbins==list(kmer[:dlen])).T
+               dlen = scaffold_lengths[scaffold][0] - p
+               if dlen > 0:
+                  if dlen >= kmer_size: dlen = kmer_size
+                  mat[p:p+dlen,:] += (DNAbins==list(kmer[:dlen])).T
          # Extract scaffold consensus
          scaffold_consensus = ''.join([charspace[j] for j in np.argmax(mat, 1)])
 
@@ -2117,11 +2194,11 @@ def compute_consensus_sequences(kmers, reference, kmer_size=20,
    save_as_fasta(contigs, contigs_file)
 
    # Split scaffolds into dissected scaffolds
-   dissected_scaffolds = sorted(filter(
-      lambda x: x != '',
-      (y.strip(charspace[0]) for x in
-       map(lambda x: x[0].split(charspace[0]*1000), scaffolds) for y in x)
-      ), key=lambda x: len(x)-x.count('n'), reverse=True)
+   dissected_scaffolds = sorted((
+      (z,"%s_%s"%(se[1], se[0].index(z)),'') for z, se in
+      ((y.strip(charspace[0]), se) for x, se in
+       map(lambda se: (se[0].split(charspace[0]*max_ns),se), scaffolds) for y in x if y)
+      ), key=lambda x: len(x[0])-x[0].count(charspace[0]), reverse=True)
 
    # Store contigs as fasta (position annotation is 0-indexed)
    save_as_fasta(dissected_scaffolds, dissected_scafs_file)
@@ -2193,27 +2270,21 @@ def find_complementing_kmers(kmers, files, kmer_size=20, min_seq_len=500):
 
    # Loop through set B files
    for i, genome in enumerate(files):
-      if log is not None:
-         log.progress.add('pan%s'%i, 'Processing %s'%os.path.basename(genome),
-                          'pan')
       # Extract K-mers from the B file
       to_upper = settings['input']['to_upper']
       buffer = settings['input']['use_ram_buffer']
       negative_kmers = extract_kmers_from_file(genome, i, kmer_size, '',
                                                settings['ucs']['min_kmer_count'],
                                                settings['ucs']['rev_comp'],
-                                               min_seq_len, to_upper, buffer)
+                                               min_seq_len, to_upper, buffer, 'pan')
       # TODO: Filter low counts?
 
       # Remove K-mers from A which are found in B
+      if log is not None:
+          log.progress.add(f'comp_{os.path.basename(genome)}', 'Filtering the negative k-mers found in {os.path.basename(genome)}','pan')
       kmers = set_op('complement', kmers, negative_kmers, method='list')
       if log is not None:
-         log.progress['pan%s'%i].log_time()
-         log.stats.add_row('kmer',
-                           [len(negative_kmers),
-                            'Extraction k-mers from %s'%(
-                              os.path.basename(genome))
-                            ])
+         log.progress[f'comp_{os.path.basename(genome)}'].log_time()
 
    if log is not None:
       log.progress['pan'].log_time()
@@ -2788,7 +2859,7 @@ def primer3_parser(primer3_results):
 
    return list(map(primer_pairs.get, sorted(primer_pairs.keys()))), notes
 
-def round_sig(number, sig_fig=3, lmin=-10**300, lmax=10**300):
+def round_sig(number, sig_fig=3, lmin=-1.0e+300, lmax=1.0e+300):
    ''' Round the number to the specified number of significant figures
 
    USAGE
@@ -2798,6 +2869,7 @@ def round_sig(number, sig_fig=3, lmin=-10**300, lmax=10**300):
       >>> round_sig(1.7976931348623157e+308, lmax=100)
       100
       >>> round_sig(0)
+      0
       >>> for i in range(6): print(i+1, round_sig(123.456, sig_fig=i+1))
       ...
       1 100.0
@@ -2807,11 +2879,14 @@ def round_sig(number, sig_fig=3, lmin=-10**300, lmax=10**300):
       5 123.46
       6 123.456
    '''
-   number = max(lmin, min(number, lmax))
-   if number != 0 and isinstance(number, float):
-      return round(number, -int(np.log10(abs(number))) -1 + sig_fig)
+   if number == 0 or number == 1:
+        return number
+   elif number < lmin:
+       return lmin
+   elif number > lmax:
+       return lmax
    else:
-      return number
+      return round(number, -int(np.log10(abs(number))) -1 + sig_fig)
 
 def filter_primer_alignments(ref, alignments, probes=[]):
    ''' Remove primer alignments where the heterodimer thermodynamics do not
@@ -4013,9 +4088,9 @@ def find_ucs(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
                        'Prepare inputs: %s positive and %s negative genomes'%(
                        len(positives), len(negatives)),
                        'main')
-      reference = create_symbolic_files([reference], ref_dir)[0]
-      positives = create_symbolic_files(positives, ref_dir)
-      negatives = create_symbolic_files(negatives, ref_dir)
+      reference = create_symbolic_files([reference], ref_dir, reuse=True)[0]
+      positives = create_symbolic_files(positives, ref_dir, reuse=True)
+      negatives = create_symbolic_files(negatives, ref_dir, reuse=True)
       log.progress['input'].log_time()
 
       # Find unique core sequences
@@ -4052,22 +4127,411 @@ def find_ucs(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
          log.progress.summary(f)
          log.stats.summary(f)
 
+def count_kmers(files, kmer_size=20, kmer_count_threshold=1, min_seq_len=500,
+                sep_on_first=0, log_entry=None, reuse=False):
+   ''' Count in how many files, a given k-mer is found. '''
+   #Extract kmers
+   kmers = {}
+   for i, genome in enumerate(files):
+      # ADD GENOME TO SET
+      gname = genome.split('/')[-1]
+      # EXTRACT K-MERS FROM SEQEUNCE DATA FROM INPUT FILES
+      to_upper = settings['input']['to_upper']
+      buffer = settings['input']['use_ram_buffer']
+      kmers_i = extract_kmers_from_file(genome, i, kmer_size, '',
+                                        settings['ucs']['min_kmer_count'],
+                                        settings['ucs']['rev_comp'],
+                                        min_seq_len, to_upper, buffer, log_entry, reuse=reuse)
+      # COMPUTE K-MER COUNT
+      if log is not None and log_entry is not None:
+         log.progress.add(f'kmercount_{os.path.basename(genome)}', f'Updating k-mer counts', log_entry)
+
+      for kmer in kmers_i:
+         if sep_on_first > 0:
+            sep = kmer[0:sep_on_first].upper()
+            if not sep in kmers:
+                kmers[sep] = {}
+            if not kmer in kmers[sep]:
+               kmers[sep][kmer] = 1
+            else:
+               kmers[sep][kmer] += 1
+         else:
+            if not kmer in kmers:
+               kmers[kmer] = 1
+            else:
+               kmers[kmer] += 1
+         if log is not None and log_entry is not None:
+            log.progress[f'kmercount_{os.path.basename(genome)}'].log_time()
+
+   # Filter low occuring k-mers
+   if kmer_count_threshold > 1:
+      if log is not None and log_entry is not None:
+         log.progress.add(f'filter_kmers_{log_entry}', f'Filter low occuring k-mers', log_entry)
+      if sep_on_first > 0:
+         kc_before = sum(len(kmers[sep]) for sep in kmers)
+         for sep in kmers:
+            for kmer in kmers[sep]:
+               if kmers[kmer] < kmer_count_threshold:
+                  del kmers[kmer]
+         kc_after = sum(len(kmers[sep]) for sep in kmers)
+      else:
+         kc_before = len(kmers)
+         for kmer in kmers:
+            if kmers[kmer] < kmer_count_threshold:
+               del kmers[kmer]
+         kc_after = len(kmers)
+      if log is not None and log_entry is not None:
+         log.stats.add_row('kmer',[kc_before - kc_after, 'Number of low occuring k-mers filtered'])
+         log.progress[f'filter_kmers_{log_entry}'].log_time()
+
+   return kmers
+
+def explore_representation(positives, negatives, kmer_size=None, reuse=False):
+   ''' Explore Over- and underrepresentation of k-mer in the positive genomes
+   versus the negative genomes.
+   '''
+   min_seq_len = settings['pcr']['priming']['primer3']['PRIMER_PRODUCT_SIZE_RANGE'][0]
+   kmer_count_threshold = settings['explore']['kmer_count_threshold']
+   sensitivity_threshold = settings['explore']['sensitivity_threshold']
+   fall_out_threshold = settings['explore']['fall-out_threshold']
+   align_percent_threshold = settings['explore']['align_percent_threshold']
+   kmer_seps = ['A', 'T', 'G', 'C']
+   p_count = len(positives)
+   n_count = len(negatives)
+   ors_sens_threshold = sensitivity_threshold * p_count if type(sensitivity_threshold) is float else sensitivity_threshold
+   ors_fo_threshold = fall_out_threshold * n_count if type(fall_out_threshold) is float else fall_out_threshold
+   urs_sens_threshold = sensitivity_threshold * n_count if type(sensitivity_threshold) is float else sensitivity_threshold
+   urs_fo_threshold = fall_out_threshold * p_count if type(fall_out_threshold) is float else fall_out_threshold
+
+   if log is not None:
+      # Initialize k-mer and sequences statistics logging
+      log.progress.add('explore', 'Exploring over- and underrepresentation', 'main')
+      log.stats.add_table('kmer', 'k-mer analyses', ['k-mers', 'Process'])
+      log.stats.add_table('seqs', 'Sequence Analyses',
+                          ['Fasta file', 'Sequences', 'Size in bases',
+                           'Seqs >%s'%min_seq_len, 'Size >%s'%min_seq_len])
+
+   # Count k-mers from positive references
+   if log is not None:
+      log.progress.add('pos', 'Counting Positive k-mers', 'explore')
+
+   kmer_counts_pos = count_kmers(positives, kmer_size, kmer_count_threshold,
+                                 min_seq_len=settings['ucs']['min_seq_len_pos'],
+                                 sep_on_first=1, log_entry='pos', reuse=reuse)
+
+   pos_kmer_count = sum(map(len, kmer_counts_pos.values()))
+   if pos_kmer_count == 0:
+      raise UserWarning('No positive k-mers were found!')
+
+   # Pickle the kmer-keys and kmer_counts_pos dictionary and remove object to save space
+   if log is not None:
+      log.stats.add_row('kmer',[pos_kmer_count, 'Number of positive k-mers'])
+      log.progress.add('store_pos_kmercounts', 'store k-mers counts', 'pos')
+
+   for sep in kmer_seps:
+      with open(f'kmer_counts_pos_{sep}.pkl', 'wb') as f:
+         pickle.dump(kmer_counts_pos[sep], f)
+
+   del kmer_counts_pos
+   gc.collect()
+
+   # Count k-mers from negative references
+   if log is not None:
+      log.progress['store_pos_kmercounts'].log_time()
+      log.progress['pos'].log_time()
+      log.progress.add('neg', 'Counting Negative k-mers', 'explore')
+
+   kmer_counts_neg = count_kmers(negatives, kmer_size, kmer_count_threshold,
+                                 min_seq_len=settings['ucs']['min_seq_len_pos'],
+                                 sep_on_first=1, log_entry='neg', reuse=reuse)
+
+   neg_kmer_count = sum(map(len, kmer_counts_neg.values()))
+   if neg_kmer_count == 0:
+      raise UserWarning('No negative k-mers were found!')
+
+   # Pickle the kmer-keys and kmer_counts_neg dictionary and remove object to save space
+   if log is not None:
+      log.stats.add_row('kmer', [neg_kmer_count, 'Number of negative k-mers'])
+      log.progress.add('store_neg_kmercounts', 'store k-mers counts', 'neg')
+
+   for sep in kmer_seps:
+      with open(f'kmer_counts_neg_{sep}.pkl', 'wb') as f:
+         pickle.dump(kmer_counts_neg[sep], f)
+
+   del kmer_counts_neg
+   gc.collect()
+
+   # Compute z-score and filter insignificant kmers
+   if log is not None:
+      log.progress['store_neg_kmercounts'].log_time()
+      log.progress['neg'].log_time()
+      log.progress.add('filter', 'Filtering k-mers', 'explore')
+
+   pos_kmer_count = 0
+   neg_kmer_count = 0
+   # Process the kmer-sets independently
+   for sep in kmer_seps:
+      if log is not None:
+         log.progress.add(f'filter_{sep}', f'Processing k-mers starting with "{sep}"', 'filter')
+
+      # Load kmer counts
+      with open(f'kmer_counts_pos_{sep}.pkl', 'rb') as f:
+         kmer_counts_pos = pickle.load(f)
+
+      with open(f'kmer_counts_neg_{sep}.pkl', 'rb') as f:
+         kmer_counts_neg = pickle.load(f)
+
+      # Identify significantly over- or under-represented k-mers
+      for kmer in kmer_counts_pos.keys() | kmer_counts_neg.keys():
+         pkc = kmer_counts_pos[kmer] if kmer in kmer_counts_pos else 0
+         nkc = kmer_counts_neg[kmer] if kmer in kmer_counts_neg else 0
+
+         # Filter k-mers not passing sensitivity and specificity threshold
+         if pkc > 0 and (pkc < ors_sens_threshold or nkc > ors_fo_threshold):
+            del kmer_counts_pos[kmer]
+
+         if nkc > 0 and (nkc < urs_sens_threshold or pkc > urs_fo_threshold):
+            del kmer_counts_neg[kmer]
+
+      pos_kmer_count += len(kmer_counts_pos)
+      neg_kmer_count += len(kmer_counts_neg)
+
+      gc.collect()
+      # Pickle the significant k-mer counts dictionary
+      with open(f'kmer_counts_pos_sig_{sep}.pkl', 'wb') as f:
+         pickle.dump(set(kmer_counts_pos.keys()), f)
+
+      with open(f'kmer_counts_neg_sig_{sep}.pkl', 'wb') as f:
+         pickle.dump(set(kmer_counts_neg.keys()), f)
+
+      del kmer_counts_pos, kmer_counts_neg
+      gc.collect()
+
+      if log is not None:
+         log.progress[f'filter_{sep}'].log_time()
+
+   if log is not None:
+      log.progress['filter'].log_time()
+      log.stats.add_row('kmer', [pos_kmer_count, 'Number of significant positive k-mers'])
+      log.stats.add_row('kmer', [neg_kmer_count, 'Number of significant negative k-mers'])
+
+   # Create consensus sequences for the over represented k-mers
+   if log is not None:
+      log.progress.add('make_ors', 'Computing k-mer contigs and scaffolds (ORS)','explore')
+
+   # Load all significant positive kmer counts
+   sig_pos_kmers = set()
+   for sep in kmer_seps:
+      with open(f'kmer_counts_pos_sig_{sep}.pkl', 'rb') as f:
+         sig_pos_kmers.update(pickle.load(f))
+
+   # Align to pos refs until enough k-mers has been aligned to a ref
+   max_pos = len(sig_pos_kmers)
+   combined_contigs_ors = 'ors.contigs.fa'
+   combined_disscafs_ors = 'ors.disscafs.fa'
+   with open(combined_contigs_ors, 'w') as f_cont, open(combined_disscafs_ors, 'w') as f_diss:
+      for ref in positives:
+         align_percent = len(sig_pos_kmers) / max_pos
+         if max_pos and align_percent > align_percent_threshold:
+            prefix = 'ors_%s'%(os.path.basename(ref).rsplit('.', 1)[0])
+            # Store k-mers as fastq
+            if log is not None:
+               log.progress.add(f'make_fq_{ref}', f'Preparing k-mers for alignment (make fastq)', 'make_ors')
+            pos_kmers_fq = 'pos_kmers.fq'
+            save_as_fastq(sig_pos_kmers, pos_kmers_fq)
+            if log is not None:
+               log.progress[f'make_fq_{ref}'].log_time()
+            # Align k-mers to reference (Note: Unmapped k-mers are lost in this process)
+            pos_kmers = align_to_ref(ref, pos_kmers_fq, settings['ucs']['bwa_settings'],
+                                    prefix, settings['ucs']['sam_flags_ignore'],
+                                    log_entry='make_ors')
+            # Compute sequences
+            if log is not None:
+               log.progress.add(f'make_sequences_{ref}', 'Building contigs and scaffolds', 'make_ors')
+            ors_files = compute_consensus_sequences(pos_kmers, ref, kmer_size,
+                                                   settings['ucs']['charspace'],
+                                                   prefix+'cons')
+            # Add contigs from ref for ref to combined contigs
+            try: f_cont.write('\n'.join(">%s_%s\n%s"%(prefix,n,s) for s,n,d in seqs_from_file(ors_files[1]) if len(s) >= kmer_size))
+            except IOError: pass
+            else: f_cont.write('\n')
+
+            # Add dissected scaffolds for ref to combined dissected scaffolds
+            try: f_diss.write('\n'.join(">%s_%s\n%s"%(prefix,n,s) for s,n,d in seqs_from_file(ors_files[3]) if len(s) >= kmer_size))
+            except IOError: pass
+            else: f_diss.write('\n')
+
+            # Remove aligned k-mers and thier reverse complement
+            if log is not None:
+               log.progress[f'make_sequences_{ref}'].log_time()
+               log.progress.add(f'remove_kmers_{ref}', f'Removing the k-mers that was aligned sucessfully', 'make_ors')
+
+            sig_pos_kmers -= pos_kmers.keys()
+            sig_pos_kmers -= set(reverse_complement(k) for k in pos_kmers.keys())
+
+            if log is not None:
+               log.progress[f'remove_kmers_{ref}'].log_time()
+               log.progress.add(f'status_{ref}', f'{len(sig_pos_kmers)} k-mers out of {max_pos} ({int(len(sig_pos_kmers) / max_pos * 100)}%) remains to be aligned.', 'make_ors')
+
+   if log is not None:
+      log.progress['make_ors'].log_time()
+      counts = analyse_genome(combined_contigs_ors, min_seq_len)
+      log.stats.add_row('seqs', [os.path.basename(combined_contigs_ors)] + counts)
+
+   # Delete sig_pos_kmers list to save space
+   del sig_pos_kmers
+   gc.collect()
+
+   # Create consensus sequences for the under represented k-mers
+   if log is not None:
+      log.progress.add('make_urs', 'Computing k-mer contigs and scaffolds (URS)','explore')
+
+   # Load all significant negative kmer counts
+   sig_neg_kmers = set()
+   for sep in kmer_seps:
+      with open(f'kmer_counts_neg_sig_{sep}.pkl', 'rb') as f:
+         sig_neg_kmers.update(pickle.load(f))
+
+   # WHILE loop neg refs until enough k-mers has been aligned to a ref
+   max_neg = len(sig_neg_kmers)
+   combined_contigs_urs = 'urs.contigs.fa'
+   combined_disscafs_urs = 'urs.disscafs.fa'
+   with open(combined_contigs_urs, 'w') as f_cont, open(combined_disscafs_urs, 'w') as f_diss:
+      for ref in negatives:
+         align_percent = len(sig_neg_kmers) / max_neg
+         if max_neg and align_percent > align_percent_threshold:
+            prefix = 'urs_%s'%(os.path.basename(ref).rsplit('.', 1)[0])
+            # Store k-mers as fastq
+            neg_kmers_fq = 'neg_kmers.fq'
+            save_as_fastq(sig_neg_kmers, neg_kmers_fq)
+            # Align k-mers to reference (Note: Unmapped k-mers are lost in this process)
+            neg_kmers = align_to_ref(ref, neg_kmers_fq, settings['ucs']['bwa_settings'],
+                                     prefix, settings['ucs']['sam_flags_ignore'],
+                                     log_entry='make_urs')
+            # Compute sequences
+            urs_files = compute_consensus_sequences(neg_kmers, ref, kmer_size,
+                                                    settings['ucs']['charspace'],
+                                                    prefix+'cons')
+            # Add contigs from ref for ref to combined contigs
+            try: f_cont.write('\n'.join(">%s_%s\n%s"%(prefix,n,s) for s,n,d in seqs_from_file(urs_files[1]) if len(s) >= kmer_size))
+            except IOError: pass
+            else: f_cont.write('\n')
+
+            # Add dissected scaffolds for ref to combined dissected scaffolds
+            try: f_diss.write('\n'.join(">%s_%s\n%s"%(prefix,n,s) for s,n,d in seqs_from_file(urs_files[3]) if len(s) >= kmer_size))
+            except IOError: pass
+            else: f_diss.write('\n')
+
+            # Remove aligned k-mers and thier reverse complement
+            if log is not None:
+               log.progress.add(f'remove_kmers_{ref}', f'Removing the k-mers that was aligned sucessfully', 'make_urs')
+
+            sig_neg_kmers -= neg_kmers.keys()
+            sig_neg_kmers -= set(reverse_complement(k) for k in neg_kmers.keys())
+
+            if log is not None:
+               log.progress.add(f'status_{ref}', f'{len(sig_neg_kmers)} k-mers out of {max_neg} ({int(len(sig_neg_kmers) / max_neg *100)}%) remains to be aligned.', 'make_urs')
+
+   if log is not None:
+      log.progress['make_urs'].log_time()
+      counts = analyse_genome(combined_contigs_urs, min_seq_len)
+      log.stats.add_row('seqs', [os.path.basename(combined_contigs_urs)] + counts)
+      log.progress['explore'].log_time()
+
+   return ((combined_contigs_ors, combined_disscafs_ors),
+          (combined_contigs_urs, combined_disscafs_urs))
+
+def explore(positives, negatives, kmer_size=None, quiet=False, clean_run=True,
+            settings_file=None, name=None, reuse=False):
+   ''' This script computes the over- and underrepresentation of k-mers in the
+   positive genomes versus the negative genomes. This feature will create two
+   output fasta files; the first containing the overrepresented sequences, and
+   the second containing the underrepresented sequences. The fasta description
+   header will contain the genome names where the given sequence is found.
+   '''
+   # Set Globals
+   global log
+   log = LogObj(quiet)
+   if settings_file is not None:
+      load_global_settings(settings_file)
+
+   # Validate Input
+   if positives is None or not positives:
+      raise UserWarning('No Positive genomes provided!')
+   if negatives is None:
+      negatives = []
+
+   stats_file = '%sstats.log'%("%s_"%name if name is not None else '')
+
+   if kmer_size is None:
+      kmer_size = settings['ucs']['kmer_size']
+
+   min_seq_len = settings['pcr']['priming']['primer3']['PRIMER_PRODUCT_SIZE_RANGE'][0]
+
+   # Create reference directory to store reference links, and BWA index files
+   ref_dir = 'references'
+   if not os.path.exists(ref_dir): os.mkdir(ref_dir)
+   try:
+      log.progress.add('main', 'Running exploration', None)
+
+      # Create symlinks for all reference
+      log.progress.add('input',
+                       'Prepare inputs: %s positive and %s negative genomes'%(
+                       len(positives), len(negatives)),
+                       'main')
+      positives = create_symbolic_files(positives, ref_dir, reuse=True)
+      negatives = create_symbolic_files(negatives, ref_dir, reuse=True)
+      log.progress['input'].log_time()
+
+      # Find over- and under-represented sequences
+      ors_files, urs_files = explore_representation(positives, negatives, kmer_size, reuse=reuse)
+
+      # Print Sequence Analysis Table
+      title = 'Sequence Analysis'
+      headers = ['', 'Sequences', 'Size in bases', 'Seqs >%s'%min_seq_len,
+                 'Size >%s'%min_seq_len]
+      rows = [['Over Represented Sequences']+analyse_genome(ors_files[1], min_seq_len),
+              ['Under Represented Sequences']+analyse_genome(urs_files[1], min_seq_len)]
+      print(text_table(title, headers, rows))
+
+   except UserWarning as msg:
+      # Clean up (to reduce space usage)
+      clean_up(ref_dir, clean_run)
+      sys.stderr.write("%s\n"%msg)
+   except:
+      # Clean up (to reduce space usage)
+      log.progress['main'].log_time()
+      log.progress.summary()
+      log.stats.summary()
+      clean_up(ref_dir, clean_run)
+      raise
+   else:
+      # Clean up (to reduce space usage)
+      clean_up(ref_dir, clean_run)
+   finally:
+      log.progress['main'].log_time()
+      # Store time and stats in stats.log
+      with open(stats_file, 'w') as f:
+         log.progress.summary(f)
+         log.stats.summary(f)
+
+
 # Set entry Points Methods
 def full(args):
    ''' Run full diagnostic: fucs + fppp '''
-   main(args.positives, args.negatives, args.reference, quiet=True,
+   main(args.positives, args.negatives, args.reference, quiet=args.quiet,
         clean_run=True, annotate=True)
 
 def fucs(args):
    ''' Find Unique Core Sequences '''
-   find_ucs(args.positives, args.negatives, args.reference, quiet=True,
+   find_ucs(args.positives, args.negatives, args.reference, quiet=args.quiet,
             clean_run=True)
 
 def fppp(args):
    ''' Find PCR Primer Pairs '''
    settings['pcr']['seq_selection'] = None
    find_primer_pairs(args.template, args.positives, args.negatives,
-                     quiet=True, clean_run=True, annotate=True)
+                     quiet=args.quiet, clean_run=True, annotate=True)
 
 def anno(args):
    ''' Annotate sequences using a protein BLAST DB '''
@@ -4112,6 +4576,10 @@ def pcrs(args):
       show_pcr_stats(forward, reverse, probe, template,
                      title='PCR Stat Analysis for pair %s'%(i+1))
 
+def expl(args):
+   ''' Explore the positive and negative genomes for overrepresented k-mers'''
+   explore(args.positives, args.negatives, quiet=args.quiet, clean_run=True, reuse=args.reuse)
+
 def test(args):
    ''' Virtual PCR - Simulate PCR and predict PCR product for the provided
    primer pairs against the provided references. '''
@@ -4119,7 +4587,7 @@ def test(args):
    test_dir = os.path.dirname(os.path.realpath(__file__))
    pos = ["%s/test/bla.fa"%(test_dir)]
    neg = ["%s/test/sul.fa"%(test_dir)]
-   main(pos, neg, None, quiet=True, clean_run=False, annotate=True)
+   main(pos, neg, None, quiet=args.quiet, clean_run=False, annotate=True)
    if os.path.exists('results.tsv'):
       print('Test completed successfully!')
    else:
@@ -4216,9 +4684,20 @@ if __name__ == '__main__':
                        help=("This will overwrite the set value in the settings"))
    parser.add_argument("--annotation_evalue", default=None,
                        help=("This will overwrite the set value in the settings"))
+   parser.add_argument("--kmer_count_threshold", default=None,
+                       help=("This will overwrite the set value in the settings"))
+   parser.add_argument("--z_threshold", default=None,
+                       help=("This will overwrite the set value in the settings"))
+   # Standard arguments
+   parser.add_argument("-r", "--reuse", default=False, action='store_true',
+                       help=("This option allows the reuse of some result files"
+                             " making subsequent rerun of the tool faster"))
+   parser.add_argument("-v", "--verbose", default=False, action='store_true',
+                       help=("This option write live information of the "
+                             "progress to the screen"))
    args = parser.parse_args()
 
-   entry_points = ['full', 'fucs', 'fppp', 'vpcr', 'anno', 'pcrs', 'test']
+   entry_points = ['full', 'fucs', 'fppp', 'vpcr', 'anno', 'pcrs', 'expl', 'test']
    args.entry_point = args.entry_point[0]
 
    if args.entry_point not in entry_points:
@@ -4278,6 +4757,10 @@ if __name__ == '__main__':
    settings['pcr']['priming']['primer3']['PRIMER_PICK_INTERNAL_OLIGO'] = 1 if args.pick_probe else 0
    if args.annotation_evalue is not None:
       settings['pcr']['annotation']['blastx_settings']['evalue'] = float(args.annotation_evalue)
+   if args.kmer_count_threshold is not None:
+      settings['explore']['kmer_count_threshold'] = float(args.kmer_count_threshold)
+   if args.z_threshold is not None:
+      settings['explore']['z_threshold'] = float(args.z_threshold)
 
    # Handle wildcards in positives, negatives and references
    if args.positives is not None:
@@ -4298,6 +4781,8 @@ if __name__ == '__main__':
          sys.stderr.write(('WARNING: The following references were ignored,'
                            ' due to not being fasta!\n%s\n\n')%('\n'.join(fi)))
       args.references = [x for path in args.references for x in glob.glob(path) if check_file_type(x) == 'fasta']
+
+   args.quiet = False if args.verbose else True
 
    # Run Service
    print('Running %s'%(args.entry_point))

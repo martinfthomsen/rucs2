@@ -116,6 +116,54 @@ docker run --rm -v `pwd`:/workdir \
        rucs spst --pairs pair_file.tsv --template template.fa
 ```
 
+### expl - Explore the genomes ###
+Explore the genomes of the positive dataset versus the negative dataset for
+Over- and underrepresentation of k-mers.
+
+This method computes the over- and underrepresentation of k-mers in the
+positive genomes versus the negative genomes, and generates consensus sequences
+from these.
+It can be useful if you have two cluster of the same species that are pertain
+different effects and you aren't sure of why. In such a case, this method should
+provide you with results that can tell you what the differences are genetically.
+
+**Output**
+The method creates two output files in fasta format.
+The first, containing the overrepresented sequences. The second, containing the
+underrepresented sequences. An overrepresented sequence is a sequence of DNA
+found significantly more often in the positive dataset compared to the negative
+dataset. An underrepresented sequence is a sequence of DNA found significantly
+more often in the negative dataset compared to the positive dataset.
+The fasta description header will contain the genome names where the given sequence is found.
+
+**Options**
+There are two specific settings for this feature:
+ - kmer_count_threshold [default 1] - The k-mer count threshold defines how many
+ times a k-mer must be observed to be in ignored
+ - z_threshold [default 1.96] - The z-score threshold determines when a k-mer is
+ considered significant (either over-represented or under-represented)
+
+**Example of usage**
+```
+#!bash
+docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
+    rucs expl --positives positives/* --negatives negatives/* \
+    --kmer_count_threshold 1 --z_threshold 1.96
+```
+
+**Fails?**
+If you experience this method failing due to being killed, you can try
+increasing the allowed memory usage in the Docker setting. This method is quite
+memory intensive, a dataset of ~30 bacteria genomes can easily use more than
+10GB RAM (peak).
+
+**Slow?**
+This method is very cumbersome, which many heavy compute tasks, so the more
+references are used and the bigger the references, this can really take a long
+time to run. easpecially the step where the over- and underrepresented k-mers
+are converted into contigs and scaffolds sequences.
+
+
 ## Other hidden features ##
 The RUCS image comes with some hidden but convenient features/functionalities
 that can make your experience with the tool easier.
@@ -133,10 +181,17 @@ arguments.
 The download script can be invoked like so:
 ```
 #!bash
-docker run -it --entrypoint download_genomes.sh --rm -v `pwd`/positives:/workdir rucs CP000672.1 ARBW00000000
+docker run -it --entrypoint download_genomes.sh --rm -v `pwd`/positives:/workdir rucs CP063056 ARBW00000000 BBXJ00000000
+docker run -it --entrypoint download_genomes.sh --rm -v `pwd`/negatives:/workdir rucs JWIZ01 JADGLC01 CP000672.1
 ```
 Just switch out "`pwd`/positives" with your preferred download directory, and
 "CP000672.1 ARBW00000000", with your list of space-separated accessions.
+
+** Fails? **
+If the download script fails, it could be due to bad internet connection to NCBI.
+Try opening a browser and go to:
+https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=assembly&term=JWIZ01
+If this site is able to load, the download script should also work.
 
 
 ## Installation and setup? ##
@@ -277,6 +332,22 @@ mounting, like the workdir and blastdb in the command above.
 You can run any command available in there and manipulate what ever files you
 wish. OBS! Only changes made in the mounted directories are kept after you exit
 the container.
+
+You can also run python inside the container and import the primer core tools
+from RUCS:
+```
+#!bash
+docker run -it --entrypoint python3 --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs
+import sys
+sys.path.append('/tools/')
+from primer_core_tools import *
+load_global_settings('settings.default.cjson')
+positives = [x for x in glob.glob("positives/*") if check_file_type(x) == 'fasta']
+negatives = [x for x in glob.glob("negatives/*") if check_file_type(x) == 'fasta']
+reference = positives[0]
+main(positives, negatives, reference, quiet=False, clean_run=True, annotate=True)
+
+```
 
 
 ## Result Explanation ##

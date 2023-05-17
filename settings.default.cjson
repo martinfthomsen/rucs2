@@ -5,6 +5,7 @@
    },
    "ucs": { // Parameters for ucs computation
       "kmer_size":            20, // k size used to extract k-mers
+      "max_ns":             1000, // Maximum stretches of 'n' allowed in dissected scaffolds
       "min_seq_len_pos":     500, // Minimum sequence length for contigs in positive samples to be considered for k-mer extraction. Threshold for limiting k-mers from untrustworthy sequences
       "min_seq_len_neg":     500, // Minimum sequence length for contigs in negative samples to be considered for k-mer extraction. Threshold for limiting k-mers from untrustworthy sequences
       "charspace":       "nATGC", // The alphabet used by the program. The "any" symbol is asumed to be the first symbol.
@@ -20,6 +21,12 @@
          "threads":            1  // Number of threads allowed
       },
       "sam_flags_ignore":     20  // Samtools binary flags used for parsing k-mer alignment to reference
+   },
+   "explore": { // Parameters for explorative computations
+      "kmer_count_threshold":    1,    // kmers found below this limit within each file is ignored
+      "sensitivity_threshold":   0.6,  // The sensitivity threshold defines how often a kmer must be found in the positive set to be included in the results. If provided as an integer the number is considered as a minimum count.
+      "fall-out_threshold":      0.2,   // The fall-out threshold defines how often k-mers may be found in the negative set and still be included in the results. If provided as an integer the number is considered as a maximum count.
+      "align_percent_threshold": 0.05  // The alignment percent threshold defines the acceptable amount of kmers to not be aligned to a contig. These k-mers are lost from further analysis to speed up the process. Set to 0, if you want as much data as possible.
    },
    "pcr":{ // PCR Pair and product parameters
       "no_good_pp":          100, // Number of good primer pairs to identify before stopping the algorithm early
@@ -71,7 +78,7 @@
             "PRIMER_WT_TM_LT":                      1.0, // Penalty weight for primer temp lower than optimum
             "PRIMER_WT_TM_GT":                      1.0, // Penalty weight for primer temp higher than optimum
             "PRIMER_PAIR_MAX_DIFF_TM":              1.0, // Maximum acceptable (unsigned) difference between the melting temperatures of the left and right primers.(default 100)
-            "PRIMER_MAX_END_GC":                    3,   // Max number of GC bases in 3" end 
+            "PRIMER_MAX_END_GC":                    3,   // Max number of GC bases in 3" end
             "PRIMER_MAX_END_STABILITY":           100.0, // Max end stability
             "PRIMER_WT_END_STABILITY":              0.0, // Penalty weight for end stability
             "PRIMER_MAX_NS_ACCEPTED":               0,   // Max number of Ns accepted in any primer
@@ -119,14 +126,14 @@
             "SEQUENCE_PRIMER_PAIR_OK_REGION_LIST": null, // [[<left_start>,<left_length>,<right_start>,<right_length>], ...] (NOTE: Use -1 to leave empty)
             "SEQUENCE_INCLUDED_REGION": null,            // eg. [[36,342], ...]
             "SEQUENCE_EXCLUDED_REGION": null,            // eg. [[36,342], ...]
-            "SEQUENCE_INTERNAL_EXCLUDED_REGION": null,   // 
-            "SEQUENCE_PRIMER": null,                     // 
-            "SEQUENCE_INTERNAL_OLIGO": null,             // 
-            "SEQUENCE_PRIMER_REVCOMP": null,             // 
-            "SEQUENCE_FORCE_LEFT_START": null,           // 
-            "SEQUENCE_FORCE_LEFT_END": null,             // 
-            "SEQUENCE_FORCE_RIGHT_START": null,          // 
-            "SEQUENCE_FORCE_RIGHT_END": null             // 
+            "SEQUENCE_INTERNAL_EXCLUDED_REGION": null,   //
+            "SEQUENCE_PRIMER": null,                     //
+            "SEQUENCE_INTERNAL_OLIGO": null,             //
+            "SEQUENCE_PRIMER_REVCOMP": null,             //
+            "SEQUENCE_FORCE_LEFT_START": null,           //
+            "SEQUENCE_FORCE_LEFT_END": null,             //
+            "SEQUENCE_FORCE_RIGHT_START": null,          //
+            "SEQUENCE_FORCE_RIGHT_END": null             //
          },
          "blastn_settings": { // Primer binding searches
             "num_alignments":  1000,
