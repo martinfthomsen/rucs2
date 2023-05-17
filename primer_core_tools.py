@@ -4334,11 +4334,12 @@ def explore_representation(positives, negatives, kmer_size=None):
             except IOError: pass
             else: f_diss.write('\n')
 
-            # Remove aligned k-mers
+            # Remove aligned k-mers and thier reverse complement
             if log is not None:
-               log.progress.add(f'remove_kmers_{ref}', f'Removing the {len(pos_kmers)} k-mers that was aligned sucessfully', 'make_ors')
+               log.progress.add(f'remove_kmers_{ref}', f'Removing the k-mers that was aligned sucessfully', 'make_ors')
 
             sig_pos_kmers -= pos_kmers.keys()
+            sig_pos_kmers -= set(reverse_complement(k) for k in pos_kmers.keys())
 
             if log is not None:
                log.progress.add(f'status_{ref}', f'{len(sig_pos_kmers)} k-mers out of {max_pos} ({int(len(sig_pos_kmers) / max_pos * 100)}%) remains to be aligned.', 'make_ors')
@@ -4392,11 +4393,12 @@ def explore_representation(positives, negatives, kmer_size=None):
             except IOError: pass
             else: f_diss.write('\n')
 
-            # Remove aligned k-mers
+            # Remove aligned k-mers and thier reverse complement
             if log is not None:
-               log.progress.add(f'remove_kmers_{ref}', f'Removing the {len(neg_kmers)} k-mers that was aligned sucessfully', 'make_urs')
+               log.progress.add(f'remove_kmers_{ref}', f'Removing the k-mers that was aligned sucessfully', 'make_urs')
 
             sig_neg_kmers -= neg_kmers.keys()
+            sig_neg_kmers -= set(reverse_complement(k) for k in neg_kmers.keys())
 
             if log is not None:
                log.progress.add(f'status_{ref}', f'{len(sig_neg_kmers)} k-mers out of {max_neg} ({int(len(sig_neg_kmers) / max_neg *100)}%) remains to be aligned.', 'make_urs')
