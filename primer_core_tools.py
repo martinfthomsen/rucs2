@@ -4287,10 +4287,10 @@ def explore_representation(positives, negatives, kmer_size=None, reuse=False):
          nkc = kmer_counts_neg[kmer] if kmer in kmer_counts_neg else 0
 
          # Filter k-mers not passing sensitivity and specificity threshold
-         if pkc < ors_sens_threshold or nkc > ors_fo_threshold:
+         if pkc > 0 and (pkc < ors_sens_threshold or nkc > ors_fo_threshold):
             del kmer_counts_pos[kmer]
-         
-         if nkc < urs_sens_threshold or pkc > urs_fo_threshold:
+
+         if nkc > 0 and (nkc < urs_sens_threshold or pkc > urs_fo_threshold):
             del kmer_counts_neg[kmer]
 
       pos_kmer_count += len(kmer_counts_pos)
