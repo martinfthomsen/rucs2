@@ -1461,7 +1461,7 @@ def find_intersecting_kmers(files, kmer_size=20, min_seq_len=500):
 def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
                             kmer_prefix='', fastq_kmer_count_threshold=20,
                             revcom=True, min_seq_len=500, to_upper=False,
-                            buffer=False, log_entry=None):
+                            buffer=False, log_entry=None, reuse=False):
    '''
    NAME      Extract K-mers from sequence
    AUTHOR    Martin CF Thomsen
@@ -1488,53 +1488,73 @@ def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
       {'this_is_seq_4': 1, 'this_is_seq_3': 1,
        'this_is_seq_2': 1, 'this_is_seq_1': 1}
    '''
-   if log is not None and log_entry is not None:
-      log.progress.add(f'ext_{os.path.basename(filename)}',
-                       f'Processing {os.path.basename(filename)}', log_entry)
-   # Extract K-mers from the sequences
-   kmers = {}
-   seqcount = 0
-   kmerstot = 0
-   file_type = check_file_type([filename])
-   for i, (seq, name, desc) in enumerate(seqs_from_file(filename,
-                                                        to_upper=to_upper,
-                                                        use_ram_buffer=buffer)):
-      if len(seq) < min_seq_len: continue # Skip small sequences
+   if reuse and os.path.exists(f'ext_kmer_reuse_{os.path.basename(filename)}.pkl'):
+      # Extract K-mers from previous result file
+      if log is not None and log_entry is not None:
+         log.progress.add(f'ext_{os.path.basename(filename)}',
+                          f'Reloading previous extracted k-mers for {os.path.basename(filename)}', log_entry)
 
-      # Extract kmers from sequence (GenomePrefix_SequencePrefix_KmerPosition) to 'kmers'
-      extract_kmers(kmers, seq, kmer_size, kmer_prefix)
-      kmerstot += len(seq) - kmer_size + 1
+      with open(f'ext_kmer_reuse_{os.path.basename(filename)}.pkl', 'rb') as f:
+         kmers = pickle.load(f)
 
-      # Extract kmers from the reverse complement sequence
-      if revcom:
-         extract_kmers(kmers, reverse_complement(seq), kmer_size, kmer_prefix)
+      if log is not None and log_entry is not None:
+         kmersum = sum(kmers.values())
+         log.stats.add_row('kmer', [len(kmers), f'Extracted k-mers from {os.path.basename(filename)}'])
+         log.stats.add_row('kmer', [kmersum - len(kmers), f'Doublicate k-mers from {os.path.basename(filename)}'])
+         log.progress[f'ext_{os.path.basename(filename)}'].log_time()
+   else:
+      if log is not None and log_entry is not None:
+         log.progress.add(f'ext_{os.path.basename(filename)}',
+                          f'Extracting k-mers from {os.path.basename(filename)}', log_entry)
+      # Extract K-mers from the sequences
+      kmers = {}
+      seqcount = 0
+      kmerstot = 0
+      file_type = check_file_type([filename])
+      for i, (seq, name, desc) in enumerate(seqs_from_file(filename,
+                                                           to_upper=to_upper,
+                                                           use_ram_buffer=buffer)):
+         if len(seq) < min_seq_len: continue # Skip small sequences
+
+         # Extract kmers from sequence (GenomePrefix_SequencePrefix_KmerPosition) to 'kmers'
+         extract_kmers(kmers, seq, kmer_size, kmer_prefix)
          kmerstot += len(seq) - kmer_size + 1
 
-      seqcount += 1
+         # Extract kmers from the reverse complement sequence
+         if revcom:
+            extract_kmers(kmers, reverse_complement(seq), kmer_size, kmer_prefix)
+            kmerstot += len(seq) - kmer_size + 1
 
-   if log is not None and log_entry is not None:
-      kmersum = sum(kmers.values())
-      log.stats.add_row('kmer', [len(kmers), f'Extracted k-mers from {os.path.basename(filename)}'])
-      log.stats.add_row('kmer', [kmerstot - kmersum, f"Skipped k-mers from {os.path.basename(filename)}"])
-      log.stats.add_row('kmer', [kmersum - len(kmers), f'Doublicate k-mers from {os.path.basename(filename)}'])
-      log.progress[f'ext_{os.path.basename(filename)}'].log_time()
+         seqcount += 1
 
-   # File type dependend filtering
-   if file_type == 'fastq':
-      # Filter K-mers with low occurences
       if log is not None and log_entry is not None:
-         log.progress.add(f'flt_{os.path.basename(filename)}',
-                          f'Filtering k-mers with low coverage', log_entry)
-      sum_ = 0
-      kmer_count = len(kmers)
-      for kmer, count in kmers.items():
-         if count < fastq_kmer_count_threshold:
-            del kmers[kmer]
-            sum_ += count
-      kmer_count -= len(kmers)
-      if log is not None and log_entry is not None:
-         log.stats.add_row('kmer', [kmer_count, f'Filtered k-mers from {os.path.basename(filename)} with an average coverage of {sum_/kmer_count:.4f}'])
-         log.progress[f'flt_{os.path.basename(filename)}'].log_time()
+         kmersum = sum(kmers.values())
+         log.stats.add_row('kmer', [len(kmers), f'Extracted k-mers from {os.path.basename(filename)}'])
+         log.stats.add_row('kmer', [kmerstot - kmersum, f"Skipped k-mers from {os.path.basename(filename)}"])
+         log.stats.add_row('kmer', [kmersum - len(kmers), f'Doublicate k-mers from {os.path.basename(filename)}'])
+         log.progress[f'ext_{os.path.basename(filename)}'].log_time()
+
+      # File type dependend filtering
+      if file_type == 'fastq':
+         # Filter K-mers with low occurences
+         if log is not None and log_entry is not None:
+            log.progress.add(f'flt_{os.path.basename(filename)}',
+                             f'Filtering k-mers with low coverage', log_entry)
+         sum_ = 0
+         kmer_count = len(kmers)
+         for kmer, count in kmers.items():
+            if count < fastq_kmer_count_threshold:
+               del kmers[kmer]
+               sum_ += count
+         kmer_count -= len(kmers)
+         if log is not None and log_entry is not None:
+            log.stats.add_row('kmer', [kmer_count, f'Filtered k-mers from {os.path.basename(filename)} with an average    coverage of {sum_/kmer_count:.4f}'])
+            log.progress[f'flt_{os.path.basename(filename)}'].log_time()
+
+      if reuse:
+         # Store k-mer extraction results for later reuse
+         with open(f'ext_kmer_reuse_{os.path.basename(filename)}.pkl', 'wb') as f:
+            pickle.dump(kmers, f)
 
    return kmers
 
@@ -4108,7 +4128,7 @@ def find_ucs(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
          log.stats.summary(f)
 
 def count_kmers(files, kmer_size=20, kmer_count_threshold=1, min_seq_len=500,
-                sep_on_first=0, log_entry=None):
+                sep_on_first=0, log_entry=None, reuse=False):
    ''' Count in how many files, a given k-mer is found. '''
    #Extract kmers
    kmers = {}
@@ -4121,10 +4141,10 @@ def count_kmers(files, kmer_size=20, kmer_count_threshold=1, min_seq_len=500,
       kmers_i = extract_kmers_from_file(genome, i, kmer_size, '',
                                         settings['ucs']['min_kmer_count'],
                                         settings['ucs']['rev_comp'],
-                                        min_seq_len, to_upper, buffer, log_entry)
+                                        min_seq_len, to_upper, buffer, log_entry, reuse=reuse)
       # COMPUTE K-MER COUNT
       if log is not None and log_entry is not None:
-         log.progress.add(f'kmercount_{os.path.basename(genome)}', f'Computing k-mer counts for {os.path.basename(genome)}', log_entry)
+         log.progress.add(f'kmercount_{os.path.basename(genome)}', f'Updating k-mer counts', log_entry)
 
       for kmer in kmers_i:
          if sep_on_first > 0:
@@ -4166,7 +4186,7 @@ def count_kmers(files, kmer_size=20, kmer_count_threshold=1, min_seq_len=500,
 
    return kmers
 
-def explore_representation(positives, negatives, kmer_size=None):
+def explore_representation(positives, negatives, kmer_size=None, reuse=False):
    ''' Explore Over- and underrepresentation of k-mer in the positive genomes
    versus the negative genomes.
    '''
@@ -4197,7 +4217,7 @@ def explore_representation(positives, negatives, kmer_size=None):
 
    kmer_counts_pos = count_kmers(positives, kmer_size, kmer_count_threshold,
                                  min_seq_len=settings['ucs']['min_seq_len_pos'],
-                                 sep_on_first=1, log_entry='pos')
+                                 sep_on_first=1, log_entry='pos', reuse=reuse)
 
    pos_kmer_count = sum(map(len, kmer_counts_pos.values()))
    if pos_kmer_count == 0:
@@ -4223,7 +4243,7 @@ def explore_representation(positives, negatives, kmer_size=None):
 
    kmer_counts_neg = count_kmers(negatives, kmer_size, kmer_count_threshold,
                                  min_seq_len=settings['ucs']['min_seq_len_pos'],
-                                 sep_on_first=1, log_entry='neg')
+                                 sep_on_first=1, log_entry='neg', reuse=reuse)
 
    neg_kmer_count = sum(map(len, kmer_counts_neg.values()))
    if neg_kmer_count == 0:
@@ -4252,7 +4272,7 @@ def explore_representation(positives, negatives, kmer_size=None):
    # Process the kmer-sets independently
    for sep in kmer_seps:
       if log is not None:
-         log.progress.add(f'filter_{sep}', f'Processing k-mers ({sep})', 'filter')
+         log.progress.add(f'filter_{sep}', f'Processing k-mers starting with "{sep}"', 'filter')
 
       # Load kmer counts
       with open(f'kmer_counts_pos_{sep}.pkl', 'rb') as f:
@@ -4422,7 +4442,7 @@ def explore_representation(positives, negatives, kmer_size=None):
           (combined_contigs_urs, combined_disscafs_urs))
 
 def explore(positives, negatives, kmer_size=None, quiet=False, clean_run=True,
-            settings_file=None, name=None):
+            settings_file=None, name=None, reuse=False):
    ''' This script computes the over- and underrepresentation of k-mers in the
    positive genomes versus the negative genomes. This feature will create two
    output fasta files; the first containing the overrepresented sequences, and
@@ -4464,7 +4484,7 @@ def explore(positives, negatives, kmer_size=None, quiet=False, clean_run=True,
       log.progress['input'].log_time()
 
       # Find over- and under-represented sequences
-      ors_files, urs_files = explore_representation(positives, negatives, kmer_size)
+      ors_files, urs_files = explore_representation(positives, negatives, kmer_size, reuse=reuse)
 
       # Print Sequence Analysis Table
       title = 'Sequence Analysis'
@@ -4558,7 +4578,7 @@ def pcrs(args):
 
 def expl(args):
    ''' Explore the positive and negative genomes for overrepresented k-mers'''
-   explore(args.positives, args.negatives, quiet=args.quiet, clean_run=True)
+   explore(args.positives, args.negatives, quiet=args.quiet, clean_run=True, reuse=args.reuse)
 
 def test(args):
    ''' Virtual PCR - Simulate PCR and predict PCR product for the provided
@@ -4669,6 +4689,9 @@ if __name__ == '__main__':
    parser.add_argument("--z_threshold", default=None,
                        help=("This will overwrite the set value in the settings"))
    # Standard arguments
+   parser.add_argument("-r", "--reuse", default=False, action='store_true',
+                       help=("This option allows the reuse of some result files"
+                             " making subsequent rerun of the tool faster"))
    parser.add_argument("-v", "--verbose", default=False, action='store_true',
                        help=("This option write live information of the "
                              "progress to the screen"))
