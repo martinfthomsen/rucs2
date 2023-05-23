@@ -38,7 +38,7 @@ WORKDIR /tools
 
 # Install BLAST (newest blast is only available through ftp, sadly not via apt-get)
 ENV BLASTDB /blastdb
-ENV PATH $PATH:/tools/ncbi-blast/bin
+ENV PATH $PATH:/tools/ncbi-blast
 RUN mkdir ncbi-blast && \
     wget -r --no-parent -nv -A 'ncbi-blast-*+-x64-linux.tar.gz' -O ncbi-blast.tar.gz ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/ && \
     tar -xzf ncbi-blast.tar.gz -C ncbi-blast --strip-components=2 && \

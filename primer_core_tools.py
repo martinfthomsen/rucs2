@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/local/bin/python3 -u
 ''' RUCS - Rapid Identification of PCR Primers Pairs for Unique Core Sequences
 
 RUCS 2: https://github.com/martinfthomsen/rucs2
@@ -25,7 +25,7 @@ limitations under the License.
 import sys, os, time, re, gzip, json, types, shutil, glob, bisect, pickle, gc
 import primer3
 import numpy as np
-from subprocess import call, Popen, PIPE, STDOUT as subprocess_stdout
+from subprocess import call, Popen, PIPE, DEVNULL, STDOUT as subprocess_stdout
 from difflib import SequenceMatcher
 from tabulate import tabulate
 from contextlib import closing
@@ -546,9 +546,6 @@ def seqs_from_file(filename, exit_on_err=False, to_upper=False,
       queryseqsegments = []
       seq, name, desc = '', '', ''
       for line in f:
-         # Decode bytes objects from gzipped files
-         if isinstance(line, bytes):
-            line = line.decode("utf-8")
          # Skip empty lines
          if len(line.strip()) == 0: continue
 
@@ -1274,7 +1271,6 @@ def check_file_type(inputFiles):
       for file_ in inputFiles:
          with open_(file_, 'r') as f:
             fc = f.readline()[0]
-            fc = chr(fc) if isinstance(fc, int) else fc
             if fc != "@": all_are_reads = False
             if fc != ">": all_are_fasta = False
 
@@ -1298,8 +1294,8 @@ def open_(filename, mode='r', compresslevel=9):
    ...     f.read()
    """
    if filename[-3:] == '.gz':
-      if mode == 'r': mode = 'rb'
-      if mode == 'w': mode = 'wb'
+      if mode == 'r': mode = 'rt'
+      if mode == 'w': mode = 'wt'
       return closing(gzip.open(filename, mode, compresslevel))
    else:
       return open(filename, mode)
@@ -1794,17 +1790,27 @@ def blast_to_ref(reference, fasta, blast_settings=None, buffer=False):
    # Create BLAST DB
    name = os.path.basename(reference).rsplit('.',1)[0]
    if not os.path.exists("%s.nin"%(reference)):
-      cmd = ['makeblastdb', '-title', name, '-in', reference, '-parse_seqids']
+      cmd = ['makeblastdb', '-in', '-', '-title', name, '-out', reference, '-parse_seqids']
       if 'dbtype' in blast_settings:
          cmd.extend(['-dbtype', blast_settings['dbtype']])
       else:
          cmd.extend(['-dbtype', defaults['dbtype'][-1]])
-      # print(' '.join(cmd))
       so_path = 'blast_db.out.txt'
       se_path = 'blast_db.err.txt'
-      with open_(so_path, 'w') as so, open_(se_path, 'w') as se:
-         ec = Popen(cmd, stdout=so, stderr=se).wait()
-         if ec != 0: raise RuntimeError('BLAST formatdb failed during execution')
+      with open_(reference, 'r') as six, open_(so_path, 'w') as so, open_(se_path, 'w') as se:
+         so.write(f"#CMD ")
+         if reference[-3:] == '.gz':
+            # gunzip input
+            so.write(f"gzip -cd {reference} | ")
+            pgz = Popen(['gzip', '-cd', reference], stdout=PIPE, stderr=DEVNULL)
+            si = pgz.stdout
+         else:
+            so.write(f"cat {reference} | ")
+            si = six
+         so.write(f"{' '.join(cmd)}\n")
+         so.flush()
+         ec = Popen(cmd, stdin=si, stdout=so, stderr=se).wait()
+         if ec != 0: raise RuntimeError(f'BLAST formatdb failed during execution ({ec})')
    del defaults['dbtype']
 
    # BLAST fasta to DB
@@ -2360,7 +2366,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
    for i, (seq, name, desc) in enumerate(seqs_from_file(contig_file,
                                                         to_upper=to_upper,
                                                         use_ram_buffer=buffer)):
-      if contig_names is not None and name not in contig_names:
+      if contig_names is not None and name not in contig_names and str(i) not in contig_names:
          # Ignore unspecified contigs
          ignored += 1
          continue
