@@ -4695,9 +4695,31 @@ if __name__ == '__main__':
    parser.add_argument("--annotation_evalue", default=None,
                        help=("This will overwrite the set value in the settings"))
    parser.add_argument("--kmer_count_threshold", default=None,
-                       help=("This will overwrite the set value in the settings"))
-   parser.add_argument("--z_threshold", default=None,
-                       help=("This will overwrite the set value in the settings"))
+                       help=("kmers found below this limit within each file are"
+                             " ignored. Setting this argument will overwrite the"
+                             " set value in the settings"))
+   parser.add_argument("--sensitivity_threshold", default=None,
+                       help=("The sensitivity threshold defines how often a kmer"
+                             " must be found in the positive set to be included "
+                             "in the results. If provided as an integer the "
+                             "number is considered as a minimum count. Setting "
+                             "this argument will overwrite the set value in the "
+                             "settings"))
+   parser.add_argument("--fallout_threshold", default=None,
+                       help=("The fall-out threshold defines how often k-mers "
+                             "may be found in the negative set and still be "
+                             "included in the results. If provided as an integer"
+                             " the number is considered as a maximum count. "
+                             "Setting this argument will overwrite the set value"
+                             " in the settings"))
+   parser.add_argument("--align_percent_threshold", default=None,
+                       help=("The alignment percent threshold defines the "
+                             "acceptable amount of kmers to not be aligned to a "
+                             "contig. These k-mers are lost from further "
+                             "analysis to speed up the process. Set to 0, if you"
+                             " want as much data as possible. Setting this "
+                             "argument will overwrite the set value in the "
+                             "settings"))
    # Standard arguments
    parser.add_argument("-r", "--reuse", default=False, action='store_true',
                        help=("This option allows the reuse of some result files"
@@ -4769,8 +4791,12 @@ if __name__ == '__main__':
       settings['pcr']['annotation']['blastx_settings']['evalue'] = float(args.annotation_evalue)
    if args.kmer_count_threshold is not None:
       settings['explore']['kmer_count_threshold'] = float(args.kmer_count_threshold)
-   if args.z_threshold is not None:
-      settings['explore']['z_threshold'] = float(args.z_threshold)
+   if args.sensitivity_threshold is not None:
+      settings['explore']['sensitivity_threshold'] = float(args.sensitivity_threshold)
+   if args.fallout_threshold is not None:
+      settings['explore']['fall-out_threshold'] = float(args.fallout_threshold)
+   if args.align_percent_threshold is not None:
+      settings['explore']['align_percent_threshold'] = float(args.align_percent_threshold)
 
    # Handle wildcards in positives, negatives and references
    if args.positives is not None:
