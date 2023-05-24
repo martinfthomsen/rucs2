@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/local/bin/python3 -u
 ''' RUCS - Rapid Identification of PCR Primers Pairs for Unique Core Sequences
 
 RUCS 2: https://github.com/martinfthomsen/rucs2
@@ -25,9 +25,10 @@ limitations under the License.
 import sys, os, time, re, gzip, json, types, shutil, glob, bisect, pickle, gc
 import primer3
 import numpy as np
-from subprocess import call, Popen, PIPE, STDOUT as subprocess_stdout
+from subprocess import call, Popen, PIPE, DEVNULL, STDOUT as subprocess_stdout
 from difflib import SequenceMatcher
 from tabulate import tabulate
+from contextlib import closing
 
 # GLOBALS
 log = None
@@ -128,11 +129,11 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
          raise UserWarning('No valid PCR primer pairs could be found!')
 
       # Create json file containing all pairs
-      with open(pairs_json_file, 'w') as f:
+      with open_(pairs_json_file, 'w') as f:
          json.dump(pairs[:no_tested_pp], f)
 
       # Create test summary file
-      with open(products_file, 'w') as f:
+      with open_(products_file, 'w') as f:
          rp = range(len(positives))
          rn = range(len(negatives))
          f.write('#%s\t%s\n'%('\t'.join(('P_%s'%(x+1) for x in rp)),
@@ -143,10 +144,10 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
             )) for p in pairs[:no_tested_pp])))
 
       # Create tab separated summary file of good pairs
-      with open(results_file_best, 'w') as f:
+      with open_(results_file_best, 'w') as f:
          f.write(present_pairs_full(good_pp))
       # Create tab separated summary file of all pairs
-      with open(results_file, 'w') as f:
+      with open_(results_file, 'w') as f:
          f.write(present_pairs_full(pairs[:no_tested_pp]))
    except UserWarning as msg:
       # Clean up (to reduce space usage)
@@ -165,7 +166,7 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
    finally:
       log.progress['main'].log_time()
       # Store time and stats in debug.log
-      with open(stats_file, 'w') as f:
+      with open_(stats_file, 'w') as f:
          log.progress.summary(f)
          log.stats.summary(f)
 
@@ -219,11 +220,11 @@ def find_primer_pairs(contig_file, positives, negatives, contig_names=None,
          raise UserWarning('No valid PCR primer pairs could be found!')
 
       # Create json file containing all pairs
-      with open(pairs_json_file, 'w') as f:
+      with open_(pairs_json_file, 'w') as f:
          json.dump(pairs[:no_tested_pp], f)
 
       # Create test summary file
-      with open(products_file, 'w') as f:
+      with open_(products_file, 'w') as f:
          rp = range(len(positives))
          rn = range(len(negatives))
          f.write('#%s\t%s\n'%('\t'.join(('P_%s'%(x+1) for x in rp)),
@@ -234,10 +235,10 @@ def find_primer_pairs(contig_file, positives, negatives, contig_names=None,
             )) for p in pairs[:no_tested_pp])))
 
       # Create tab separated summary file of good pairs
-      with open(results_file_best, 'w') as f:
+      with open_(results_file_best, 'w') as f:
          f.write(present_pairs_full(good_pp))
       # Create tab separated summary file of results
-      with open(results_file, 'w') as f:
+      with open_(results_file, 'w') as f:
          f.write(present_pairs_full(pairs[:no_tested_pp]))
    except UserWarning as msg:
       # Clean up (to reduce space usage)
@@ -256,7 +257,7 @@ def find_primer_pairs(contig_file, positives, negatives, contig_names=None,
    finally:
       log.progress['main'].log_time()
       # Store time and stats in debug.log
-      with open(stats_file, 'w') as f:
+      with open_(stats_file, 'w') as f:
          log.progress.summary(f)
          log.stats.summary(f)
 
@@ -511,7 +512,7 @@ def seqs_from_file(filename, exit_on_err=False, to_upper=False,
    >>> # Create fasta test file
    >>> file_content = ('>head1 desc1\nthis_is_seq_1\n>head2 desc2\n'
                        'this_is_seq_2\n>head3 desc3\nthis_is_seq_3\n')
-   >>> with open('test.fa', 'w') as f: f.write(file_content)
+   >>> with open_('test.fa', 'w') as f: f.write(file_content)
    ...
    >>> # Parse and print the fasta file
    >>> for seq, name, desc in seqs_from_file('test.fa', use_ram_buffer=True):
@@ -544,12 +545,10 @@ def seqs_from_file(filename, exit_on_err=False, to_upper=False,
       f = file_buffer(f_obj, use_ram_buffer, use_ram_buffer)
       queryseqsegments = []
       seq, name, desc = '', '', ''
-      line = ''
-      readline = f.readline
-      addsegment = queryseqsegments.append
       for line in f:
+         # Skip empty lines
          if len(line.strip()) == 0: continue
-         #sys.stderr.write("%s\n"%line)
+
          fields=line.strip().split()
          if line[0] == ">":
             # FASTA HEADER FOUND
@@ -569,11 +568,11 @@ def seqs_from_file(filename, exit_on_err=False, to_upper=False,
             desc = ' '.join(fields[1:])
             try:
                # EXTRACT FASTQ SEQUENCE
-               line = readline()
+               line = f.readline()
                seq  = line.strip().split()[0]
                # SKIP SECOND HEADER LINE AND QUALITY SCORES
-               line = readline()
-               line = readline()
+               line = f.readline()
+               line = f.readline()
             except:
                break
             else:
@@ -583,8 +582,9 @@ def seqs_from_file(filename, exit_on_err=False, to_upper=False,
                seq, name, desc = '', '', ''
 
          elif len(fields[0])>0:
-            # EXTRACT FASTA SEQUENCE
-            addsegment(fields[0])
+            # FASTA SEQUENCE PART FOUND
+            # Add FASTA SEQUENCE as segment to queryseqsegments list
+            queryseqsegments.append(fields[0])
 
       # CHECK FOR LAST FASTA SEQUENCE
       if queryseqsegments != []:
@@ -608,10 +608,10 @@ class file_buffer():
 
    USAGE
       >>> import sys
-      >>> with open('test.txt', 'w') as f:
+      >>> with open_('test.txt', 'w') as f:
       ...    _ = f.write('1\n2\n3\n')
       ...
-      >>> with open('test.txt') as f_obj:
+      >>> with open_('test.txt') as f_obj:
       ...    f = file_buffer(f_obj)
       ...    for l in f:
       ...       _ = sys.stdout.write(l)
@@ -1255,7 +1255,7 @@ def decomment_json(cjson):
    def strip_comments(line):
       return line.split('//')[0].rstrip().replace('\\','\\\\')
 
-   with open(cjson) as f:
+   with open_(cjson) as f:
       json_str = '\n'.join(map(strip_comments, f.readlines()))
 
    return json_str
@@ -1279,7 +1279,7 @@ def check_file_type(inputFiles):
    elif all_are_reads: return 'fastq'
    else: return 'other'
 
-def open_(filename, mode=None, compresslevel=9):
+def open_(filename, mode='r', compresslevel=9):
    """Switch for both open() and gzip.open().
 
    Determines if the file is normal or gzipped by looking at the file
@@ -1294,14 +1294,14 @@ def open_(filename, mode=None, compresslevel=9):
    ...     f.read()
    """
    if filename[-3:] == '.gz':
-      if mode is None: mode = 'rb'
+      if mode == 'r': mode = 'rt'
+      if mode == 'w': mode = 'wt'
       return closing(gzip.open(filename, mode, compresslevel))
    else:
-      if mode is None: mode = 'r'
       return open(filename, mode)
 
 def save_as_fasta(sequences, filename, add_unique_id=True):
-   with open(filename, 'w') as f:
+   with open_(filename, 'w') as f:
       for i, seq_obj in enumerate(sequences):
          if isinstance(seq_obj, str):
             #>INDEX
@@ -1494,7 +1494,7 @@ def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
          log.progress.add(f'ext_{os.path.basename(filename)}',
                           f'Reloading previous extracted k-mers for {os.path.basename(filename)}', log_entry)
 
-      with open(f'ext_kmer_reuse_{os.path.basename(filename)}.pkl', 'rb') as f:
+      with open_(f'ext_kmer_reuse_{os.path.basename(filename)}.pkl', 'rb') as f:
          kmers = pickle.load(f)
 
       if log is not None and log_entry is not None:
@@ -1553,7 +1553,7 @@ def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
 
       if reuse:
          # Store k-mer extraction results for later reuse
-         with open(f'ext_kmer_reuse_{os.path.basename(filename)}.pkl', 'wb') as f:
+         with open_(f'ext_kmer_reuse_{os.path.basename(filename)}.pkl', 'wb') as f:
             pickle.dump(kmers, f)
 
    return kmers
@@ -1790,17 +1790,27 @@ def blast_to_ref(reference, fasta, blast_settings=None, buffer=False):
    # Create BLAST DB
    name = os.path.basename(reference).rsplit('.',1)[0]
    if not os.path.exists("%s.nin"%(reference)):
-      cmd = ['makeblastdb', '-title', name, '-in', reference, '-parse_seqids']
+      cmd = ['makeblastdb', '-in', '-', '-title', name, '-out', reference, '-parse_seqids']
       if 'dbtype' in blast_settings:
          cmd.extend(['-dbtype', blast_settings['dbtype']])
       else:
          cmd.extend(['-dbtype', defaults['dbtype'][-1]])
-      # print(' '.join(cmd))
       so_path = 'blast_db.out.txt'
       se_path = 'blast_db.err.txt'
-      with open(so_path, 'w') as so, open(se_path, 'w') as se:
-         ec = Popen(cmd, stdout=so, stderr=se).wait()
-         if ec != 0: raise RuntimeError('BLAST formatdb failed during execution')
+      with open_(reference, 'r') as six, open_(so_path, 'w') as so, open_(se_path, 'w') as se:
+         so.write(f"#CMD ")
+         if reference[-3:] == '.gz':
+            # gunzip input
+            so.write(f"gzip -cd {reference} | ")
+            pgz = Popen(['gzip', '-cd', reference], stdout=PIPE, stderr=DEVNULL)
+            si = pgz.stdout
+         else:
+            so.write(f"cat {reference} | ")
+            si = six
+         so.write(f"{' '.join(cmd)}\n")
+         so.flush()
+         ec = Popen(cmd, stdin=si, stdout=so, stderr=se).wait()
+         if ec != 0: raise RuntimeError(f'BLAST formatdb failed during execution ({ec})')
    del defaults['dbtype']
 
    # BLAST fasta to DB
@@ -1813,7 +1823,7 @@ def blast_to_ref(reference, fasta, blast_settings=None, buffer=False):
    # print(' '.join(cmd))
    so_path = 'blastn.%s.tsv'%(name)
    se_path = 'blastn.err.txt'
-   with open(so_path, 'w') as so, open(se_path, 'w') as se:
+   with open_(so_path, 'w') as so, open_(se_path, 'w') as se:
       ec = Popen(cmd, stdout=so, stderr=se).wait()
       if ec != 0:
          sys.stderr.write('Failing command:\n%s\n\n'%(' '.join(cmd)))
@@ -1822,7 +1832,7 @@ def blast_to_ref(reference, fasta, blast_settings=None, buffer=False):
    # Extract alignments
    primers = dict((i, seq) for i,(seq, n, d) in enumerate(seqs_from_file(fasta, use_ram_buffer=buffer)))
    alignments = {}
-   with open(so_path) as f:
+   with open_(so_path) as f:
       for l in f:
          l = l.strip()
          if l == '': continue
@@ -1939,7 +1949,7 @@ def bwa(ref, fastq, paired_fastq=None, bwa_settings=None, output_prefix='aln'):
       # _ = sys.stderr.write("#CMD=%s\n"%(' '.join(cmd)))
       so_path = '%s_index.out.txt'%output_prefix
       se_path = '%s_index.err.txt'%output_prefix
-      with open(so_path, 'w') as so, open(se_path, 'w') as se:
+      with open_(so_path, 'w') as so, open_(se_path, 'w') as se:
          ec = Popen(cmd, stdout=so, stderr=se).wait()
          if ec != 0: raise RuntimeError('bwa indexing failed during execution')
 
@@ -1953,7 +1963,7 @@ def bwa(ref, fastq, paired_fastq=None, bwa_settings=None, output_prefix='aln'):
    # _ = sys.stderr.write("#CMD=%s\n"%(' '.join(cmd)))
    sai_file = '%s_1.sai'%output_prefix
    se_path = '%s_sai.err.txt'%output_prefix
-   with open(sai_file, 'w') as so, open(se_path, 'w') as se:
+   with open_(sai_file, 'w') as so, open_(se_path, 'w') as se:
       ec = Popen(cmd, stdout=so, stderr=se).wait()
       if ec != 0: raise RuntimeError('bwa aln failed during execution')
 
@@ -1965,12 +1975,12 @@ def bwa(ref, fastq, paired_fastq=None, bwa_settings=None, output_prefix='aln'):
       # Align using BWA (single end) $ bwa samse <REFERENCE> <SAI> <FASTQ>
       cmd1 = [path.bwa, 'samse', '-n', '99', ref, sai_file, fastq]
       cmd2 = [path.samtools, 'view', '-Sb', path.sam]
-      with open(path.sam, 'w') as sam, open(path.bwalog, 'w') as se:
+      with open_(path.sam, 'w') as sam, open_(path.bwalog, 'w') as se:
          # Run BWA
          p1 = Popen(cmd1, stderr=se, stdout=sam)
          ec1 = p1.wait()
          if ec1 != 0: raise RuntimeError('bwa failed during execution (return code: %s)\n%s'%(ec1, ' '.join(cmd1)))
-      with open(path.bam, 'w') as bam, open(path.bwalog, 'a') as se:
+      with open_(path.bam, 'w') as bam, open_(path.bwalog, 'a') as se:
          # Convert SAM to BAM output for disk space efficiency
          p2 = Popen(cmd2, stdout=bam, stderr=se)
          # Wait for the programs to finish
@@ -1988,14 +1998,14 @@ def bwa(ref, fastq, paired_fastq=None, bwa_settings=None, output_prefix='aln'):
       # _ = sys.stderr.write("#CMD=%s\n"%(' '.join(cmd)))
       sai_file_2 = '%s_2.sai'%output_prefix
       se_path_2 = '%s_2_sai.err.txt'%output_prefix
-      with open(sai_file_2, 'w') as so, open(se_path_2, 'w') as se:
+      with open_(sai_file_2, 'w') as so, open_(se_path_2, 'w') as se:
          ec = Popen(cmd, stdout=so, stderr=se).wait()
          if ec != 0: raise RuntimeError('bwa aln failed during execution')
 
       # Align using BWA (paired end) $ bwa sampe <REFERENCE> <SAI_1> <SAI_2> <FASTQ_1> <FASTQ_2>      -P?
       cmd = [path.bwa, 'sampe', '-n', '99', '-o', '2000', ref, sai_file, sai_file_2, fastq, paired_fastq]
       # sys.stderr.write("#CMD=%s\n"%(' '.join(cmd)))
-      with open(path.bam, 'w') as so, open(path.bwalog, 'w') as se:
+      with open_(path.bam, 'w') as so, open_(path.bwalog, 'w') as se:
          # Run bowtie
          p1 = Popen(cmd, stderr=se, stdout=PIPE)
          # Convert SAM to BAM output for disk space efficiency
@@ -2155,7 +2165,7 @@ def compute_consensus_sequences(kmers, reference, kmer_size=20,
          kmer_dict[contig][kmer].append(position)
 
    # Compute scaffold consensuses
-   with open(auxiliary_file, 'w') as f:
+   with open_(auxiliary_file, 'w') as f:
       _ = f.write('# Auxiliary details on the k-mer-based scaffolds\n')
       _ = f.write('# Base\tContig\tPosition\tDepth\tConfidence\n')
       scaffolds = []
@@ -2356,7 +2366,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
    for i, (seq, name, desc) in enumerate(seqs_from_file(contig_file,
                                                         to_upper=to_upper,
                                                         use_ram_buffer=buffer)):
-      if contig_names is not None and name not in contig_names:
+      if contig_names is not None and name not in contig_names and str(i) not in contig_names:
          # Ignore unspecified contigs
          ignored += 1
          continue
@@ -3426,7 +3436,7 @@ GENETIC CODE TRRANSLATION:
       # Prepare a regular expression from the replace terms
       regex = RegexTermReplacementObj(replace_terms)
 
-      with open(so_path) as f:
+      with open_(so_path) as f:
          for l in f:
             l = l.strip()
             if l == '': continue
@@ -3572,7 +3582,7 @@ GENETIC CODE TRRANSLATION:
    name = os.path.basename(fasta).rsplit('.',1)[0]
    so_path = '%s.blastx.tsv'%(name)
    se_path = '%s.blastx.err'%(name)
-   with open(so_path, 'w') as so, open(se_path, 'w') as se:
+   with open_(so_path, 'w') as so, open_(se_path, 'w') as se:
       ec = Popen(cmd, stdout=so, stderr=se).wait()
       if ec != 0:
          sys.stderr.write(str(cmd))
@@ -3788,7 +3798,7 @@ def predict_pcr_results(refs, pairs, output=None, fail_on_non_match=False):
    # Print PCR results
    if output is not None:
       if '/' not in output or os.path.exists(os.path.dirname(output)):
-         with open(output, 'w') as f:
+         with open_(output, 'w') as f:
             f.write('\t'.join(map(os.path.basename, refs)))
             f.write('\n')
             f.write('\n'.join(['\t'.join(p) for p in pcr_results]))
@@ -3860,7 +3870,7 @@ def generate_sequence_atlas_data_file(reference_file, core_sequence_file, unique
       data['data'][id]['lanes']['ucs'] = ucs
 
    # read tsv         -> depth, confidence
-   with open(aux_file) as f:
+   with open_(aux_file) as f:
       for l in f:
          l = l.strip()
          if l == '': continue
@@ -3884,7 +3894,7 @@ def generate_sequence_atlas_data_file(reference_file, core_sequence_file, unique
          elif len(ldata['confidence']) != adata['length']: print('ALERT!')
 
    # Dump data to file
-   with open(file_name, 'w') as f: json.dump(data, f)
+   with open_(file_name, 'w') as f: json.dump(data, f)
 
 def color_seq(seq, ranges,
               tag_mods=[['0'], ['0','1','31'], ['0','1','43'], ['0','1','31','43']]):
@@ -3912,7 +3922,7 @@ def get_primer_and_probe_bindsites(results_file, unique_only=False):
    count = 0
    pribind_locs = {}
    probind_locs = {}
-   with open(results_file) as f:
+   with open_(results_file) as f:
       for l in f:
          if l.isspace(): continue
          if l.startswith('#'): continue
@@ -4123,7 +4133,7 @@ def find_ucs(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
    finally:
       log.progress['main'].log_time()
       # Store time and stats in stats.log
-      with open(stats_file, 'w') as f:
+      with open_(stats_file, 'w') as f:
          log.progress.summary(f)
          log.stats.summary(f)
 
@@ -4229,7 +4239,7 @@ def explore_representation(positives, negatives, kmer_size=None, reuse=False):
       log.progress.add('store_pos_kmercounts', 'store k-mers counts', 'pos')
 
    for sep in kmer_seps:
-      with open(f'kmer_counts_pos_{sep}.pkl', 'wb') as f:
+      with open_(f'kmer_counts_pos_{sep}.pkl', 'wb') as f:
          pickle.dump(kmer_counts_pos[sep], f)
 
    del kmer_counts_pos
@@ -4255,7 +4265,7 @@ def explore_representation(positives, negatives, kmer_size=None, reuse=False):
       log.progress.add('store_neg_kmercounts', 'store k-mers counts', 'neg')
 
    for sep in kmer_seps:
-      with open(f'kmer_counts_neg_{sep}.pkl', 'wb') as f:
+      with open_(f'kmer_counts_neg_{sep}.pkl', 'wb') as f:
          pickle.dump(kmer_counts_neg[sep], f)
 
    del kmer_counts_neg
@@ -4275,10 +4285,10 @@ def explore_representation(positives, negatives, kmer_size=None, reuse=False):
          log.progress.add(f'filter_{sep}', f'Processing k-mers starting with "{sep}"', 'filter')
 
       # Load kmer counts
-      with open(f'kmer_counts_pos_{sep}.pkl', 'rb') as f:
+      with open_(f'kmer_counts_pos_{sep}.pkl', 'rb') as f:
          kmer_counts_pos = pickle.load(f)
 
-      with open(f'kmer_counts_neg_{sep}.pkl', 'rb') as f:
+      with open_(f'kmer_counts_neg_{sep}.pkl', 'rb') as f:
          kmer_counts_neg = pickle.load(f)
 
       # Identify significantly over- or under-represented k-mers
@@ -4298,10 +4308,10 @@ def explore_representation(positives, negatives, kmer_size=None, reuse=False):
 
       gc.collect()
       # Pickle the significant k-mer counts dictionary
-      with open(f'kmer_counts_pos_sig_{sep}.pkl', 'wb') as f:
+      with open_(f'kmer_counts_pos_sig_{sep}.pkl', 'wb') as f:
          pickle.dump(set(kmer_counts_pos.keys()), f)
 
-      with open(f'kmer_counts_neg_sig_{sep}.pkl', 'wb') as f:
+      with open_(f'kmer_counts_neg_sig_{sep}.pkl', 'wb') as f:
          pickle.dump(set(kmer_counts_neg.keys()), f)
 
       del kmer_counts_pos, kmer_counts_neg
@@ -4322,14 +4332,14 @@ def explore_representation(positives, negatives, kmer_size=None, reuse=False):
    # Load all significant positive kmer counts
    sig_pos_kmers = set()
    for sep in kmer_seps:
-      with open(f'kmer_counts_pos_sig_{sep}.pkl', 'rb') as f:
+      with open_(f'kmer_counts_pos_sig_{sep}.pkl', 'rb') as f:
          sig_pos_kmers.update(pickle.load(f))
 
    # Align to pos refs until enough k-mers has been aligned to a ref
    max_pos = len(sig_pos_kmers)
    combined_contigs_ors = 'ors.contigs.fa'
    combined_disscafs_ors = 'ors.disscafs.fa'
-   with open(combined_contigs_ors, 'w') as f_cont, open(combined_disscafs_ors, 'w') as f_diss:
+   with open_(combined_contigs_ors, 'w') as f_cont, open_(combined_disscafs_ors, 'w') as f_diss:
       for ref in positives:
          align_percent = len(sig_pos_kmers) / max_pos
          if max_pos and align_percent > align_percent_threshold:
@@ -4389,14 +4399,14 @@ def explore_representation(positives, negatives, kmer_size=None, reuse=False):
    # Load all significant negative kmer counts
    sig_neg_kmers = set()
    for sep in kmer_seps:
-      with open(f'kmer_counts_neg_sig_{sep}.pkl', 'rb') as f:
+      with open_(f'kmer_counts_neg_sig_{sep}.pkl', 'rb') as f:
          sig_neg_kmers.update(pickle.load(f))
 
    # WHILE loop neg refs until enough k-mers has been aligned to a ref
    max_neg = len(sig_neg_kmers)
    combined_contigs_urs = 'urs.contigs.fa'
    combined_disscafs_urs = 'urs.disscafs.fa'
-   with open(combined_contigs_urs, 'w') as f_cont, open(combined_disscafs_urs, 'w') as f_diss:
+   with open_(combined_contigs_urs, 'w') as f_cont, open_(combined_disscafs_urs, 'w') as f_diss:
       for ref in negatives:
          align_percent = len(sig_neg_kmers) / max_neg
          if max_neg and align_percent > align_percent_threshold:
@@ -4511,7 +4521,7 @@ def explore(positives, negatives, kmer_size=None, quiet=False, clean_run=True,
    finally:
       log.progress['main'].log_time()
       # Store time and stats in stats.log
-      with open(stats_file, 'w') as f:
+      with open_(stats_file, 'w') as f:
          log.progress.summary(f)
          log.stats.summary(f)
 
@@ -4597,7 +4607,7 @@ def get_pairs(pairs_file):
    ''' Extract the pairs from the file. '''
    pairs = []
    headers = []
-   with open(pairs_file) as f:
+   with open_(pairs_file) as f:
       for l in f:
          if l.startswith('#'):
             try:
@@ -4685,9 +4695,31 @@ if __name__ == '__main__':
    parser.add_argument("--annotation_evalue", default=None,
                        help=("This will overwrite the set value in the settings"))
    parser.add_argument("--kmer_count_threshold", default=None,
-                       help=("This will overwrite the set value in the settings"))
-   parser.add_argument("--z_threshold", default=None,
-                       help=("This will overwrite the set value in the settings"))
+                       help=("kmers found below this limit within each file are"
+                             " ignored. Setting this argument will overwrite the"
+                             " set value in the settings"))
+   parser.add_argument("--sensitivity_threshold", default=None,
+                       help=("The sensitivity threshold defines how often a kmer"
+                             " must be found in the positive set to be included "
+                             "in the results. If provided as an integer the "
+                             "number is considered as a minimum count. Setting "
+                             "this argument will overwrite the set value in the "
+                             "settings"))
+   parser.add_argument("--fallout_threshold", default=None,
+                       help=("The fall-out threshold defines how often k-mers "
+                             "may be found in the negative set and still be "
+                             "included in the results. If provided as an integer"
+                             " the number is considered as a maximum count. "
+                             "Setting this argument will overwrite the set value"
+                             " in the settings"))
+   parser.add_argument("--align_percent_threshold", default=None,
+                       help=("The alignment percent threshold defines the "
+                             "acceptable amount of kmers to not be aligned to a "
+                             "contig. These k-mers are lost from further "
+                             "analysis to speed up the process. Set to 0, if you"
+                             " want as much data as possible. Setting this "
+                             "argument will overwrite the set value in the "
+                             "settings"))
    # Standard arguments
    parser.add_argument("-r", "--reuse", default=False, action='store_true',
                        help=("This option allows the reuse of some result files"
@@ -4759,8 +4791,12 @@ if __name__ == '__main__':
       settings['pcr']['annotation']['blastx_settings']['evalue'] = float(args.annotation_evalue)
    if args.kmer_count_threshold is not None:
       settings['explore']['kmer_count_threshold'] = float(args.kmer_count_threshold)
-   if args.z_threshold is not None:
-      settings['explore']['z_threshold'] = float(args.z_threshold)
+   if args.sensitivity_threshold is not None:
+      settings['explore']['sensitivity_threshold'] = float(args.sensitivity_threshold)
+   if args.fallout_threshold is not None:
+      settings['explore']['fall-out_threshold'] = float(args.fallout_threshold)
+   if args.align_percent_threshold is not None:
+      settings['explore']['align_percent_threshold'] = float(args.align_percent_threshold)
 
    # Handle wildcards in positives, negatives and references
    if args.positives is not None:

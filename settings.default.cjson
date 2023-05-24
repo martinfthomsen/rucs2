@@ -179,5 +179,5 @@
    },
    "clean_files": [ // These files will be removed after a succesful run
       "*.fq", "*.err.txt", "*.out.txt", "reference.fa", "*.bam",
-      "primer_pairs.json", "blastn.*.tsv"]
+      "primer_pairs.json", "blastn.*.tsv", "ors_*", "urs_*", "kmer_counts*"]
 }

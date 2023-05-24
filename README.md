@@ -38,7 +38,7 @@ Example of usage:
 ```
 #!bash
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
-       rucs full --positives positives/* other/positive.fa --negatives negatives/*
+       rucs full -v --positives positives/* other/positive.fa --negatives negatives/*
 ```
 Notice how you can specify multiple paths with or without wild cards as input.
 This is true for --positives and --negatives, and for vpcr's --references.
@@ -137,18 +137,16 @@ more often in the negative dataset compared to the positive dataset.
 The fasta description header will contain the genome names where the given sequence is found.
 
 **Options**
-There are two specific settings for this feature:
- - kmer_count_threshold [default 1] - The k-mer count threshold defines how many
- times a k-mer must be observed to be in ignored
- - z_threshold [default 1.96] - The z-score threshold determines when a k-mer is
- considered significant (either over-represented or under-represented)
+There are four specific settings for this feature:
+ - kmer_count_threshold [default 1] - kmers found below this limit within each file are ignored
+ - sensitivity_threshold [default 0.6] - The sensitivity threshold defines how often a kmer must be found in the positive set to be included in the results. If provided as an integer the number is considered as a minimum count.
+ - fall_out_threshold [default 0.2] - The fall-out threshold defines how often k-mers may be found in the negative set and still be included in the results. If provided as an integer the number is considered as a maximum count.
+ - align_percent_threshold [default 0.05] - The alignment percent threshold defines the acceptable amount of kmers to not be aligned to a contig. These k-mers are lost from further analysis to speed up the process. Set to 0, if you want as much data as possible.
 
 **Example of usage**
 ```
 #!bash
-docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
-    rucs expl --positives positives/* --negatives negatives/* \
-    --kmer_count_threshold 1 --z_threshold 1.96
+docker run --rm -v `pwd`:/workdir rucs expl -v --positives positives/* --negatives negatives/*
 ```
 
 **Fails?**
@@ -303,12 +301,10 @@ steps:
 ```
 #!bash
 mkdir ~/my_first_rucs_analysis && cd $_
-mkdir positives negatives
 docker run -it --entrypoint download_genomes.sh --rm -v `pwd`/positives:/workdir rucs CP000672.1 ARBW00000000
 docker run -it --entrypoint download_genomes.sh --rm -v `pwd`/negatives:/workdir rucs JWIZ01
-gzip -d positives/* negatives/*
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
-       rucs full --positives positives/* other/positive.fa --negatives negatives/*
+       rucs full --positives positives/* --negatives negatives/*
 
  ```
 
@@ -346,7 +342,6 @@ positives = [x for x in glob.glob("positives/*") if check_file_type(x) == 'fasta
 negatives = [x for x in glob.glob("negatives/*") if check_file_type(x) == 'fasta']
 reference = positives[0]
 main(positives, negatives, reference, quiet=False, clean_run=True, annotate=True)
-
 ```
 
 
