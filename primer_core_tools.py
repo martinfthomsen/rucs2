@@ -4821,5 +4821,4 @@ if __name__ == '__main__':
    args.quiet = False if args.verbose else True
 
    # Run Service
-   print('Running %s'%(args.entry_point))
    locals().get(args.entry_point)(args)
