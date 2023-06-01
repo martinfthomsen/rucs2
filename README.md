@@ -200,14 +200,22 @@ If this site is able to load, the download script should also work.
 ### Install the RUCS program ###
 There are several ways to install the RUCS programs
 
-#### Pull image from DockerHub (option 1) - The easiest ####
-https://hub.docker.com/r/genomicepidemiology/rucs/
+#### Pull latest image from DockerHub (option 1) - The easiest ####
+https://hub.docker.com/repository/docker/mcft/rucs2
 
 1. Pull image
 2. Tag image
 3. Run test and see if everything is ok and ready to use
 
 Commands for installation:
+```
+#!bash
+docker image pull mcft/rucs2
+docker tag mcft/rucs2 rucs
+docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
+```
+
+##### Pull the original version #####
 ```
 #!bash
 docker image pull genomicepidemiology/rucs
