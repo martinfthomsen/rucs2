@@ -4629,6 +4629,53 @@ def get_pairs(pairs_file):
 
    return pairs
 
+def get_fasta_files(inputs, ref=''):
+   ''' Expand truncated paths, download files for provided accession IDs and
+   ignore non fasta files
+
+   Test example:
+   >>> import glob
+   >>> with open('test.fa', 'w') as f: f.write(">test\nATGC\n")
+   >>> get_fasta_files(['CP000672.1', 'test.*', 'not_a_thing', 'ARBW00000000'])
+   WARNING: The following input path: "not_a_thing" was ignored, due to not being a valid file path or known accession id!
+   ['CP000672.1_GCA_000016485.1_ASM1648v1_genomic.fna.gz', 'test.fa', 'ARBW00000000_GCA_000379905.1_ASM37990v1_genomic.fna.gz']
+   '''
+   paths = []
+   if ref:
+      ref = f" from the {ref} argument"
+   for input in inputs:
+      path_glob = glob.glob(input)
+      # Catch non paths inputs
+      if path_glob == []:
+         # Assume fasta accession ID. Try download file
+         with Popen(["download_genomes.sh", input], stdout=PIPE, stderr=PIPE) as p:
+            stdout = p.stdout.read().decode('utf-8')
+            stderr = p.stderr.read().decode('utf-8')
+
+         sys.stderr.write(stdout)
+         sys.stderr.write(stderr)
+         path = glob.glob(f"{input}_*")
+         path = path[0] if path != [] else ''
+
+         # Check if file was downloaded
+         if os.path.exists(path):
+            # Add path to paths
+            paths.append(path)
+         else:
+            sys.stderr.write(f'WARNING: The following input path{ref}: "{input}" '
+                             'was ignored, due to not being a valid file path or'
+                             ' known accession id!\n')
+      else:
+         paths.extend(path_glob)
+
+   nonfasta = [os.path.basename(x) for x in paths if check_file_type(x) != 'fasta']
+   if nonfasta:
+      sys.stderr.write(f'WARNING: The following file paths{ref} was ignored, due'
+                       f' to not being valid fasta format:\n{chr(10).join(nonfasta)}\n')
+
+   return [path for path in paths if check_file_type(path) == 'fasta']
+
+
 #
 #################################### MAIN #####################################
 #
@@ -4800,23 +4847,11 @@ if __name__ == '__main__':
 
    # Handle wildcards in positives, negatives and references
    if args.positives is not None:
-      fi = [os.path.basename(x) for path in args.positives for x in glob.glob(path) if check_file_type(x) != 'fasta']
-      if fi:
-         sys.stderr.write(('WARNING: The following positive files were ignored,'
-                           ' due to not being fasta!\n%s\n\n')%('\n'.join(fi)))
-      args.positives = [x for path in args.positives for x in glob.glob(path) if check_file_type(x) == 'fasta']
+      args.positives = get_fasta_files(args.positives, ref='positives')
    if args.negatives is not None:
-      fi = [os.path.basename(x) for path in args.negatives for x in glob.glob(path) if check_file_type(x) != 'fasta']
-      if fi:
-         sys.stderr.write(('WARNING: The following negative files were ignored,'
-                           ' due to not being fasta!\n%s\n\n')%('\n'.join(fi)))
-      args.negatives = [x for path in args.negatives for x in glob.glob(path) if check_file_type(x) == 'fasta']
+      args.negatives = get_fasta_files(args.negatives, ref='negatives')
    if args.references is not None:
-      fi = [os.path.basename(x) for path in args.references for x in glob.glob(path) if check_file_type(x) != 'fasta']
-      if fi:
-         sys.stderr.write(('WARNING: The following references were ignored,'
-                           ' due to not being fasta!\n%s\n\n')%('\n'.join(fi)))
-      args.references = [x for path in args.references for x in glob.glob(path) if check_file_type(x) == 'fasta']
+      args.references = get_fasta_files(args.references, ref='references')
 
    args.quiet = False if args.verbose else True
 
