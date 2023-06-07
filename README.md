@@ -378,10 +378,10 @@ You can run any command available in there and manipulate what ever files you
 wish. OBS! Only changes made in the mounted directories are kept after you exit
 the container.
 
+#### Open interactive python terminal inside the container ####
 You can also run python inside the container and import the primer core tools
 from RUCS.
 
-#### Open interactive python terminal inside the container ####
 The following command will open an interactive terminal inside the RUCS container.
 ```bash
 docker run -it --entrypoint python3 --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs
@@ -474,22 +474,24 @@ True
 
 ### full run ###
 The full run creates 8 note worthy files.
-**debug.log** This file gives an overview and statistics on the progress.
+**stats.log** This file gives an overview and statistics on the progress.
 
 The fucs part of the algorithm produces 3 important result files:
-* core_sequences.contigs.fa
-* unique_core_sequences.contigs.fa
-* unique_core_sequences.disscafs.fa
-These files contain the core sequences and unique core sequences respectively in
-two formats. Contigs contains the clean sequences annotated with position in the
-reference. disscafs contains the dissected scaffolds, where the sequences which
+* **core_sequences.contigs.fa** This file contain the core sequences, the sequences which are common to all the positive references .
+* **unique_core_sequences.contigs.fa** This file contain the unique core sequences, the sequences which are common to all the positive references and not found in any of the negative references.
+* **unique_core_sequences.disscafs.fa** This file contain the dissected scaffolds for the unique core sequences.
+
+*contigs* contains the clean sequences annotated with position in the reference.
+
+*disscafs* contains the dissected scaffolds, where the sequences which
 are close in proximity have been joined with stretches of n's to fill out the
 gaps between the sequences.
+This makes it possible to identify primer pairs which are uniquely binding but where the amplicon contains non-unique stretches of DNA.
 
 The fppp part of the algorithm creates 3 important files:
-* **results_best.tsv** This file shows the best matches
-* **results.tsv** This shows the details for all the tested pairs
-* **products.tsv** This file shows the vpcr results for all the tested pairs
+* **results_best.tsv** This file shows the best matches for primer pair candidates.
+* **results.tsv** This file provides an exaustive list of all the tested primer pair candidates.
+* **products.tsv** This file provides the results of the virtual PCR for all tested primer pair candidates.
 
 ### fucs run ###
 See first part of the full run
@@ -523,6 +525,21 @@ of BLAST annotations matching the given hit.
 ### pcrs run ###
 This entry point provides no result files, but instead shows the the statistics
 for the provided pairs directly on the screen.
+
+### expl run ###
+The Explore entrypoint is similar to the fucs entry point. But where fucs method is
+focussed on identifying unique core sequences, the Explore method tries to find
+over-represented (ors) and under-represented sequences (urs):
+* **ors.contigs.fa** This file contain the contigs of the over-represented sequences.
+* **ors.disscafs.fa** This file contain the dissected scaffolds of the over-represented sequences.
+* **urs.contigs.fa** This file contain the contigs of the under-represented sequences.
+* **urs.disscafs.fa** This file contain the dissected scaffolds of the under-represented sequences.
+
+ORS can be used to identify primer pairs to target most of the positive references, and
+URS can be used to identify primer pairs to target most of the negative references.
+
+For instance, sometimes what strains have in common might not be what DNA they share, but ratcher what they are missing. The URS will provide this insight of any missing DNA.
+The explore method stops at this stage. To get primer pair identification, Virtual PCR, etc. please run the FPPP method using either the ors.disscafs.fa or urs.disscafs.fa as the template option.
 
 
 ## Troubleshoot ##
