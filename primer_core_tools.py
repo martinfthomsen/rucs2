@@ -2386,8 +2386,9 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
          # Ignore contig, since the desired number of contigs have been analysed
          skipped += 1
          continue
-   # COMPUTE primer pairs for sequence
+
       if log is not None:
+         # Prepare logs for primer pairs statistics
          log.stats.add_table('prims%s'%i,
                              'Primer3 primer scanning of contig %s'%name,
                              ['Right', 'Left', 'Probe', 'Category'])
@@ -2398,8 +2399,12 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
                           'Scanning contig %s for primer pairs'%name, 'pcr')
       else:
          print(' Scanning contig %s for primer pairs'%name)
+
+      # COMPUTE primer pairs for sequence
       pairs, notes = compute_primer_pairs(seq)
+
       if log is not None:
+         # Log primer pairs statistics for sequence
          log.progress['scan%s'%i].log_time()
          # Process primer3 notes
          right = dict([x.rsplit(' ', 1) for x in notes['right'].split(', ')])
@@ -2437,9 +2442,11 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
             log.stats.add_row('pair%s'%i, [pair.get(h, '-'), h])
 
       if len(pairs) == 0:
+         # Skip contigs with no primer pair candidates
          no_pairs += 1
          continue
-      # EXTRACT primer pairs
+
+      # EXTRACT primer pair sequences in prep for Virtual PCR
       p_fw = []
       p_rv = []
       probes = []
@@ -2454,23 +2461,24 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
       primers = dict([(p, {'pos':[],'neg':[],'penalty':None})
                       for p in p_fw + list(map(reverse_complement, p_rv)) + probes])
 
-      # Store k-mers as fastq
+      # Store primers as fastq in prep for alignment algorithm
       primers_fa = 'primers.fa'
       save_as_fasta(primers, primers_fa)
+
       if log is not None:
+         # Prepare logs for vitual PCR based on alignment (positives)
          log.stats.add_table('val%s'%i,
                              'Primer Prediction Overview (%s) for Contig %s'%(
                                 len(primers), name),
                              ['Aligned','Grade 1', 'Grade 2', 'Grade 3',
                               'Grade 4', 'Reference'])
-
-      # Create primer-reference mapping matrix
-      if log is not None:
          log.progress.add('pos%s'%i, 'Aligning primers to positive references',
                           'pcr')
       else:
          print(' Aligning primers to positive references')
-      for j, ref in enumerate(p_refs): # Positive references
+
+      # Create primer-reference mapping matrix for positive references
+      for j, ref in enumerate(p_refs):
          if log is not None:
             log.progress.add("%s_pos_%s"%(i, j),
                              'Aligning %s to %s'%(
@@ -2480,6 +2488,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
          else:
             print('  Aligning %s to %s'%(os.path.basename(primers_fa),
                                        os.path.basename(ref)))
+
          # Align sequences to reference
          alignments = blast_to_ref(ref, primers_fa,
                                    settings['pcr']['priming']['blastn_settings'],
@@ -2489,8 +2498,10 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
                      0 if filter_grade <= 2 else '-',
                      0 if filter_grade <= 3 else '-',
                      0, os.path.basename(ref)]
+
          # Filter primer matches which fail the thermodynamic test
          alignments = filter_primer_alignments(ref, alignments, probes)
+
          # Update primer-reference matrix
          for p in primers:
             primers[p]['pos'].append(alignments[p] if p in alignments else [])
@@ -2512,11 +2523,15 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
 
       if log is not None:
          log.progress['pos%s'%i].log_time()
+
+         # Prepare logs for vitual PCR based on alignment (negatives)
          log.progress.add('neg%s'%i, 'Aligning primers to negative references',
                           'pcr')
       else:
          print(' Aligning primers to negative references')
-      for j, ref in enumerate(n_refs): # Negative references
+
+      # Create primer-reference mapping matrix for negative references
+      for j, ref in enumerate(n_refs):
          if log is not None:
             log.progress.add("%s_neg_%s"%(i, j),
                              'Aligning %s to %s'%(
@@ -2561,6 +2576,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
          log.progress.add('rank%s'%i, 'Ranking primer pairs', 'pcr')
       else:
          print(' Ranking primer pairs')
+
       # Compute primer rank based on the number of hits to the negative references
       for p in primers:
          # Rank primers based on their performance
@@ -2606,6 +2622,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
       # Validate and score primer pairs
       if log is not None:
          log.progress['sort%s'%i].log_time()
+
       good_pp.extend(validate_primer_pairs(pairs,p_refs,n_refs,primers,i))
 
       # Add evaluated pairs to the final list of primer pairs
@@ -3264,14 +3281,17 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
 
       # CHECK pair performance
       if p['test']['sensitivity'] == 1 and p['test']['specificity'] == 1:
-         found = False
+         too_close_to_other_pairs = False
+         # Check distance to previous pairs
          for gp in good_pp:
             dist = (abs(p['left']['position']  - gp['left']['position']) +
                     abs(p['right']['position'] - gp['right']['position']))
             if dist < settings['pcr']['min_pair_distance']:
-               found = True
+               too_close_to_other_pairs = True
                break
-         if not found:
+
+         if not too_close_to_other_pairs:
+            # Add to list of good primer pair candidates
             good_pp.append(p)
 
    if log is not None:
