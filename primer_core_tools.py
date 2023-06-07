@@ -4649,6 +4649,26 @@ def get_pairs(pairs_file):
 
    return pairs
 
+def parse_tsv(tsv_file, sep='\t', comment='#'):
+   ''' Extract the fields from the tsv file.
+
+   >>> my_tsv = parse_tsv('results_best.tsv')
+   >>> my_tsv[0].keys()
+dict_keys(['sequence_id', 'product_size', 'unique_flags', 'sensitivity', 'specificity', 'noise', 'penalty', 'p3_penalty', 'forward_primer', 'forward_tm', 'forward_length', 'forward_gc%', 'forward_position', 'reverse_primer', 'reverse_tm', 'reverse_length', 'reverse_gc%', 'reverse_position', 'probe', 'probe_tm', 'probe_length', 'probe_gc%', 'probe_position', 'annotation'])
+   '''
+   tsv = []
+   headers = []
+   with open_(tsv_file) as f:
+      for l in f:
+         if l.startswith(comment):
+            if not tsv: # skip comments after value have been loadet to the matrix
+               headers = l[1:].strip().split(sep)
+         elif headers:
+            tsv.append(dict(zip(headers, l.strip().split(sep))))
+
+   return tsv
+
+
 def get_fasta_files(inputs, ref=''):
    ''' Expand truncated paths, download files for provided accession IDs and
    ignore non fasta files

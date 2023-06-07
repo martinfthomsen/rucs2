@@ -396,10 +396,21 @@ wish. OBS! Only changes made in the mounted directories are kept after you exit
 the container.
 
 You can also run python inside the container and import the primer core tools
-from RUCS:
+from RUCS.
+
+#### Open interactive python terminal inside the container ####
+The following command will open an interactive terminal inside the RUCS container.
 ```
 #!bash
 docker run -it --entrypoint python3 --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs
+```
+
+#### Run full RUCS through interactive python terminal ####
+The following commands will run the full RUCS algorithm using the files in the
+positives directory as the positives references, and vice-versa for the
+negatives references.
+```
+#!python
 import sys
 sys.path.append('/tools/')
 from primer_core_tools import *
@@ -408,6 +419,76 @@ positives = [x for x in glob.glob("positives/*") if check_file_type(x) == 'fasta
 negatives = [x for x in glob.glob("negatives/*") if check_file_type(x) == 'fasta']
 reference = positives[0]
 main(positives, negatives, reference, quiet=False, clean_run=True, annotate=True)
+```
+
+#### Look for available files ####
+To check which files are available to you in your directories you can run the
+following command.
+
+This example finds all files ending with ".fa" in your current working directory
+```
+#!python3
+>>> find_files('*.fa')
+['core_sequences.contigs.fa', 'core_sequences.disscafs.fa', ...]
+```
+
+#### Load fasta file ####
+Sometimes when working with RUCS, it is nice to be able to interact with the
+sequence data from the involved fasta files.
+
+Below is an example of how to parse a fasta file and store the sequences in a list
+```
+#!python3
+>>> my_seqs = [seq for seq, name, desc in seqs_from_file('bla.fa')]
+>>> my_seqs[0]
+'ATGCGACCATTTTT...'
+```
+
+#### Load results_best.tsv ####
+The primary results from RUCS are stored in the results_best.tsv file. These are
+the good primer pair candidates identified to spefically produce amplicons for
+the positives references. The results are stored as a TSV file which can be
+loadet and processed in the terminal.
+
+Below is an example of how to load the identified primer pairs and statistics
+from results_best.tsv and extract useful information.
+```
+#!python3
+>>> results = parse_tsv('results_best.tsv')
+>>> results[0]['sequence_id']
+'0_1375921_0'
+>>> results[0]['forward_primer']
+'CACCCAGTAGAGCACACTTTG'
+>>> results[0]['forward_position']
+'2525'
+```
+
+#### Extract subsequence from sequence ####
+In the results_best.tsv file you will find the primer/probe positions, but as
+the positions here refer to the position in the dissected scaffold of the unique
+core sequence, it rarely translates into the position in the reference sequence.
+However, the results also provides the sequence id from the dissected scaffolds,
+which provides the necessary information to compute the primer/probe position
+relative to the reference sequence.
+
+The first number of the sequence id refer to the index of the sequence in the
+reference.
+The second number of the sequence id refer to the position of the dissected
+scaffold in the reference sequence.
+
+Below is an example of how to use the sequence id and the forward_position to
+extract the forward_primer sequence from the reference sequence.
+```
+#!python3
+>>> sequence_id = "0_1375921_0"
+>>> forward_primer = "CACCCAGTAGAGCACACTTTG"
+>>> forward_position = "2525"
+>>> sid = int(sequence_id.split('_')[0])
+>>> spos = int(sequence_id.split('_')[1])
+>>> ppos = int(forward_position)
+>>> length = len(forward_primer)
+>>> my_seqs[sid][spos+ppos:spos+ppos+length] == forward_primer
+True
 ```
 
 
