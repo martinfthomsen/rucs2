@@ -35,8 +35,7 @@ classes and functions should be well documented in the source code.
 This is the main method, which combines fucs and fppp into one serial execution.
 
 Example of usage:
-```
-#!bash
+```bash
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
        rucs full -v --positives positives/* other/positive.fa --negatives negatives/*
 ```
@@ -58,8 +57,7 @@ contigs, containing the unique core sequences; dissected scaffolds,
 containing the fragments of the scaffolds which are usable for primer design.
 
 Example of usage:
-```
-#!bash
+```bash
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
        rucs fucs --positives positives/* --negatives negatives/*
 ```
@@ -76,8 +74,7 @@ annotated with gene annotations and the list of candidates with all relevant
 information is stored in a tab separated file.
 
 Example of usage:
-```
-#!bash
+```bash
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
        rucs fppp --template template.fa --positives positives/* --negatives negatives/*
 ```
@@ -86,8 +83,7 @@ docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
 Simulate PCR in silico for a list of primer pairs against a list of references
 
 Example of usage:
-```
-#!bash
+```bash
 docker run --rm -v `pwd`:/workdir \
        rucs vpcr --pairs pair_file.tsv --references references/*
 ```
@@ -99,8 +95,7 @@ It is reccommended to use the environment variable $BLASTDB to point to the
 BLAST repository, but a full path to the directory can also be provided.
 
 Example of usage:
-```
-#!bash
+```bash
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
        rucs anno --template template.fa
 ```   
@@ -110,8 +105,7 @@ This method will annotate a PCR primer set with PCR statistics, such as
 primer Tm, Hairpin Tm, primer-probe distance and much more.
 
 Example of usage:
-```
-#!bash
+```bash
 docker run --rm -v `pwd`:/workdir \
        rucs spst --pairs pair_file.tsv --template template.fa
 ```
@@ -144,8 +138,7 @@ There are four specific settings for this feature:
  - align_percent_threshold [default 0.05] - The alignment percent threshold defines the acceptable amount of kmers to not be aligned to a contig. These k-mers are lost from further analysis to speed up the process. Set to 0, if you want as much data as possible.
 
 **Example of usage**
-```
-#!bash
+```bash
 docker run --rm -v `pwd`:/workdir rucs expl -v --positives positives/* --negatives negatives/*
 ```
 
@@ -177,8 +170,7 @@ where the downloaded files should be stored must be mounted to the internal
 arguments.
 
 The download script can be invoked like so:
-```
-#!bash
+```bash
 docker run -it --entrypoint download_genomes.sh --rm -v `pwd`/positives:/workdir rucs CP063056 ARBW00000000 BBXJ00000000
 docker run -it --entrypoint download_genomes.sh --rm -v `pwd`/negatives:/workdir rucs JWIZ01 JADGLC01 CP000672.1
 ```
@@ -208,16 +200,14 @@ https://hub.docker.com/repository/docker/mcft/rucs2
 3. Run test and see if everything is ok and ready to use
 
 Commands for installation:
-```
-#!bash
+```bash
 docker image pull mcft/rucs2
 docker tag mcft/rucs2 rucs
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
 ```
 
 ##### Pull the original version #####
-```
-#!bash
+```bash
 docker image pull genomicepidemiology/rucs
 docker tag genomicepidemiology/rucs rucs
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
@@ -229,8 +219,7 @@ docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
 3. Run test and see if everything is ok and ready to use
 
 Commands for installation:
-```
-#!bash
+```bash
 git clone https://github.com/martinfthomsen/rucs2
 cd rucs2
 docker-compose build
@@ -242,8 +231,7 @@ docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
 system from the Dockerfile.
 After everything is installed and ready, Verify that all dependencies are in
 your local PATH and the Python modules are properly installed:
-```
-#!bash
+```bash
 which python3 samtools bwa blastn blastx makeblastdb
 python3 -c 'import gzip, json, types, shutil, glob, bisect, primer3, numpy, subprocess, difflib, tabulate'
 ```
@@ -254,8 +242,7 @@ A BLAST protein database must be installed separately if you want RUCS to
 annotate the results with protein annotations. we recommend installing the
 swissprot database. It is recommended to use the environment variable $BLASTDB
 to point to the BLAST database.
-```
-#!bash
+```bash
 BLASTDB=/blastdb
 mkdir $BLASTDB
 docker run --rm --entrypoint update_blastdb.pl -v $BLASTDB:/workdir rucs --decompress swissprot
@@ -263,15 +250,13 @@ docker run --rm --entrypoint update_blastdb.pl -v $BLASTDB:/workdir rucs --decom
 
 If you are using the the $BLASTDB environment variable, it is recommended to set
 it in your bash_profile file:
-```
-#!bash
+```bash
 echo "BLASTDB=$BLASTDB" >> ~/.bash_profile
 ```
 
 Alternatively, it is possible to run the local script to this repo
 (install_db.sh), to download multiple databases in parallel:
-```
-#!bash
+```bash
 ./install_db.sh $BLASTDB swissprot
  ```
 The alternative script also downloads the file all_blast_db_files.txt, which
@@ -282,7 +267,7 @@ You can also choose to download other databases such as refseq_protein.
 Downloading the refseq_protein database can take a while, since the database
 is > 20 GB...
 
-**OBS: If you don't need the annotation capabilities, you can opt out of this!**
+***OBS: If you don't need the annotation capabilities, you can opt out of this!***
 
 
 ## Usage example? ##
@@ -290,8 +275,7 @@ is > 20 GB...
 
 ### See help menu ###
 To see the help page, run the following command:
-```
-#!bash
+```bash
 docker run --rm rucs --help
  ```
 
@@ -299,8 +283,7 @@ docker run --rm rucs --help
 This example below assumes that the $BLASTDB environment variable is set.
 
 *Command:*
-```
-#!bash
+```bash
 docker run --rm -v `pwd`/my_first_rucs_analysis:/workdir -v $BLASTDB:/blastdb rucs full --positives CP000672.1 ARBW00000000 --negatives JWIZ01
 ```
 RUCS will create the run directory "my_first_rucs_analysis" in your current
@@ -312,7 +295,7 @@ pairs that only produces amplicons for the samples in the positives argument.
 
 As the -v option is provided to RUCS, the screen should display the following
 progress log information:
-```
+```bash
 processing CP000672.1...
 found GCA_000016485.1_ASM1648v1_genomic.fna.gz! Downloading...
 processing ARBW00000000...
@@ -348,7 +331,7 @@ found GCA_001038205.1_ASM103820v1_genomic.fna.gz! Downloading...
 ```
 Your new run directory should now hold the following files:
 
-```
+```bash
 ARBW00000000_GCA_000379905.1_ASM37990v1_genomic.fna.gz
 CP000672.1_GCA_000016485.1_ASM1648v1_genomic.fna.gz
 JWIZ01_GCA_001038205.1_ASM103820v1_genomic.fna.gz
@@ -377,16 +360,16 @@ You will find a list of the best candidates in the "results_best.tsv" file.
 ### Example of running in interactive mode ###
 This example assumes the same setup steps as the example of the full run
 (step 1-3) has been performed.
-Steps:
-4. Run the docker image in interactive mode
-5. Run the full analysis command directly on the main script
-6. Inspect the results, etc.
 
-```
-#!bash
+Steps:
+
+1. Run the docker image in interactive mode
+2. Run the full analysis command directly on the main script
+3. Inspect the results, etc.
+
+```bash
 docker run -it --entrypoint /bin/bash --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs
 primer_core_tools.py full --positives positives/* other/positive.fa --negatives negatives/*
-
 ```
 In the interactive mode, you are inside the RUCS container, and you will only be
 able to interact with the container and the material you bring with you through
@@ -400,8 +383,7 @@ from RUCS.
 
 #### Open interactive python terminal inside the container ####
 The following command will open an interactive terminal inside the RUCS container.
-```
-#!bash
+```bash
 docker run -it --entrypoint python3 --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs
 ```
 
@@ -409,16 +391,16 @@ docker run -it --entrypoint python3 --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb 
 The following commands will run the full RUCS algorithm using the files in the
 positives directory as the positives references, and vice-versa for the
 negatives references.
-```
-#!python
-import sys
-sys.path.append('/tools/')
-from primer_core_tools import *
-load_global_settings('settings.default.cjson')
-positives = [x for x in glob.glob("positives/*") if check_file_type(x) == 'fasta']
-negatives = [x for x in glob.glob("negatives/*") if check_file_type(x) == 'fasta']
-reference = positives[0]
-main(positives, negatives, reference, quiet=False, clean_run=True, annotate=True)
+```python
+>>> import sys
+>>> sys.path.append('/tools/')
+>>> from primer_core_tools import *
+>>> load_global_settings('settings.default.cjson')
+>>> positives = [x for x in glob.glob("positives/*") if check_file_type(x) == 'fasta']
+>>> negatives = [x for x in glob.glob("negatives/*") if check_file_type(x) == 'fasta']
+>>> reference = positives[0]
+>>> main(positives, negatives, reference, quiet=False, clean_run=True, annotate=True)
+...
 ```
 
 #### Look for available files ####
@@ -426,8 +408,7 @@ To check which files are available to you in your directories you can run the
 following command.
 
 This example finds all files ending with ".fa" in your current working directory
-```
-#!python3
+```python
 >>> find_files('*.fa')
 ['core_sequences.contigs.fa', 'core_sequences.disscafs.fa', ...]
 ```
@@ -437,8 +418,7 @@ Sometimes when working with RUCS, it is nice to be able to interact with the
 sequence data from the involved fasta files.
 
 Below is an example of how to parse a fasta file and store the sequences in a list
-```
-#!python3
+```python
 >>> my_seqs = [seq for seq, name, desc in seqs_from_file('bla.fa')]
 >>> my_seqs[0]
 'ATGCGACCATTTTT...'
@@ -452,8 +432,7 @@ loadet and processed in the terminal.
 
 Below is an example of how to load the identified primer pairs and statistics
 from results_best.tsv and extract useful information.
-```
-#!python3
+```python
 >>> results = parse_tsv('results_best.tsv')
 >>> results[0]['sequence_id']
 '0_1375921_0'
@@ -478,8 +457,7 @@ scaffold in the reference sequence.
 
 Below is an example of how to use the sequence id and the forward_position to
 extract the forward_primer sequence from the reference sequence.
-```
-#!python3
+```python
 >>> sequence_id = "0_1375921_0"
 >>> forward_primer = "CACCCAGTAGAGCACACTTTG"
 >>> forward_position = "2525"
@@ -494,7 +472,7 @@ True
 
 ## Result Explanation ##
 
-#### full run ####
+### full run ###
 The full run creates 8 note worthy files.
 **debug.log** This file gives an overview and statistics on the progress.
 
@@ -509,27 +487,26 @@ are close in proximity have been joined with stretches of n's to fill out the
 gaps between the sequences.
 
 The fppp part of the algorithm creates 3 important files:
-**results_best.tsv** This file shows the best matches
-**results.tsv** This shows the details for all the tested pairs
-**products.tsv** This file shows the vpcr results for all the tested pairs
+* **results_best.tsv** This file shows the best matches
+* **results.tsv** This shows the details for all the tested pairs
+* **products.tsv** This file shows the vpcr results for all the tested pairs
 
-#### fucs run ####
+### fucs run ###
 See first part of the full run
 
-#### fppp run ####
+### fppp run ###
 See last part of the full run
 
-#### vpcr run ####
+### vpcr run ###
 This entry point provides one important file
 **products.tsv** This file shows the vpcr results for all the tested pairs
 
-#### anno run ####
+### anno run ###
 This entry point provides no result files, but instead shows the annotations
 found directly on the screen in a json format.
 EG.
-```
-#!json
-{'0': [(1, 735, ['DIM/GIM/SIM family subclass B1 metallo-beta-lactamase'])]}
+```json
+{"0": [1, 735, ["DIM/GIM/SIM family subclass B1 metallo-beta-lactamase"]]}
 ```
 The key **'0'** is the contig name where the annotaion was discovered.
 
@@ -543,13 +520,13 @@ The third item in a hit
 **['DIM/GIM/SIM family subclass B1 metallo-beta-lactamase']** is a reduced list
 of BLAST annotations matching the given hit.
 
-#### pcrs run ####
+### pcrs run ###
 This entry point provides no result files, but instead shows the the statistics
 for the provided pairs directly on the screen.
 
 
 ## Troubleshoot ##
-#### MAC OS: BLAST annotation fails without errors! ####
+### MAC OS: BLAST annotation fails without errors! ###
 This is probably caused by lack of RAM. For MACs and Windows, a virtual machine
 is used to run a Linux environment where Docker can run. This machine has a
 limit on how much of the host's RAM it may access. Check if you have enough RAM
@@ -557,8 +534,7 @@ allocated, or try to increase the amount of RAM for your machine. Otherwise,
 consider using a smaller BLAST database.
 
 ## Docker Cleanup Commands ##
-```
-#!bash
+```bash
 # Stop and remove all containers (instances of images)
 docker rm $(docker stop $(docker ps -aq))
 # Remove all exited containers
@@ -569,20 +545,24 @@ docker rmi $(docker images -qf "dangling=true")
 docker volume rm $(docker volume ls -qf dangling=true)
 ```
 
-## Who do I talk to? ##
+## Contact ##
 You can report your issues here: https://github.com/martinfthomsen/rucs2/issues
 
 
-License
-=======
+## License ##
 
-RUCS 2: https://github.com/martinfthomsen/rucs2
-Copyright (c) 2023, Martin Christen Frølund Thomsen.
+**RUCS 2**: https://github.com/martinfthomsen/rucs2
 
-Original RUCS: https://bitbucket.org/genomicepidemiology/rucs
-Copyright (c) 2017, Martin Christen Frølund Thomsen, Technical University of Denmark.
+Copyright ©️ 2023, Martin Christen Frølund Thomsen.
 
-All rights reserved.
+
+**Original RUCS**: https://bitbucket.org/genomicepidemiology/rucs
+
+Copyright ©️ 2017, Martin Christen Frølund Thomsen, Technical University of Denmark.
+
+
+*All rights reserved.*
+
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -590,8 +570,10 @@ You may obtain a copy of the License at
 
    http://www.apache.org/licenses/LICENSE-2.0
 
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+
 See the License for the specific language governing permissions and
 limitations under the License.
