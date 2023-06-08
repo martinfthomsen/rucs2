@@ -76,7 +76,7 @@ RUN wget https://ftp.ncbi.nlm.nih.gov/entrez/entrezdirect/edirect.tar.gz && \
 COPY ./primer_core_tools.py /tools/
 COPY ./settings.default.cjson /tools/
 COPY ./download_genomes.sh /tools/
-COPY ./test/* /tools/test/
+COPY ./testdata/* /tools/testdata/
 
 # Set convenience aliases
 RUN echo "alias ls='ls -h --color=tty'" >> ~/.bashrc && \

@@ -203,14 +203,14 @@ Commands for installation:
 ```bash
 docker image pull mcft/rucs2
 docker tag mcft/rucs2 rucs
-docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
+docker run --rm -v `pwd`/test:/workdir -v $BLASTDB:/blastdb rucs test
 ```
 
 ##### Pull the original version #####
 ```bash
 docker image pull genomicepidemiology/rucs
 docker tag genomicepidemiology/rucs rucs
-docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
+docker run --rm -v `pwd`/test:/workdir -v $BLASTDB:/blastdb rucs test
 ```
 
 #### Clone Git repository and build image (option 2) - the more challenging ####
@@ -223,7 +223,7 @@ Commands for installation:
 git clone https://github.com/martinfthomsen/rucs2
 cd rucs2
 docker-compose build
-docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
+docker run --rm -v `pwd`/test:/workdir -v $BLASTDB:/blastdb rucs test
 ```
 
 #### Direct install (option 3) - the most challenging ####
@@ -284,13 +284,13 @@ This example below assumes that the $BLASTDB environment variable is set.
 
 *Command:*
 ```bash
-docker run --rm -v `pwd`/my_first_rucs_analysis:/workdir -v $BLASTDB:/blastdb rucs full --positives CP000672.1 ARBW00000000 --negatives JWIZ01
+docker run --rm -v `pwd`/test:/workdir -v $BLASTDB:/blastdb rucs full --positives CP000672.1 ARBW00000000 --negatives JWIZ01
 ```
-RUCS will create the run directory "my_first_rucs_analysis" in your current
-directory, download the fasta files for the two provided accession IDs in the
-positives argument, and the single accession ID in the negatives argument.
-RUCS will then run the full analysis algorithm to identify the good PCR primer
-pairs that only produces amplicons for the samples in the positives argument.
+RUCS will create the run directory "test" in your current directory, download
+the fasta files for the two provided accession IDs in the positives argument,
+and the single accession ID in the negatives argument. RUCS will then run the
+full analysis algorithm to identify the good PCR primer pairs that only produces
+amplicons for the samples in the positives argument.
 
 
 As the -v option is provided to RUCS, the screen should display the following
