@@ -2783,108 +2783,131 @@ def compute_primer_pairs(query_sequence):
    return tem_primer3_pairs, notes
 
 def primer3_parser(primer3_results):
-   ''' Parse Primer3 designPrimers output, and sort it into a hierachical
-   dictionary structure of primer pairs.
+    ''' Parse Primer3 designPrimers output, and sort it into a hierachical
+    dictionary structure of primer pairs.
 
-   This method return 2 outputs, the list of primer pairs and a dictionary with
-   notes (the explanatory output from Primer3).
+    This method return 2 outputs, the list of primer pairs and a dictionary with
+    notes (the explanatory output from Primer3).
 
-   Author: Martin CF Thomsen
-   '''
-   primer_pairs = {}
-   notes = {}
-   for k in primer3_results:
-      if 'PRIMER_RIGHT' == k[:12]:
-         key = 'right'
-         tmp = k[13:].split('_', 1)
-         if tmp[0].isdigit():
-            id = int(tmp[0])
-            if not id in primer_pairs:
-               primer_pairs[id] = {'pair': {}, 'right': {}, 'left': {},
-                                   'internal': {}}
-            if len(tmp) > 1:
-               key2 = tmp[1].lower()
-               value = primer3_results[k]
-               if isinstance(value, float):
-                  value = round_sig(value, sig_fig=3)
-               primer_pairs[id][key][key2] = value
+    Author: Martin CF Thomsen
+    '''
+    primer_pairs = {}
+    notes = {}
+    unknown_key_error = False
+    for k in primer3_results:
+        if 'PRIMER_RIGHT' == k[:12]:
+            key = 'right'
+            tmp = k[13:].split('_', 1)
+            if tmp[0] == '': # New primer3 2.0 key containing list format of everything
+                pass
+            elif tmp[0].isdigit():
+                id = int(tmp[0])
+                if not id in primer_pairs:
+                    primer_pairs[id] = {'pair': {}, 'right': {}, 'left': {},
+                                        'internal': {}}
+                if len(tmp) > 1:
+                    key2 = tmp[1].lower()
+                    value = primer3_results[k]
+                    if isinstance(value, float):
+                        value = round_sig(value, sig_fig=3)
+                    primer_pairs[id][key][key2] = value
+                else:
+                    primer_pairs[id][key]['position'] = primer3_results[k][0]
+                    primer_pairs[id][key]['length'] = primer3_results[k][1]
+            elif tmp[0] == 'EXPLAIN':
+                notes[key] = primer3_results[k]
+            elif tmp == ['NUM','RETURNED']:
+                pass
             else:
-               primer_pairs[id][key]['position'] = primer3_results[k][0]
-               primer_pairs[id][key]['length'] = primer3_results[k][1]
-         elif tmp[0] == 'EXPLAIN':
-            notes[key] = primer3_results[k]
-         elif tmp == ['NUM','RETURNED']: pass
-         else:
-            sys.stderr.write("%s\n"%k)
-      elif 'PRIMER_LEFT' == k[:11]:
-         key = 'left'
-         tmp = k[12:].split('_', 1)
-         if tmp[0].isdigit():
-            id = int(tmp[0])
-            if not id in primer_pairs:
-               primer_pairs[id] = {'pair': {}, 'right': {}, 'left': {},
-                                   'internal': {}}
-            if len(tmp) > 1:
-               key2 = tmp[1].lower()
-               value = primer3_results[k]
-               if isinstance(value, float):
-                  value = round_sig(value, sig_fig=3)
-               primer_pairs[id][key][key2] = value
+                unknown_key_error = True
+                sys.stderr.write("Unknown key: '%s' (primer3_parser:PRIMER_RIGHT)\n"%k)
+        elif 'PRIMER_LEFT' == k[:11]:
+            key = 'left'
+            tmp = k[12:].split('_', 1)
+            if tmp[0] == '': # New primer3 2.0 key containing list format of everything
+                pass
+            elif tmp[0].isdigit():
+                id = int(tmp[0])
+                if not id in primer_pairs:
+                    primer_pairs[id] = {'pair': {}, 'right': {}, 'left': {},
+                                        'internal': {}}
+                if len(tmp) > 1:
+                    key2 = tmp[1].lower()
+                    value = primer3_results[k]
+                    if isinstance(value, float):
+                        value = round_sig(value, sig_fig=3)
+                    primer_pairs[id][key][key2] = value
+                else:
+                    primer_pairs[id][key]['position'] = primer3_results[k][0]
+                    primer_pairs[id][key]['length'] = primer3_results[k][1]
+            elif tmp[0] == 'EXPLAIN':
+                notes[key] = primer3_results[k]
+            elif tmp == ['NUM','RETURNED']:
+                pass
             else:
-               primer_pairs[id][key]['position'] = primer3_results[k][0]
-               primer_pairs[id][key]['length'] = primer3_results[k][1]
-         elif tmp[0] == 'EXPLAIN':
-            notes[key] = primer3_results[k]
-         elif tmp == ['NUM','RETURNED']: pass
-         else:
-            sys.stderr.write("%s\n"%k)
-      elif 'PRIMER_PAIR' == k[:11]:
-         key = 'pair'
-         tmp = k[12:].split('_', 1)
-         if tmp[0].isdigit():
-            id = int(tmp[0])
-            if not id in primer_pairs:
-               primer_pairs[id] = {'pair': {}, 'right': {}, 'left': {},
-                                   'internal': {}}
-            if len(tmp) > 1:
-               key2 = tmp[1].lower()
-               value = primer3_results[k]
-               if isinstance(value, float):
-                  value = round_sig(value, sig_fig=3)
-               primer_pairs[id][key][key2] = value
+                unknown_key_error = True
+                sys.stderr.write("Unknown key: '%s' (primer3_parser:PRIMER_LEFT)\n"%k)
+        elif 'PRIMER_PAIR' == k[:11]:
+            key = 'pair'
+            tmp = k[12:].split('_', 1)
+            if tmp[0] == '': # New primer3 2.0 key containing list format of everything
+                pass
+            elif tmp[0].isdigit():
+                id = int(tmp[0])
+                if not id in primer_pairs:
+                    primer_pairs[id] = {'pair': {}, 'right': {}, 'left': {},
+                                        'internal': {}}
+                if len(tmp) > 1:
+                    key2 = tmp[1].lower()
+                    value = primer3_results[k]
+                    if isinstance(value, float):
+                        value = round_sig(value, sig_fig=3)
+                    primer_pairs[id][key][key2] = value
+                else:
+                    unknown_key_error = True
+                    sys.stderr.write(f"Unknown key: '{k}' '{primer3_results[k]}' (primer3_parser:PRIMER_PAIR)\n")
+            elif tmp[0] == 'EXPLAIN':
+                notes[key] = primer3_results[k]
+            elif tmp == ['NUM','RETURNED']:
+                pass
             else:
-               sys.stderr.write("%s, %s\n"%(k, primer3_results[k]))
-         elif tmp[0] == 'EXPLAIN':
-            notes[key] = primer3_results[k]
-         elif tmp == ['NUM','RETURNED']: pass
-         else:
-            sys.stderr.write("%s\n"%k)
-      elif 'PRIMER_INTERNAL' == k[:15]:
-         key = 'internal'
-         tmp = k[16:].split('_', 1)
-         if tmp[0].isdigit():
-            id = int(tmp[0])
-            if not id in primer_pairs:
-               primer_pairs[id] = {'pair': {}, 'right': {}, 'left': {},
-                                   'internal': {}}
-            if len(tmp) > 1:
-               key2 = tmp[1].lower()
-               value = primer3_results[k]
-               if isinstance(value, float):
-                  value = round_sig(value, sig_fig=3)
-               primer_pairs[id][key][key2] = value
+                unknown_key_error = True
+                sys.stderr.write("Unknown key: '%s' (primer3_parser:PRIMER_PAIR)\n"%k)
+        elif 'PRIMER_INTERNAL' == k[:15]:
+            key = 'internal'
+            tmp = k[16:].split('_', 1)
+            if tmp[0] == '': # New primer3 2.0 key containing list format of everything
+                pass
+            elif tmp[0].isdigit():
+                id = int(tmp[0])
+                if not id in primer_pairs:
+                    primer_pairs[id] = {'pair': {}, 'right': {}, 'left': {},
+                                        'internal': {}}
+                if len(tmp) > 1:
+                    key2 = tmp[1].lower()
+                    value = primer3_results[k]
+                    if isinstance(value, float):
+                        value = round_sig(value, sig_fig=3)
+                    primer_pairs[id][key][key2] = value
+                else:
+                    primer_pairs[id][key]['position'] = primer3_results[k][0]
+                    primer_pairs[id][key]['length'] = primer3_results[k][1]
+            elif tmp[0] == 'EXPLAIN':
+                notes[key] = primer3_results[k]
+            elif tmp == ['NUM','RETURNED']:
+                pass
             else:
-               primer_pairs[id][key]['position'] = primer3_results[k][0]
-               primer_pairs[id][key]['length'] = primer3_results[k][1]
-         elif tmp[0] == 'EXPLAIN':
-            notes[key] = primer3_results[k]
-         elif tmp == ['NUM','RETURNED']: pass
-         else:
-            sys.stderr.write("%s, %s\n"%(k, tmp[0]))
-      else:
-         sys.stderr.write("%s\n"%k)
+                unknown_key_error = True
+                sys.stderr.write("Unknown key: '%s' (primer3_parser:PRIMER_INTERNAL)\n"%k)
+        else:
+            unknown_key_error = True
+            sys.stderr.write("Unknown key: '%s' (primer3_parser)\n"%k)
 
-   return list(map(primer_pairs.get, sorted(primer_pairs.keys()))), notes
+    # On unknown key errors: dump input to file
+    if unknown_key_error:
+        with open_('primer3_results.pkl', 'wb') as f:
+            pickle.dump(primer3_results, f)
+    return list(map(primer_pairs.get, sorted(primer_pairs.keys()))), notes
 
 def round_sig(number, sig_fig=3, lmin=-1.0e+300, lmax=1.0e+300):
    ''' Round the number to the specified number of significant figures
