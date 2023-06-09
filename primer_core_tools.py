@@ -190,6 +190,7 @@ def find_primer_pairs(contig_file, positives, negatives, contig_names=None,
 
         log.progress.add('main', 'Running RUCS', None)
 
+        # Create reference directory to store reference links, and BWA index files
         ref_dir = 'references'
         if not os.path.exists(ref_dir):
             os.mkdir(ref_dir)
@@ -3071,49 +3072,49 @@ def align_seqs(a, b=None):
     return (''.join(s[0]), ''.join(s[1]), similarity)
 
 def estimate_primer_rank(alignments, scheme='positive'):
-   '''  '''
-   penalty = settings["pcr"]["priming"]["penalties"][scheme]
-   # Get grade summary
-   grade_sum = {0:0,1:0,2:0,3:0,4:0}
-   for aln in alignments:
-      grade_sum[aln[1]] += 1
+    '''  '''
+    penalty = settings["pcr"]["priming"]["penalties"][scheme]
+    # Get grade summary
+    grade_sum = {0:0,1:0,2:0,3:0,4:0}
+    for aln in alignments:
+        grade_sum[aln[1]] += 1
 
-   # Compute primer penalty
-   penalty_score = 0
-   if scheme == 'positive':
-      if grade_sum[4] == 0:
-         penalty_score += penalty['no_grade_4']
-         if grade_sum[3] == 0:
-            penalty_score += penalty['no_grade_3']
-         elif grade_sum[3] > 1:
-            penalty_score += penalty['multi_grade_3']
-         else:
-            if grade_sum[2] > 0:
-               penalty_score += penalty['multi_grade_2']
+    # Compute primer penalty
+    penalty_score = 0
+    if scheme == 'positive':
+        if grade_sum[4] == 0:
+            penalty_score += penalty['no_grade_4']
+            if grade_sum[3] == 0:
+                penalty_score += penalty['no_grade_3']
+            elif grade_sum[3] > 1:
+                penalty_score += penalty['multi_grade_3']
+            else:
+                if grade_sum[2] > 0:
+                    penalty_score += penalty['multi_grade_2']
+                elif grade_sum[1] > 0:
+                    penalty_score += penalty['multi_grade_1']
+        elif grade_sum[4] > 1:
+            penalty_score += penalty['multi_grade_4']
+        else:
+            if grade_sum[3] > 0:
+                penalty_score += penalty['multi_grade_3']
+            elif grade_sum[2] > 0:
+                penalty_score += penalty['multi_grade_2']
             elif grade_sum[1] > 0:
-               penalty_score += penalty['multi_grade_1']
-      elif grade_sum[4] > 1:
-         penalty_score += penalty['multi_grade_4']
-      else:
-         if grade_sum[3] > 0:
-            penalty_score += penalty['multi_grade_3']
-         elif grade_sum[2] > 0:
-            penalty_score += penalty['multi_grade_2']
-         elif grade_sum[1] > 0:
-            penalty_score += penalty['multi_grade_1']
-   elif scheme == 'negative':
-      if grade_sum[4] > 0:
-         penalty_score += penalty['grade_4']
-      elif grade_sum[3] > 0:
-         penalty_score += penalty['grade_3']
-      elif grade_sum[2] > 0:
-         penalty_score += penalty['grade_2']
-      elif grade_sum[1] > 0:
-         penalty_score += penalty['grade_1']
-   else:
-      raise ValueError('Error: Unknown scheme %s'%scheme)
+                penalty_score += penalty['multi_grade_1']
+    elif scheme == 'negative':
+        if grade_sum[4] > 0:
+            penalty_score += penalty['grade_4']
+        elif grade_sum[3] > 0:
+            penalty_score += penalty['grade_3']
+        elif grade_sum[2] > 0:
+            penalty_score += penalty['grade_2']
+        elif grade_sum[1] > 0:
+            penalty_score += penalty['grade_1']
+    else:
+        raise ValueError('Error: Unknown scheme %s'%scheme)
 
-   return penalty_score
+    return penalty_score
 
 def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
     ''' Validate and score primer pairs '''
