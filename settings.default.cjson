@@ -35,13 +35,14 @@
       "seq_selection":       [0], // Range of sequences IDs (zero-index) from the input to analyse for PCR primer pairs (set to null to run against all)
       "product_deviation":    50, // Product size deviation limit, to determine when the product size is indistiguishable from target size.
       "min_pair_distance":   100, // Minimum distance, to previous pair, for a new pair to be counted as non-overlapping primer pair
-      "min_pcr_grade":         2, // Minimum grade for a pcr product to be counted as present
+      "min_pcr_grade":         0, // Minimum grade for a pcr product to be counted as present
       "priming":{ // Priming Grade Thresholds and Penalties
          "alignment_similarity":  0.6, // Cut-off similarity. A hetero dimer alignment below this similarity is not considered as binding. A Tm > 0 is required for passing_grade=1+
+         "tm_thresholds":   [0, 20, 40, [55,65], [59,61]], // List of Tm thresholds for grading primer binding to binding site. each item result in one grade increase. For single numbers the Tm must be higher than the threshold to pass, for list items, the Tm must be between the two numbers to pass.
          "threshold_tm":         47,   // Cut-off temperature. oligo-template annealing Tm below this threshold is not considered as binding. A Tm > threshold is required for passing_grade=2+
          "viable_tm_diff":        5,   // Temperature threshold. Tm's within this threshold of target Tm is considered a viable binder and gets passing_grade=3+
          "good_tm_diff":          1,   // Temperature threshold. Tm's within this threshold of target Tm is considered a good binder and gets passing_grade=4
-         "threshold_grade":       2,   // Minimum passing_grade to be considered as binding
+         "threshold_grade":       0,   // Minimum passing_grade for a primer alignment candidate to be considered as binding - this defines whether the primer alignment is included as a binding site for a given reference when the potential PCR products are calculated
          "max_probe_dist":       30,   // Maximum distance between the probe and primer (This is currently only used for coloring in pcrs)
          "penalties": { // Priming penalty scores
             "positive": {
@@ -60,66 +61,72 @@
             }
          },
          "primer3":{ // Default settings for Primer3 modified sligthly
-            "PRIMER_NUM_RETURN":                10000,   // How many primer pairs to return
-            "PRIMER_DNA_CONC":                     50,   // DNA oligo concentration (nM)
-            "PRIMER_SALT_MONOVALENT":              50.0, // Monovalent cations concentration (mM)
-            "PRIMER_SALT_DIVALENT":                 1.5, // Divalent cations concentration (mM)
-            "PRIMER_DNTP_CONC":                     0.6, // dNTPs concentration (mM)
-            "PRIMER_SALT_CORRECTIONS":              1,   // Salt correction method {0:schildkraut, 1:santalucia, 2:wczarzy}
-            "PRIMER_TM_FORMULA":                    1,   // Tm calculation method {0:breslauer, 1:santalucia}
+            // Settings for primer design
+            "PRIMER_PRODUCT_SIZE_RANGE":    [[150, 250],[100, 300],[301, 400],[401, 500],[501, 600],[601, 700],[701, 850],[851, 1000]], // A list of product size ranges. Primer3 first tries to pick primers in the first range. If that is not possible, it goes to the next range and tries again. It continues in this way until it has either picked all necessary primers or until there are no more ranges.
             "PRIMER_MIN_SIZE":                     15,   // Minimum primer length
             "PRIMER_OPT_SIZE":                     21,   // Optimum primer length
             "PRIMER_MAX_SIZE":                     30,   // Maximum primer length
-            "PRIMER_WT_SIZE_LT":                    1.0, // Penalty weight for primer smaller than optimum
-            "PRIMER_WT_SIZE_GT":                    1.0, // Penalty weight for primer longer than optimum
-            "PRIMER_MIN_GC":                       20.0, // Minimum %GC content for primer
-            "PRIMER_MAX_GC":                       80.0, // Maximum %GC content for primer
             "PRIMER_MIN_TM":                       57,   // Minimum primer Tm
             "PRIMER_OPT_TM":                       60,   // Optimum primer Tm
             "PRIMER_MAX_TM":                       62,   // Maximum primer Tm
-            "PRIMER_WT_TM_LT":                      1.0, // Penalty weight for primer temp lower than optimum
-            "PRIMER_WT_TM_GT":                      1.0, // Penalty weight for primer temp higher than optimum
-            "PRIMER_PAIR_MAX_DIFF_TM":              1.0, // Maximum acceptable (unsigned) difference between the melting temperatures of the left and right primers.(default 100)
-            "PRIMER_MAX_END_GC":                    3,   // Max number of GC bases in 3" end
-            "PRIMER_MAX_END_STABILITY":           100.0, // Max end stability
-            "PRIMER_WT_END_STABILITY":              0.0, // Penalty weight for end stability
-            "PRIMER_MAX_NS_ACCEPTED":               0,   // Max number of Ns accepted in any primer
+            "PRIMER_PAIR_MAX_DIFF_TM":              1.0, // Maximum acceptable (unsigned) difference between the melting temperatures of the left and right primers.
+            "PRIMER_MIN_GC":                       20.0, // Minimum %GC content for primer
+            "PRIMER_MAX_GC":                       80.0, // Maximum %GC content for primer
+            "PRIMER_MAX_END_GC":                    3,   // Max number of GC bases in 3-prime end
             "PRIMER_MAX_POLY_X":                    5,   // Max allowed of identical consequtive bases
-            "PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT": 0,   // Use Thermodynamics in stead of alignment (Slow mode)
+            "PRIMER_MAX_NS_ACCEPTED":               0,   // Max number of Ns accepted in any primer
+            "PRIMER_MAX_END_STABILITY":           100.0, // Max end stability (100.0=feature turned off)
+            // Settings for probe design
+            "PRIMER_PICK_INTERNAL_OLIGO":           0,   // Set to 1 to for including hybridisation probe (qPCR)
+            "PRIMER_INTERNAL_MIN_SIZE":            18,   // Minimum probe length
+            "PRIMER_INTERNAL_OPT_SIZE":            24,   // Optimum probe length
+            "PRIMER_INTERNAL_MAX_SIZE":            35,   // Maximum probe length
+            "PRIMER_INTERNAL_MIN_TM":              67,   // Minimum probe Tm
+            "PRIMER_INTERNAL_OPT_TM":              70,   // Optimum probe Tm
+            "PRIMER_INTERNAL_MAX_TM":              72,   // Maximum probe Tm
+            "PRIMER_INTERNAL_MIN_GC":              20.0, // Minimum %GC content for probe
+            "PRIMER_INTERNAL_MAX_GC":              80.0, // Maximum %GC content for probe
+            "PRIMER_INTERNAL_MAX_POLY_X":           5,   // Max allowed of identical consequtive bases
+            // Settings for calculation of oligo interactions based on ALIGNMENT
             "PRIMER_MAX_SELF_ANY":                  8,   // Self annealng alignment score
             "PRIMER_MAX_SELF_END":                  3,   // Primer self annealing (end to end self priming)
             "PRIMER_PAIR_MAX_COMPL_ANY":            8,   // Primer pair complementarity
             "PRIMER_PAIR_MAX_COMPL_END":            3,   // Primer pair complementarity (end to end self priming)
-            "PRIMER_PRODUCT_SIZE_RANGE":    [300, 1000],
-            "PRIMER_PICK_INTERNAL_OLIGO":           0,   // Set to 1 to for qPCR
+            "PRIMER_INTERNAL_MAX_SELF_ANY":        12,   // Self annealng alignment score for the probe
+            "PRIMER_INTERNAL_MAX_SELF_END":        12,   // Oligo self annealing for the probe (end to end self priming)
+            // Use THERMODYNAMIC for OLIGO interactions
+            "PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT": 1,     // Use Thermodynamics instead of alignment (Slow mode). All oligo-oligo interactions and hairpins are calculated using thermodynamics rather than alignment
+            "PRIMER_MAX_HAIRPIN_TH":               47.0,   // Max hairpin Tm for primers (require thermodynamis to be activated). Default is 10 degrees lower than PRIMER_MIN_TM.
+            "PRIMER_MAX_SELF_ANY_TH":              47.0,   // Self annealng alignment score. Default is 10 degrees lower than PRIMER_MIN_TM.
+            "PRIMER_MAX_SELF_END_TH":              47.0,   // Primer self annealing (end to end self priming). Default is 10 degrees lower than PRIMER_MIN_TM.
+            "PRIMER_MAX_COMPL_ANY_TH":             47.0,   // Primer pair complementarity. Default is 10 degrees lower than PRIMER_MIN_TM.
+            "PRIMER_MAX_COMPL_END_TH":             47.0,   // Primer pair complementarity (end to end self priming). Default is 10 degrees lower than PRIMER_MIN_TM.
+            "PRIMER_INTERNAL_MAX_HAIRPIN_TH":      47.0,   // Max hairpin Tm for probe (require thermodynamis to be activated). Default is 10 degrees lower than PRIMER_MIN_TM.
+            "PRIMER_INTERNAL_MAX_SELF_ANY_TH":     47.0,   // Self annealng alignment score. Default is 10 degrees lower than PRIMER_MIN_TM.
+            "PRIMER_INTERNAL_MAX_SELF_END_TH":     47.0,   // Oligo self annealing (end to end self priming). Default is 10 degrees lower than PRIMER_MIN_TM.
+            // Settings for DNA and salt concentration corrections
+            "PRIMER_SALT_CORRECTIONS":              1,   // Salt correction method {0=schildkraut, 1=santalucia, 2=wczarzy}
+            "PRIMER_TM_FORMULA":                    1,   // Tm calculation method {0=breslauer, 1=santalucia}
+            "PRIMER_DNA_CONC":                     50,   // DNA oligo concentration (nM)
+            "PRIMER_SALT_MONOVALENT":              50.0, // Monovalent cations concentration (mM)
+            "PRIMER_SALT_DIVALENT":                 1.5, // Divalent cations concentration (mM)
+            "PRIMER_DNTP_CONC":                     0.6, // dNTPs concentration (mM)
             "PRIMER_INTERNAL_DNA_CONC":            50,   // DNA oligo concentration (nM)
             "PRIMER_INTERNAL_SALT_MONOVALENT":     50.0, // Monovalent cations concentration (mM)
             "PRIMER_INTERNAL_SALT_DIVALENT":        1.5, // Divalent cations concentration (mM)
             "PRIMER_INTERNAL_DNTP_CONC":            0.6, // dNTPs concentration (mM)
-            "PRIMER_INTERNAL_MIN_SIZE":            18,   // Minimum probe length
-            "PRIMER_INTERNAL_OPT_SIZE":            24,   // Optimum probe length
-            "PRIMER_INTERNAL_MAX_SIZE":            35,   // Maximum probe length
+            // Settings for calculation of Primer3 penalties
+            "PRIMER_WT_SIZE_LT":                    1.0, // Penalty weight for primer smaller than optimum
+            "PRIMER_WT_SIZE_GT":                    1.0, // Penalty weight for primer longer than optimum
+            "PRIMER_WT_TM_LT":                      1.0, // Penalty weight for primer temp lower than optimum
+            "PRIMER_WT_TM_GT":                      1.0, // Penalty weight for primer temp higher than optimum
+            "PRIMER_WT_END_STABILITY":              0.0, // Penalty weight for end stability
             "PRIMER_INTERNAL_WT_SIZE_LT":           1.0, // Penalty weight for probes shorter than optimum
             "PRIMER_INTERNAL_WT_SIZE_GT":           1.0, // Penalty weight for probes longer than optimum
-            "PRIMER_INTERNAL_MIN_GC":              20.0, // Minimum %GC content for probe
-            "PRIMER_INTERNAL_MAX_GC":              80.0, // Maximum %GC content for probe
-            "PRIMER_INTERNAL_MIN_TM":              67,   // Minimum probe Tm
-            "PRIMER_INTERNAL_OPT_TM":              70,   // Optimum probe Tm
-            "PRIMER_INTERNAL_MAX_TM":              72,   // Maximum probe Tm
-            "PRIMER_INTERNAL_WT_TM_LT":             1.0, // Penalty weight for primer temp lower than optimum
-            "PRIMER_INTERNAL_WT_TM_GT":             1.0, // Penalty weight for primer temp higher than optimum
-            "PRIMER_INTERNAL_MAX_POLY_X":           5,   // Max allowed of identical consequtive bases
-            "PRIMER_INTERNAL_MAX_SELF_ANY":        12,   // Self annealng alignment score
-            "PRIMER_INTERNAL_MAX_SELF_END":        12,   // Oligo self annealing (end to end self priming)
-            "PRIMER_THERMODYNAMIC_OLIGO_ALIGNMENT": 1,   // Use Thermodynamics in stead of alignment (Slow mode)
-            "PRIMER_MAX_HAIRPIN_TH":               47.0,   // Max hairpin Tm for primers (require thermodynamis to be activated)
-            "PRIMER_PAIR_MAX_COMPL_ANY_TH":        47.0,   // Primer pair complementarity
-            "PRIMER_PAIR_MAX_COMPL_END_TH":        47.0,   // Primer pair complementarity (end to end self priming)
-            "PRIMER_MAX_SELF_ANY_TH":              47.0,   // Self annealng alignment score
-            "PRIMER_MAX_SELF_END_TH":              47.0,   // Primer self annealing (end to end self priming)
-            "PRIMER_INTERNAL_MAX_HAIRPIN_TH":      47.0,   // Max hairpin Tm for probe (require thermodynamis to be activated)
-            "PRIMER_INTERNAL_MAX_SELF_ANY_TH":     47.0,   // Self annealng alignment score
-            "PRIMER_INTERNAL_MAX_SELF_END_TH":     47.0    // Oligo self annealing (end to end self priming)
+            "PRIMER_INTERNAL_WT_TM_LT":             1.0, // Penalty weight for probe temp lower than optimum
+            "PRIMER_INTERNAL_WT_TM_GT":             1.0, // Penalty weight for probe temp higher than optimum
+            // Other
+            "PRIMER_NUM_RETURN":                10000    // How many primer pairs to return by Primer3 (set high to increase likelihood of results. Set low to speed up processing time.) The bigger the template, the more candidates are needed to cover all locations.
          },
          "primer3_seq": { // Primer3 sequence parameters, these are not currently used, but available for manipulation.
             // For more info, see: http://primer3.sourceforge.net/primer3_manual.htm
@@ -159,7 +166,7 @@
          "max_cov":         0.5,  // Maximum coverage threshold for a new annotation to be considered an independent annotation
          "sim_cutoff":      0.75, // Annotations containing these keywords are ignored
          "ignore_terms":   ["hypothetical", "Flags:", "Short=", "PSEUDOGENE:"], // annotations containing these keywords are ignored
-         "replace_terms":  {"\[.+\]": "", // annotations are modified by these replacements: {"pattern":, "replacement"}
+         "replace_terms":  {"\[.+\]": "", // annotations are modified by these replacements: {'pattern':, 'replacement'}
                             "--": " ",
                             "MULTISPECIES:": "",
                             ", partial": "",

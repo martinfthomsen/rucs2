@@ -265,7 +265,7 @@ def find_primer_pairs(contig_file, positives, negatives, contig_names=None,
             log.progress.summary(f)
             log.stats.summary(f)
 
-def virtual_pcr(references, pairs, output='products.tsv'):
+def virtual_pcr(references, pairs, output=None, name=None, tm_thresholds=None, min_grade=None):
     ''' Virtual PCR
 
     USAGE
@@ -284,7 +284,18 @@ def virtual_pcr(references, pairs, output='products.tsv'):
     # Create symlinks for all reference
     refs = create_symbolic_files(references, ref_dir, reuse=True)
 
-    predict_pcr_results(refs, pairs, output=output)
+    fail_on_non_match=True
+    tm_thresholds = settings['pcr']['priming']['tm_thresholds'] if tm_thresholds is None else tm_thresholds
+    min_grade = settings['pcr']['priming']['threshold_grade'] if min_grade is None else min_grade
+    pcr_products = predict_pcr_results(refs, pairs, fail_on_non_match, tm_thresholds, min_grade)
+
+    # Pickle dump of products
+    with open_(f'{work_dir}pcr_products.pkl', 'wb') as products_file:
+        pickle.dump(pcr_products, products_file)
+
+    # Print PCR results
+    print_pcr_Results(refs, pcr_products, output)
+
 
 def show_primer_probe_locs(contigs=None, name=None):
     ''' Show the location of primer bindingsites (red) and probebinding sites
@@ -1831,6 +1842,23 @@ def blast_to_ref(reference, fasta, blast_settings=None, buffer=False):
     del defaults['dbtype']
 
     # BLAST fasta to DB
+    # blastn output format options (https://www.metagenomics.wiki/tools/blast/blastn-output-format-6)
+    # qseqid    query or source (gene) sequence id
+    # sseqid    subject or target (reference genome) sequence id
+    # pident    percentage of identical positions
+    # length    alignment length (sequence overlap)
+    # mismatch  number of mismatches
+    # gapopen   number of gap openings
+    # qstart    start of alignment in query
+    # qend      end of alignment in query
+    # sstart    start of alignment in subject
+    # send      end of alignment in subject
+    # evalue    expect value
+    # bitscore  bit score
+    # sstrand   Subject Strand
+    # qseq      Aligned part of query sequence
+    # sseq      Aligned part of subject sequence
+    # The E-value (expectation value) is a corrected bit-score adjusted to the sequence database size. The E-value therefore depends on the size of the used sequence database. Since large databases increase the chance of false positive hits,  the E-value corrects for the higher chance. It's a correction for multiple comparisons. This means that a sequence hit would get a better E-value when present in a smaller database.
     cmd = ['blastn', '-db', reference, '-query', fasta,
            '-outfmt', '6 qseqid sseqid sstrand qstart qend sstart send qseq sseq'] # evalue
     for s, (t, a, v) in defaults.items():
@@ -1892,6 +1920,10 @@ def blast_to_ref(reference, fasta, blast_settings=None, buffer=False):
                 # Add alignment
                 if not primer in alignments: alignments[primer] = []
                 alignments[primer].append((contig_name, 'NA', strand, position))
+
+    # dump computed alignments to temporary pickle_file
+    with open_(f'alignments_{name}.pkl', 'wb') as f:
+        pickle.dump(alignments, f)
 
     return alignments
 
@@ -2436,20 +2468,16 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
                             'high any compl', 'high end compl',
                             'tm diff too large', 'no internal oligo', 'ok']
             # Warn about headers unaccounted for
-            miss_head = ', '.join(h for h in left if not h in headers)
-            if miss_head:
+            if miss_head := ', '.join(h for h in left if not h in headers):
                 print(('Warning: One or more forward primer headers were not '
                        'reported: %s')%miss_head)
-            miss_head = ', '.join(h for h in right if not h in headers)
-            if miss_head:
+            if miss_head := ', '.join(h for h in right if not h in headers):
                 print(('Warning: One or more reverse primer headers were not '
                        'reported: %s')%miss_head)
-            miss_head = ', '.join(h for h in probe if not h in headers)
-            if miss_head:
+            if miss_head := ', '.join(h for h in probe if not h in headers):
                 print(('Warning: One or more probe headers were not '
                        'reported: %s')%miss_head)
-            miss_head = ', '.join(h for h in pair if not h in headers_pair)
-            if miss_head:
+            if miss_head := ', '.join(h for h in pair if not h in headers_pair):
                 print(('Warning: One or more pair headers were not '
                        'reported: %s')%miss_head)
             # Log Primer3 notes as statistics
@@ -2534,7 +2562,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
                         if a[1] > max_g:
                             max_g = a[1]
 
-                    if max_g > 0:
+                    if max_g >= filter_grade:
                         prim_log[max_g] += 1
 
                 log.stats.add_row('val%s'%i, prim_log)
@@ -3055,6 +3083,231 @@ def filter_primer_alignments(ref, alignments, probes=[]):
 
     return validated_alignments
 
+def configure_p3_thermoanalysis():
+    ''' Configure the P3 thermodynamic analysis and provide it as global variables '''
+    if not "p3_primer" in globals():
+        p3_args = settings['pcr']['priming']['primer3']
+        global p3_primer, p3_probe
+        # type of thermodynamic alignment {1:any, 2:end1, 3:end2, 4:hairpin} (No effect) # REMOVED P3_PY-2.0
+        # thal_type = 1
+        # Concentration of monovalent cations in mM (type: float, p3_default: 50.0)
+        mv_conc = p3_args['PRIMER_SALT_MONOVALENT'] if 'PRIMER_SALT_MONOVALENT' in p3_args else 50.0
+        # Concentration of divalent cations in mM (type: float, p3_default: 1.5)
+        dv_conc = p3_args['PRIMER_SALT_DIVALENT'] if 'PRIMER_SALT_DIVALENT' in p3_args else 1.5
+        # Concentration of dNTP in mM (type: float, p3_default: 0.6)
+        dntp_conc = p3_args['PRIMER_DNTP_CONC'] if 'PRIMER_DNTP_CONC' in p3_args else 0.6
+        # Concentration of DNA in mM (for primer and probe respectively) (type: float, p3_default: 50.0)
+        dna_conc = p3_args['PRIMER_DNA_CONC'] if 'PRIMER_DNA_CONC' in p3_args else 50.0
+        dna_conc_probe = p3_args['PRIMER_INTERNAL_DNA_CONC'] if 'PRIMER_INTERNAL_DNA_CONC' in p3_args else 50.0
+        # TODO - Concentration of DMSO in percentage (type: float, p3_default: 0.0)
+        dmso_conc = p3_args['PRIMER_DMSO_CONC'] if 'PRIMER_DMSO_CONC' in p3_args else 0.0
+        # TODO - DMSO correction factor, default 0.6 (type: float, p3_default: 0.6)
+        dmso_fact = p3_args['PRIMER_DMSO_FACTOR'] if 'PRIMER_DMSO_FACTOR' in p3_args else 0.6
+        # TODO - Concentration of formamide in mol/l (type: float, p3_default: 0.8)
+        formamide_conc = p3_args['PRIMER_FORMAMIDE_CONC'] if 'PRIMER_FORMAMIDE_CONC' in p3_args else 0.8
+        # TODO - Actual annealing temperature of the PCR reaction in Celsius (type: float, p3_default: -10.0)
+        annealing_temp_c = p3_args['PRIMER_ANNEAL'] if 'PRIMER_ANNEAL' in p3_args else -10.0
+        # Simulation temperature from which hairpin structures (dG) will be calculated in Celsius (type: float, p3_default: 37.0)
+        temp_c = p3_args['PRIMER_OPT_TM'] if 'PRIMER_OPT_TM' in p3_args else 60
+        # Maximum hairpin loop size measured in number of base pairs. (type: int, p3_default: 30)
+        max_loop = 0 # NOTE: max_loop must be zero, to avoid Primer3 crashing
+        # Return melting temperature of predicted structure (type: int, p3_default: 0)
+        temp_only = 1
+        # if non-zero dimer structure is calculated (No effect) (type: float, p3_default: 0)
+        debug = 0
+        # Maximum length for nearest-neighbor calculations (type: int, p3_default: 60)
+        max_nn_length = 60
+        # Method used to calculate melting temperatures (Tm) (breslauer [0] or santalucia [1]) (type: int, p3_default: 1)
+        tm_method = p3_args['PRIMER_TM_FORMULA'] if 'PRIMER_TM_FORMULA' in p3_args else 1
+        # Method used for salt corrections applied to melting temperature calculations (schildkraut [0], santalucia [1], owczarzy [2]) (type: int, p3_default: 1)
+        salt_correction_method = p3_args['PRIMER_SALT_CORRECTIONS'] if 'PRIMER_SALT_CORRECTIONS' in p3_args else 1
+
+        # Other p3_args? What are these?
+        # output_structure: bool = False
+        # calc_type_wrapper = 'ANY'
+
+        # Initiate the thermodynamic analyses
+        ThermoAnalysis = primer3.thermoanalysis.ThermoAnalysis
+        p3_primer = ThermoAnalysis(mv_conc, dv_conc, dntp_conc, dna_conc, dmso_conc,
+                                   dmso_fact, formamide_conc, annealing_temp_c,
+                                   temp_c, max_loop, temp_only, debug, max_nn_length,
+                                   tm_method, salt_correction_method)
+        p3_probe  = ThermoAnalysis(mv_conc, dv_conc, dntp_conc, dna_conc_probe, dmso_conc,
+                                   dmso_fact, formamide_conc, annealing_temp_c,
+                                   temp_c, max_loop, temp_only, debug, max_nn_length,
+                                   tm_method, salt_correction_method)
+
+
+def compute_binding_sites(ref, alignments, probes=[], filter=True):
+    ''' Compute binding sites by calculating heterodimer thermodynamics for all
+    alignments and filtering those with a melting temperature below 0 degrees
+
+    INPUTS:
+        * ref is a path to the reference file.
+        * alignments is a dictionary of aligned sequences as keys and a list of
+          alignments as values consisting of the contig name, the cigar value of
+          the alignment, the strand which was aligned to and the position of the
+          alignment.
+          EG. {'TGATAAGGCGATGGCAGATGA': [(contig_name, cigar_value, strand, position),...]}
+        * probes is a list of aligned sequences which are probes sequences and
+          should be handled as such. All sequences not in this list are
+          considered primer sequences.
+
+    OUTPUTS:
+        * binding_sites is a dictionary of primer sequences as keys and a
+          list of alignments as values consisting of the contig name, the strand
+          which was aligned to, the position of the alignment and the melting
+          tempetrature of the alignment.
+          EG. {'TGATAAGGCGATGGCAGATGA': [(contig_name, strand, position, Tm),...]}
+
+    EXAMPLE:
+        >>> ref = 'old/reference_tem.fa'
+        >>> alignments = {'CAACATTTTCGTGTCGCCCTT': [('reference', '', '+', 1043),
+        ...                                         ('reference', '', '+', 300)]}
+        >>> compute_binding_sites(ref, alignments)
+        {'CAACATTTTCGTGTCGCCCTT': [('reference', '+', 1043, 50.132)]}
+    '''
+    buffer = settings['input']['use_ram_buffer']
+
+    # Initiate the thermodynamic analyses (defining: p3_primer, p3_probe)
+    configure_p3_thermoanalysis()
+    # p3_args = settings['pcr']['priming']['primer3']
+    # dna_conc = p3_args['PRIMER_DNA_CONC'] if 'PRIMER_DNA_CONC' in p3_args else 50.0
+    # dna_conc_probe = p3_args['PRIMER_INTERNAL_DNA_CONC'] if 'PRIMER_INTERNAL_DNA_CONC' in p3_args else 50.0
+    # dntp_conc = p3_args['PRIMER_DNTP_CONC'] if 'PRIMER_DNTP_CONC' in p3_args else 0.6
+    # dv_conc = p3_args['PRIMER_SALT_DIVALENT'] if 'PRIMER_SALT_DIVALENT' in p3_args else 1.5
+    # mv_conc = p3_args['PRIMER_SALT_MONOVALENT'] if 'PRIMER_SALT_MONOVALENT' in p3_args else 50.0
+    # salt_correction_method = p3_args['PRIMER_SALT_CORRECTIONS'] if 'PRIMER_SALT_CORRECTIONS' in p3_args else 1
+    # tm_method = p3_args['PRIMER_TM_FORMULA'] if 'PRIMER_TM_FORMULA' in p3_args else 1
+    # temp_c = p3_args['PRIMER_OPT_TM'] if 'PRIMER_OPT_TM' in p3_args else 60
+    # thal_type = 1      # type of thermodynamic alignment {1:any, 2:end1, 3:end2, 4:hairpin} (No effect)
+    # max_loop = 0       # Maximum size of loops in the structure.
+    # max_nn_length = 60 # Maximum length for nearest-neighbor calcs
+    # temponly = 1       # Return melting temperature of predicted structure
+    # dimer = 1          # if non-zero dimer structure is calculated (No effect)
+    # # NOTE: max_loop must be zero, to avoid Primer3 crashing
+    #
+    # # Initiate the thermodynamic analyses
+    # ThermoAnalysis = primer3.thermoanalysis.ThermoAnalysis
+    # p3_primer = ThermoAnalysis(thal_type, mv_conc, dv_conc, dntp_conc, dna_conc,
+    #                            temp_c, max_loop, temponly, dimer, max_nn_length,
+    #                            tm_method, salt_correction_method)
+    # p3_probe = ThermoAnalysis(thal_type, mv_conc, dv_conc, dntp_conc,
+    #                           dna_conc_probe, temp_c, max_loop, temponly, dimer,
+    #                           max_nn_length, tm_method, salt_correction_method)
+
+    # EXTRACT contigs from reference
+    contigs = dict((name, seq) for seq, name, desc in seqs_from_file(ref, use_ram_buffer=buffer))
+
+    # Identify binding sites
+    binding_sites = {}
+    for primer in alignments:
+        binding_sites[primer] = []
+        # COMPUTE primer details
+        primer_rc = reverse_complement(primer)
+        primer_len = len(primer)
+        for (contig_name, cigar, strand, position) in alignments[primer]:
+            tm = None
+            # EXTRACT sequence
+            seq = contigs[contig_name][position:position+primer_len].upper()
+            # CALCULATE the alignment hetero-dimer annealing temperature
+            seq2 = primer
+            if strand == '+':
+                seq2 = primer_rc
+            if len(re.findall('[^M0-9]', cigar)) > 0:
+                # verify that primer3 is able to analyse the alignment
+                s_aln, p_aln, sim = align_seqs(seq, reverse_complement(seq2))
+                if sim < settings['pcr']['priming']['alignment_similarity']:
+                    tm = 0
+            if tm is None:
+                if primer in probes:
+                    tm = p3_probe.calc_heterodimer(seq, seq2).tm
+                else:
+                    tm = p3_primer.calc_heterodimer(seq, seq2).tm
+
+            # Filter binding_sites with Tm of 0 or below
+            if not filter or tm > 0:
+                binding_sites[primer].append((contig_name, strand, position, tm))
+
+    # dump computed binding sites to temporary pickle_file
+    name = os.path.basename(ref).rsplit('.',1)[0]
+    with open_(f'binding_sites_{name}.pkl', 'wb') as f:
+        pickle.dump(binding_sites, f)
+
+    return binding_sites
+
+def grade_binding_sites(binding_sites, thresholds=None, min_grade=None):
+    ''' Grade the binding sites for each primer sequence based on the
+    thermodynamics according to the predefined threshold criteria
+
+    +-------+--------------------+--------------------------+
+    | Grade | Description        | Thresholds/boundaries    |
+    +-------+--------------------+--------------------------+
+    |   0   | Negligible binding |      Tm =  0             |
+    |   1   | Unlikely binding   |  0 < Tm < 20             |
+    |   2   | Poor binding       | 20 < Tm < 40             |
+    |   3   | Detectable binding | 40 < Tm < 55 and Tm > 65 |
+    |   4   | Good binding       | 55 < Tm < 65             |
+    |   5   | Optimal binding    | 59 < Tm < 61             |
+    +-------+--------------------+--------------------------+
+
+    * Note: thresholds above can be modified. Defaults are set around an anneal
+            temperature of 60^C.
+
+    INPUTS:
+        * binding_sites is a dictionary of primer sequences as keys and a
+          list of alignments as values consisting of the contig name, the strand
+          which was aligned to, the position of the alignment and the melting
+          tempetrature of the alignment.
+          EG. {'TGATAAGGCGATGGCAGATGA': [(contig_name, strand, position, Tm), ...]}
+        * thresholds is a tuple or list of thresholds for the temperature, which
+          if matched increases the grade by one. Each threshold must be either a
+          number, which the temperature must be above or a list/tuple of
+          two numbers which the temperature must be above and below accordingly
+          to be matched. Default is the following 5 thresholds:
+          (0, 20, 40, [55,65], [59,61]).
+        * min_grade is the threshold grade for the filtering. Any binding site
+          with a lower grade than this minimum is not returned.
+
+    OUTPUTS:
+        * graded_binding_sites
+          EG. {'TGATAAGGCGATGGCAGATGA': [(contig_name, strand, position, Tm, grade), ...]}
+
+    USAGE:
+        >>> binding_sites = {'CAACATTTTCGTGTCGCCCTT': [('reference', '+', 1043, 50.132),
+        ...                                             'reference', '+', 300, 19.132)]}
+        >>> grade_binding_sites(binding_sites)
+        {'CAACATTTTCGTGTCGCCCTT': [('reference', '+', 1043, 50.132, 3)]}
+
+    '''
+    thresholds = (0, 20, 40, [55,65], [59,61]) if thresholds is None else thresholds
+    min_grade  = 0 if min_grade is None else min_grade
+    # Grade and filter binding sites
+    graded_binding_sites = {}
+    for primer in binding_sites:
+        graded_binding_sites[primer] = []
+        for (contig_name, strand, position, tm) in binding_sites[primer]:
+            # Compute binding grade based on the thermodynamics and defined thresholds
+            grade = 0
+            for threshold in thresholds:
+                try:
+                    if isinstance(threshold, list):
+                        if tm > threshold[0] and tm < threshold[1]:
+                            grade += 1
+                    else:
+                        if tm > threshold:
+                            grade += 1
+                except:
+                    exit(f"Configuration error: Threshold for grade_binding_sites contained unsupported format! ({threshold})")
+
+            if grade >= min_grade:
+                graded_binding_sites[primer].append((contig_name, strand,
+                                                     position, tm, grade))
+            # else:
+            #     print('BAD:', tm, primer, alignment, ref)
+
+    return graded_binding_sites
+
 def align_seqs(a, b=None):
     ''' Align 2 sequences, '-' are used for gaps.
 
@@ -3065,6 +3318,7 @@ def align_seqs(a, b=None):
         >>> print("%s\n%s\nSimilarity score: %s"%align_seqs(seq1, seq2))
         TGGCCGCAAATGCATTCCC----CA-
         -GGC----AATGCATTATGTGGGCAT
+        Similarity score: 0.619
     '''
     if b is None: a, b = a
     s = [[], []]
@@ -3199,6 +3453,7 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
             # Find best target match
             best_target = [False, False, False] # [forward, reverse, probe]
             for product in products:
+                # product format: [fw_contig_name, fw_strand, fw_position, rv_contig_name, rv_strand, rv_position, [fw_grade, rv_grade], product_size]
                 if product[-1] > lb and product[-1] < hb:
                     target_match = [product[-2][0] >= mg, product[-2][1] >= mg,
                                     qpcr and product[-2][2] >= mg]
@@ -3370,14 +3625,34 @@ def find_pcr_products(fw_locs, rv_locs, probe_locs, fw_len, rv_len, probe_len,
 
     # If quantitative PCR (qPCR), also known as real-time PCR is chosen, the
     # probe is included in the grading process
+
+    products returned are in the following format:
+    [forward_contig_name, forward_strand_indicator, forward_position, reverse_contig_name, reverse_strand_indicator, reverse_position, pcr_grades, pcr_tms, product_size]
+
+    contig_name = name of the sequences in the reference fasta file
+    strand_indicator = + or -
+    position = the location of the match in the reference
+    pcr_grades = [grade_of_forward_primer, grade_of_reverse_primer]
+    pcr_tms = [Tm_of_forward_primer, Tm_of_reverse_primer]
+    product_size = The size of the predicted PCR product/amplicon
+
     '''
     p3_args = settings['pcr']['priming']['primer3']
     mg = settings['pcr']['min_pcr_grade']
     qpcr = p3_args['PRIMER_PICK_INTERNAL_OLIGO'] == 1
+    if isinstance(p3_args['PRIMER_PRODUCT_SIZE_RANGE'], list):
+        if isinstance(p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0], list):
+            product_length_limits = [lim for lims in p3_args['PRIMER_PRODUCT_SIZE_RANGE'] for lim in lims]
+            min_len, max_len = min(product_length_limits), max(product_length_limits)
+        else:
+            min_len, max_len = p3_args['PRIMER_PRODUCT_SIZE_RANGE']
+    else:
+        exit('Settings error: invalid input format for PRIMER_PRODUCT_SIZE_RANGE, expected "list", got: ' + p3_args['PRIMER_PRODUCT_SIZE_RANGE'])
     products = []
     total_count = 0
     small_count = 0
     therm_count = 0
+    # print(f"min grade: {mg}\nqpcr: {qpcr}\nmin_len: {min_len}\nmax_len: {max_len}")
     # For each contig
     for contig_name in fw_locs:
         if contig_name not in rv_locs: continue # Skip if reverse is unmapped
@@ -3392,11 +3667,12 @@ def find_pcr_products(fw_locs, rv_locs, probe_locs, fw_len, rv_len, probe_len,
             probe_minus = np.array(probe_list['-']) if '-' in probe_list else None
         # Find pairs on the + strand
         if '+' in p_fw_list and '+' in p_rv_list:
-            for g_fw, p_fw in p_fw_list['+']:
-                for g_rv, p_rv in p_rv_list['+']:
+            for g_fw, p_fw, t_fw in p_fw_list['+']: # grade, pos, tm
+                for g_rv, p_rv, t_rv in p_rv_list['+']: # grade, pos, tm
                     # Get PCR grade and product size
                     product_size = p_rv + rv_len - p_fw
                     pcr_grades = [g_fw, g_rv]
+                    pcr_tms = [t_fw, t_rv]
                     if qpcr:
                         if probe_plus is not None:
                             probes = probe_plus[np.logical_and(probe_plus[:,1]>(p_fw+fw_len), probe_plus[:,1]<(p_rv-probe_len))]
@@ -3408,25 +3684,26 @@ def find_pcr_products(fw_locs, rv_locs, probe_locs, fw_len, rv_len, probe_len,
                         therm_count += 1
                         continue
                     # Filter small products
-                    if product_size < p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0]:
+                    if product_size < min_len:
                         small_count += 1
                         continue
                     # Filter big products
-                    if product_size > p3_args['PRIMER_PRODUCT_SIZE_RANGE'][1]:
+                    if product_size > max_len:
                         break
                     # Add match to alignment_list
                     products.append([contig_name, '+', p_fw,
                                      contig_name, '+', p_rv,
-                                     pcr_grades, product_size])
+                                     pcr_grades, pcr_tms, product_size])
 
         # Find pairs on the - strand
         if '-' in p_fw_list and '-' in p_rv_list:
             p_fw_list.sort(key=lambda x: x[1], reverse=True)
             p_rv_list.sort(key=lambda x: x[1], reverse=True)
-            for g_fw, p_fw in p_fw_list['-']:
-                for g_rv, p_rv in p_rv_list['-']:
+            for g_fw, p_fw, t_fw in p_fw_list['-']: # grade, pos, tm
+                for g_rv, p_rv, t_rv in p_rv_list['-']: # grade, pos, tm
                     product_size = p_fw + fw_len - p_rv
                     pcr_grades = [g_fw, g_rv]
+                    pcr_tms = [t_fw, t_rv]
                     if qpcr:
                         if probe_minus is not None:
                             probes = probe_minus[np.logical_and(probe_minus[:,1]>(p_rv+rv_len), probe_minus[:,1]<(p_fw-probe_len))]
@@ -3438,16 +3715,16 @@ def find_pcr_products(fw_locs, rv_locs, probe_locs, fw_len, rv_len, probe_len,
                         therm_count += 1
                         continue
                     # Filter small products
-                    if product_size < p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0]:
+                    if product_size < min_len:
                         small_count += 1
                         continue
                     # Filter big products
-                    if product_size > p3_args['PRIMER_PRODUCT_SIZE_RANGE'][1]:
+                    if product_size > max_len:
                         break
                     # Add match to alignment_list
                     products.append([contig_name, '-', p_fw,
                                      contig_name, '-', p_rv,
-                                     pcr_grades, product_size])
+                                     pcr_grades, pcr_tms, product_size])
 
     large_count = total_count - small_count - therm_count - len(products)
     return products, (total_count, small_count, large_count, therm_count)
@@ -3778,7 +4055,7 @@ def text_table(title, headers, rows, table_format='psql'):
                        table, '\n'])
     return table
 
-def predict_pcr_results(refs, pairs, output=None, fail_on_non_match=False):
+def predict_pcr_results(refs, pairs, fail_on_non_match=False, tm_thresholds=None, min_grade=None):
     ''' Predict the results of a PCR
 
     USAGE
@@ -3798,19 +4075,23 @@ def predict_pcr_results(refs, pairs, output=None, fail_on_non_match=False):
             primers.append((pair[2], {}))
             probes.append(pair[2])
 
-    # Store k-mers as fastq
+    # Store primer and probe sequences as fasta (required for BLASTing)
     primers_fa = 'primers.fa'
     save_as_fasta(dict(primers), primers_fa)
 
-    # Align primers to reference
+    # Align primers to references (BLASTing)
     pcr_results = [['NA' for r in refs] for p in pairs]
-    for i, ref in enumerate(refs):
+    for r, ref in enumerate(refs):
         alignments = blast_to_ref(ref, primers_fa,
                                   settings['pcr']['priming']['blastn_settings'],
                                   buffer)
+        print(f"Stats: Of the {len(primers)} blasted primer/probe sequences, {len(alignments)} sequences had matches with a total of     {sum(map(len, alignments.values()))} alignments for {ref}")
         # Filter primer matches which fail the thermodynamic test
-        alignments = filter_primer_alignments(ref, alignments, probes)
-        for j, pair in enumerate(pairs):
+        binding_sites = compute_binding_sites(ref, alignments, probes, filter=False)
+        print(f"Stats: {sum(map(len, binding_sites.values()))} binding sites found for {ref}")
+        binding_sites = grade_binding_sites(binding_sites, tm_thresholds, min_grade)
+        print(f"Stats: {sum(map(len, binding_sites.values()))} graded binding sites found for {ref}")
+        for p, pair in enumerate(pairs):
             fw = pair[0]
             rv = pair[1]
             if len(pair) == 3 and pair[2] is not None:
@@ -3822,15 +4103,17 @@ def predict_pcr_results(refs, pairs, output=None, fail_on_non_match=False):
             # Validate and score primer pair
             try:
                 fw_locs = AdvancedDictionary((
-                    (contig_name, (strand, (grade, pos)))
-                    for contig_name, grade, strand, pos in alignments[fw]))
+                    (contig_name, (strand, (grade, pos, tm)))
+                    for contig_name, strand, pos, tm, grade in binding_sites[fw]))
                 rv_locs = AdvancedDictionary((
-                    (contig_name, (strand, (grade, pos)))
-                    for contig_name, grade, strand, pos in alignments[rv_rc]))
+                    (contig_name, (strand, (grade, pos, tm)))
+                    for contig_name, strand, pos, tm, grade in binding_sites[rv_rc]))
+                # print(fw_locs)
+                # print(rv_locs)
                 if probe:
                     probe_locs = AdvancedDictionary((
-                        (contig_name, (strand, (grade, pos)))
-                        for contig_name, grade, strand, pos in alignments[probe]))
+                        (contig_name, (strand, (grade, pos, tm)))
+                        for contig_name, strand, pos, tm, grade in binding_sites[probe]))
                 else:
                     probe_locs = AdvancedDictionary({})
             except:
@@ -3839,7 +4122,7 @@ def predict_pcr_results(refs, pairs, output=None, fail_on_non_match=False):
                     raise
                 else:
                     # Skip pairs, where one of the primers do not match anything
-                    pcr_results[j][i] = ''
+                    pcr_results[p][r] = ''
                     continue
 
             # FIND potential pcr products
@@ -3850,27 +4133,28 @@ def predict_pcr_results(refs, pairs, output=None, fail_on_non_match=False):
             large_count = counts[2]
             therm_count = counts[3]
             match_count = len(products)
+            print(f"Stats: PCR counts total={total_count}, small={small_count}, large={large_count}, therm={therm_count},     match={match_count} for {ref}")
 
-            # UPDATE pair with PCR product lengths
-            products = ','.join([str(x[-1]) for x in products])
+            pcr_results[p][r] = products
 
-            pcr_results[j][i] = products
+    return pcr_results
 
-    # Print PCR results
+def print_pcr_Results(refs, pcr_results, output=None):
+    """ Print PCR results """
     if output is not None:
         if '/' not in output or os.path.exists(os.path.dirname(output)):
             with open_(output, 'w') as f:
-                f.write('\t'.join(map(os.path.basename, refs)))
+                f.write(f"Pair\\ref\t" + '\t'.join(map(os.path.basename, refs)))
                 f.write('\n')
-                f.write('\n'.join(['\t'.join(p) for p in pcr_results]))
+                f.write('\n'.join([f"{i}:\t" + '\t'.join((','.join([f"{p[-1]}({p[6][0]*p[6][1]/25})" for p in ppr]) for ppr in ppp)) for i, ppp in enumerate(pcr_results)]))
                 f.write('\n')
         else:
-            print('\t'.join(map(os.path.basename, refs)))
-            print('\n'.join(['\t'.join(p) for p in pcr_results]))
+            print(f"Pair\\ref\t" + '\t'.join(map(os.path.basename, refs)))
+            print('\n'.join([f"{i}:\t" + '\t'.join(p) for i, p in enumerate(pcr_results)]))
             raise OSError('Error: Output path directory do not exist!')
     else:
-        print('\t'.join(map(os.path.basename, refs)))
-        print('\n'.join(['\t'.join(p) for p in pcr_results]))
+        print(f"Pair\\ref\t" + '\t'.join(map(os.path.basename, refs)))
+        print('\n'.join([f"{i}:\t" + '\t'.join(p) for i, p in enumerate(pcr_results)]))
 
 def generate_sequence_atlas_data_file(reference_file, core_sequence_file, unique_core_sequence_file, aux_file, file_name='results.json'):
     ''' Generate Sequence Atlas data file (json)
@@ -4615,7 +4899,8 @@ def vpcr(args):
     ''' Virtual PCR - Simulate PCR and predict PCR product for the provided
     primer pairs against the provided references. '''
     pairs = get_pairs(args.pairs)
-    virtual_pcr(args.references, pairs)
+    min_grade = settings['pcr']['priming']['threshold_grade']
+    virtual_pcr(args.references, pairs, output=None, name=None, tm_thresholds=args.tm_thresholds, min_grade=min_grade)
 
 def pcrs(args):
     ''' Show PCR Statistics - Analyse the temperature and more for the provided
@@ -4652,9 +4937,9 @@ def expl(args):
     explore(args.positives, args.negatives, quiet=args.quiet, clean_run=True, reuse=args.reuse)
 
 def test(args):
-    ''' Virtual PCR - Simulate PCR and predict PCR product for the provided
-    primer pairs against the provided references. '''
-    ''
+    ''' Test run - Run the standard test set through the main (full run)
+    function to test that all the different dependencies operate as expected.
+    '''
     rucs_dir = os.path.dirname(os.path.realpath(__file__))
     pos = ["%s/testdata/bla.fa"%(rucs_dir)]
     neg = ["%s/testdata/sul.fa"%(rucs_dir)]
@@ -4839,6 +5124,8 @@ if __name__ == '__main__':
                         help=("This will overwrite the set value in the settings"))
     parser.add_argument("--anneal_tm", default=None,
                         help=("This will modify the appropriate values in the settings"))
+    parser.add_argument("--tm_thresholds", default=None,
+                        help=(f"Overwrite the settings default value of '{settings['pcr']['priming']['tm_thresholds']}'. List of Tm thresholds for grading primer binding to binding site. each item result in one grade increase. For single numbers the Tm must be higher than the threshold to pass, for list items, the Tm must be between the two numbers to pass."))
     parser.add_argument("--max_3end_gc", default=None,
                         help=("This will overwrite the set value in the settings"))
     parser.add_argument("--product_size_min", default=None,
@@ -4928,14 +5215,24 @@ if __name__ == '__main__':
     if args.dntp_conc is not None:
         settings['pcr']['priming']['primer3']['PRIMER_DNTP_CONC'] = float(args.dntp_conc)
         settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_DNTP_CONC'] = float(args.dntp_conc)
+    if args.tm_thresholds is not None:
+        # Convert input string to list
+        try:
+            args.tm_thresholds = json.loads(args.tm_thresholds)
+        except:
+            exit(f"input parameter value of --tm_thresholds invalid! '{args.tm_thresholds}'\nPlease use a valid JSON input, fx '[0, 20, 40, [55,65], [59,61]]'")
     if args.anneal_tm is not None:
-        tm = float(args.anneal_tm)
-        settings['pcr']['priming']['primer3']['PRIMER_MIN_TM'] = tm - 3
-        settings['pcr']['priming']['primer3']['PRIMER_OPT_TM'] = tm
-        settings['pcr']['priming']['primer3']['PRIMER_MAX_TM'] = tm + 3
-        settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_MIN_TM'] = tm + 8
-        settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_OPT_TM'] = tm + 10
-        settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_MAX_TM'] = tm + 12
+        ta = float(args.anneal_tm)
+        # Modify primer3 temperature settings according to the user specified anneal Temperature (Ta)
+        settings['pcr']['priming']['primer3']['PRIMER_MIN_TM'] = ta - 3
+        settings['pcr']['priming']['primer3']['PRIMER_OPT_TM'] = ta
+        settings['pcr']['priming']['primer3']['PRIMER_MAX_TM'] = ta + 3
+        settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_MIN_TM'] = ta + 8
+        settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_OPT_TM'] = ta + 10
+        settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_MAX_TM'] = ta + 12
+        # Set grading thresholds for melting temperature of primer binding sites
+        if args.tm_thresholds is None:
+            args.tm_thresholds = (0, 20, 40, [ta-5,ta+5],[ta-1,ta+1])
     if args.max_3end_gc is not None:
         settings['pcr']['priming']['primer3']['PRIMER_MAX_END_GC'] = int(args.max_3end_gc)
     if args.product_size_min is not None and args.product_size_max is not None:
