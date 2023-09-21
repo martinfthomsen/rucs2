@@ -1,7 +1,9 @@
 { // Default Settings and Parameters
    "input": {
       "to_upper":       true, // When this is true, it will change all lowercase letters in input files to upper case. Otherwise, lower case letters will be ignored as unknown bases.
-      "use_ram_buffer": true  // When this is true, All files will be stored in RAM when used. This reduces IO load at the expense of additional RAM usage.
+      "use_ram_buffer": true,  // When this is true, All files will be stored in RAM when used. This reduces IO load at the expense of additional RAM usage.
+      "work_dir": "work", // The working directory will contain all the intermediate and temporary files, including the files needed for the resume feature. If left blank the files will be stored in the current directory.
+      "result_dir": "results" // The result directory will contain all the important result files from the analysis. If left blank the result files will be stored in the current directory.
    },
    "ucs": { // Parameters for ucs computation
       "kmer_size":            20, // k size used to extract k-mers

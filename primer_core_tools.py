@@ -70,20 +70,22 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
     if negatives is None:
        negatives = []
 
-    # Create reference directory to store reference links, and BWA index files
-    ref_dir = 'references'
-    if not os.path.exists(ref_dir): os.mkdir(ref_dir)
-    try:
-        stats_file = '%sstats.log'%("%s_"%name if name is not None else '')
-        pairs_json_file = '%spairs.json'%("%s_"%name if name is not None else '')
-        results_file = '%sresults.tsv'%("%s_"%name if name is not None else '')
-        products_file = '%sproducts.tsv'%("%s_"%name if name is not None else '')
-        results_file_best = '%sresults_best.tsv'%("%s_"%name if name is not None else '')
+    # Create run subdirectories to store temporary, result files, etc.
+    work_dir, ref_dir, result_dir = setup_directories(get_ref_dir=True)
 
+    # Define result file paths
+    name = ''  if name is None else f'{name}_'
+    stats_file = f'{result_dir}{name}stats.log'
+    pairs_json_file = f'{result_dir}{name}pairs.json'
+    products_file = f'{result_dir}{name}products.tsv'
+    results_file = f'{result_dir}{name}results.tsv'
+    results_file_best = f'{result_dir}{name}results_best.tsv'
+
+    try:
         log.progress.add('main', 'Running RUCS', None)
 
-        # Save Sorted Reference
-        reference = "reference.fa"
+        # Save indexed Reference
+        reference = f"{work_dir}reference.fa"
         if ref_input is None: ref_input = positives[0]
 
         log.progress.add('ref',
@@ -92,8 +94,8 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
         to_upper = settings['input']['to_upper']
         buffer = settings['input']['use_ram_buffer']
         save_as_fasta([seq for seq, n, d in seqs_from_file(ref_input,
-                                                          to_upper=to_upper,
-                                                          use_ram_buffer=buffer)],
+                                                           to_upper=to_upper,
+                                                           use_ram_buffer=buffer)],
                      reference)
         log.progress['ref'].log_time()
 
@@ -109,7 +111,7 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
 
         # Find unique core sequences
         cs_f, ucs_files = find_unique_core_sequences(positives, negatives,
-                                                    reference, kmer_size)
+                                                     reference, kmer_size)
 
         # Identify Primer Pairs
         contig_file = ucs_files[3]
@@ -181,19 +183,20 @@ def find_primer_pairs(contig_file, positives, negatives, contig_names=None,
     if settings_file is not None:
         load_global_settings(settings_file)
 
-    try:
-        stats_file = '%sstats.log'%("%s_"%name if name is not None else '')
-        pairs_json_file = '%spairs.json'%("%s_"%name if name is not None else '')
-        products_file = '%sproducts.tsv'%("%s_"%name if name is not None else '')
-        results_file = '%sresults.tsv'%("%s_"%name if name is not None else '')
-        results_file_best = '%sresults_best.tsv'%("%s_"%name if name is not None else '')
+    # Create run subdirectories to store temporary, result files, etc.
+    work_dir, ref_dir, result_dir = setup_directories(get_ref_dir=True)
 
+    # Define result file paths
+    name = ''  if name is None else f'{name}_'
+    stats_file = f'{result_dir}{name}stats.log'
+    pairs_json_file = f'{result_dir}{name}pairs.json'
+    products_file = f'{result_dir}{name}products.tsv'
+    results_file = f'{result_dir}{name}results.tsv'
+    results_file_best = f'{result_dir}{name}results_best.tsv'
+
+    try:
         log.progress.add('main', 'Running RUCS', None)
 
-        # Create reference directory to store reference links, and BWA index files
-        ref_dir = 'references'
-        if not os.path.exists(ref_dir):
-            os.mkdir(ref_dir)
         # Create symlinks for all reference
         log.progress.add('input',
                          'Prepare inputs: %s positive and %s negative genomes'%(
@@ -270,22 +273,34 @@ def virtual_pcr(references, pairs, output='products.tsv'):
         >>> pairs = [['forward_primer1_seq', 'reverse_primer1_seq'], ...]
         >>> virtual_pcr(refs, pairs, output='my_pcr_results.tsv')
     '''
-    # Create symlinks for all reference
-    ref_dir = 'references'
-    if not os.path.exists(ref_dir):
-        os.mkdir(ref_dir)
+    # Create run subdirectories to store temporary, result files, etc.
+    work_dir, ref_dir, result_dir = setup_directories(get_ref_dir=True)
 
+    # Define
+    if output is None or not isinstance(output, str):
+        name = '' if name is None else f'{name}_'
+        output = f'{result_dir}{name}products.tsv'
+
+    # Create symlinks for all reference
     refs = create_symbolic_files(references, ref_dir, reuse=True)
 
     predict_pcr_results(refs, pairs, output=output)
 
-def show_primer_probe_locs(wdir, contigs=None, name=None):
+def show_primer_probe_locs(contigs=None, name=None):
     ''' Show the location of primer bindingsites (red) and probebinding sites
     (green) using shell text coloring.
     '''
-    seq_file    = '%s/unique_core_sequences.disscafs.fa'%(wdir)
-    results_file = '%sresults.tsv'%("%s_"%name if name is not None else '')
-    products_file = '%sproducts.tsv'%("%s_"%name if name is not None else '')
+    # Create run subdirectories to store temporary, result files, etc.
+    work_dir, ref_dir, result_dir = setup_directories(get_ref_dir=True)
+
+    # Define result file paths
+    name = '' if name is None else f'{name}_'
+    # stats_file = f'{result_dir}{name}stats.log'
+    # pairs_json_file = f'{result_dir}{name}pairs.json'
+    products_file = f'{result_dir}{name}products.tsv'
+    results_file = f'{result_dir}{name}results.tsv'
+    # results_file_best = f'{result_dir}{name}results_best.tsv'
+    seq_file    = f'{work_dir}{name}unique_core_sequences.disscafs.fa'
     pribind_locs, probind_locs = get_primer_and_probe_bindsites(results_file)
     print_primer_and_probe_bindsites(seq_file, pribind_locs, probind_locs, contigs=contigs, tag1='41', tag2='32')
 
@@ -4741,6 +4756,33 @@ def get_fasta_files(inputs, ref=''):
 
     return [path for path in paths if check_file_type(path) == 'fasta']
 
+def setup_directories(get_ref_dir=False):
+    ''' Set the work, reference and result directory. Create any missing paths and return the paths '''
+    global work_dir, ref_dir, result_dir
+
+    work_dir = settings['input']['work_dir']
+    if isinstance(work_dir, str) and work_dir != '':
+        if not os.path.exists(work_dir):
+            os.mkdir(work_dir)
+        work_dir = work_dir+'/' if work_dir[-1] != '/' else work_dir
+    else:
+        work_dir = ''
+
+    result_dir = settings['input']['result_dir']
+    if isinstance(result_dir, str) and result_dir != '':
+        if not os.path.exists(result_dir):
+            os.mkdir(result_dir)
+        result_dir = result_dir+'/' if result_dir[-1] != '/' else result_dir
+    else:
+        result_dir = ''
+
+    ref_dir = f"{work_dir}references"
+    if get_ref_dir:
+        if not os.path.exists(ref_dir):
+            os.mkdir(ref_dir)
+        ref_dir = ref_dir+'/' if ref_dir[-1] != '/' else ref_dir
+
+    return (work_dir, ref_dir, result_dir) if get_ref_dir else (work_dir, result_dir)
 
 #
 #################################### MAIN #####################################
