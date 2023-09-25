@@ -1482,13 +1482,13 @@ def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
         {'this_is_seq_4': 1, 'this_is_seq_3': 1,
          'this_is_seq_2': 1, 'this_is_seq_1': 1}
     '''
-    if reuse and os.path.exists(f'ext_kmer_reuse_{os.path.basename(filename)}.pkl'):
+    if reuse and os.path.exists(f'{work_dir}ext_kmer_reuse_{os.path.basename(filename)}.pkl'):
         # Extract K-mers from previous result file
         if log is not None and log_entry is not None:
             log.progress.add(f'ext_{os.path.basename(filename)}',
                              f'Reloading previous extracted k-mers for {os.path.basename(filename)}', log_entry)
 
-        with open_(f'ext_kmer_reuse_{os.path.basename(filename)}.pkl', 'rb') as f:
+        with open_(f'{work_dir}ext_kmer_reuse_{os.path.basename(filename)}.pkl', 'rb') as f:
             kmers = pickle.load(f)
 
         if log is not None and log_entry is not None:
@@ -1547,7 +1547,7 @@ def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
 
         if reuse:
             # Store k-mer extraction results for later reuse
-            with open_(f'ext_kmer_reuse_{os.path.basename(filename)}.pkl', 'wb') as f:
+            with open_(f'{work_dir}ext_kmer_reuse_{os.path.basename(filename)}.pkl', 'wb') as f:
                 pickle.dump(kmers, f)
 
     return kmers
@@ -1888,7 +1888,7 @@ def blast_to_ref(reference, fasta, blast_settings=None, buffer=False):
                 alignments[primer].append((contig_name, 'NA', strand, position))
 
     # dump computed alignments to temporary pickle_file
-    with open_(f'alignments_{name}.pkl', 'wb') as f:
+    with open_(f'{work_dir}alignments_{name}.pkl', 'wb') as f:
         pickle.dump(alignments, f)
 
     return alignments
@@ -2917,7 +2917,7 @@ def primer3_parser(primer3_results):
 
     # On unknown key errors: dump input to file
     if unknown_key_error:
-        with open_('primer3_results.pkl', 'wb') as f:
+        with open_(f'{work_dir}primer3_results.pkl', 'wb') as f:
             pickle.dump(primer3_results, f)
     return list(map(primer_pairs.get, sorted(primer_pairs.keys()))), notes
 
@@ -3157,7 +3157,7 @@ def compute_binding_sites(ref, alignments, probes=[], filter=True):
 
     # dump computed binding sites to temporary pickle_file
     name = os.path.basename(ref).rsplit('.',1)[0]
-    with open_(f'binding_sites_{name}.pkl', 'wb') as f:
+    with open_(f'{work_dir}binding_sites_{name}.pkl', 'wb') as f:
         pickle.dump(binding_sites, f)
 
     return binding_sites
@@ -4510,7 +4510,7 @@ def explore_representation(positives, negatives, kmer_size=None, reuse=False):
         log.progress.add('store_pos_kmercounts', 'store k-mers counts', 'pos')
 
     for sep in kmer_seps:
-        with open_(f'kmer_counts_pos_{sep}.pkl', 'wb') as f:
+        with open_(f'{work_dir}kmer_counts_pos_{sep}.pkl', 'wb') as f:
             pickle.dump(kmer_counts_pos[sep], f)
 
     del kmer_counts_pos
@@ -4536,7 +4536,7 @@ def explore_representation(positives, negatives, kmer_size=None, reuse=False):
         log.progress.add('store_neg_kmercounts', 'store k-mers counts', 'neg')
 
     for sep in kmer_seps:
-        with open_(f'kmer_counts_neg_{sep}.pkl', 'wb') as f:
+        with open_(f'{work_dir}kmer_counts_neg_{sep}.pkl', 'wb') as f:
             pickle.dump(kmer_counts_neg[sep], f)
 
     del kmer_counts_neg
@@ -4556,10 +4556,10 @@ def explore_representation(positives, negatives, kmer_size=None, reuse=False):
             log.progress.add(f'filter_{sep}', f'Processing k-mers starting with "{sep}"', 'filter')
 
         # Load kmer counts
-        with open_(f'kmer_counts_pos_{sep}.pkl', 'rb') as f:
+        with open_(f'{work_dir}kmer_counts_pos_{sep}.pkl', 'rb') as f:
             kmer_counts_pos = pickle.load(f)
 
-        with open_(f'kmer_counts_neg_{sep}.pkl', 'rb') as f:
+        with open_(f'{work_dir}kmer_counts_neg_{sep}.pkl', 'rb') as f:
             kmer_counts_neg = pickle.load(f)
 
         # Identify significantly over- or under-represented k-mers
@@ -4579,10 +4579,10 @@ def explore_representation(positives, negatives, kmer_size=None, reuse=False):
 
         gc.collect()
         # Pickle the significant k-mer counts dictionary
-        with open_(f'kmer_counts_pos_sig_{sep}.pkl', 'wb') as f:
+        with open_(f'{work_dir}kmer_counts_pos_sig_{sep}.pkl', 'wb') as f:
             pickle.dump(set(kmer_counts_pos.keys()), f)
 
-        with open_(f'kmer_counts_neg_sig_{sep}.pkl', 'wb') as f:
+        with open_(f'{work_dir}kmer_counts_neg_sig_{sep}.pkl', 'wb') as f:
             pickle.dump(set(kmer_counts_neg.keys()), f)
 
         del kmer_counts_pos, kmer_counts_neg
@@ -4603,7 +4603,7 @@ def explore_representation(positives, negatives, kmer_size=None, reuse=False):
     # Load all significant positive kmer counts
     sig_pos_kmers = set()
     for sep in kmer_seps:
-        with open_(f'kmer_counts_pos_sig_{sep}.pkl', 'rb') as f:
+        with open_(f'{work_dir}kmer_counts_pos_sig_{sep}.pkl', 'rb') as f:
             sig_pos_kmers.update(pickle.load(f))
 
     # Align to pos refs until enough k-mers has been aligned to a ref
@@ -4670,7 +4670,7 @@ def explore_representation(positives, negatives, kmer_size=None, reuse=False):
     # Load all significant negative kmer counts
     sig_neg_kmers = set()
     for sep in kmer_seps:
-        with open_(f'kmer_counts_neg_sig_{sep}.pkl', 'rb') as f:
+        with open_(f'{work_dir}kmer_counts_neg_sig_{sep}.pkl', 'rb') as f:
             sig_neg_kmers.update(pickle.load(f))
 
     # WHILE loop neg refs until enough k-mers has been aligned to a ref
