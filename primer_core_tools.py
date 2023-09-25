@@ -380,12 +380,13 @@ Probe distance to primer: N/A
     # Initiate the thermodynamic analyses (defining: p3_primer, p3_probe)
     configure_p3_thermoanalysis()
 
-    threshold_tm = settings['pcr']['priming']['threshold_tm'] if 'threshold_tm' in p3_args else 47
-    max_probe_dist = settings['pcr']['priming']['max_probe_dist'] if 'max_probe_dist' in p3_args else 30
-    min_primer_tm = settings['pcr']['priming']['primer3']['PRIMER_MIN_TM'] if 'PRIMER_MIN_TM' in p3_args else 57
-    max_primer_tm = settings['pcr']['priming']['primer3']['PRIMER_MAX_TM'] if 'PRIMER_MAX_TM' in p3_args else 62
-    min_probe_tm = settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_MIN_TM'] if 'PRIMER_INTERNAL_MIN_TM' in p3_args else 67
-    max_probe_tm = settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_MAX_TM'] if 'PRIMER_INTERNAL_MAX_TM' in p3_args else 72
+    prim_sets = settings['pcr']['priming']
+    threshold_tm = prim_sets['threshold_tm'] if 'threshold_tm' in prim_sets else 47
+    max_probe_dist = prim_sets['max_probe_dist'] if 'max_probe_dist' in prim_sets else 30
+    min_primer_tm = prim_sets['primer3']['PRIMER_MIN_TM'] if 'PRIMER_MIN_TM' in prim_sets['primer3'] else 57
+    max_primer_tm = prim_sets['primer3']['PRIMER_MAX_TM'] if 'PRIMER_MAX_TM' in prim_sets['primer3'] else 62
+    min_probe_tm = prim_sets['primer3']['PRIMER_INTERNAL_MIN_TM'] if 'PRIMER_INTERNAL_MIN_TM' in prim_sets['primer3'] else 67
+    max_probe_tm = prim_sets['primer3']['PRIMER_INTERNAL_MAX_TM'] if 'PRIMER_INTERNAL_MAX_TM' in prim_sets['primer3'] else 72
 
     n = "\x1B[0m"
     h = "\x1B[1;4m"
@@ -396,9 +397,20 @@ Probe distance to primer: N/A
     if template is None:
         size = 'N/A'
     else:
-        start = template.index(forward)
-        end = template.index(reverse_complement(reverse)) + len(reverse)
-        size = "%sbp"%(end - start)
+        try:
+            start = template.index(forward)
+            end = template.index(reverse_complement(reverse)) + len(reverse)
+            size = "%sbp"%(end - start)
+        except ValueError as e:
+            try:
+                tmp = forward
+                forward = reverse
+                reverse = tmp
+                start = template.index(forward)
+                end = template.index(reverse_complement(reverse)) + len(reverse)
+                size = "%sbp"%(end - start)
+            except ValueError as e:
+                exit('Error: Unable to map forward or reverse primer to template!')
     print("PCR product size: %s\n"%(size))
 
     # Print sequences
