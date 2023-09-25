@@ -2474,7 +2474,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
                         for p in p_fw + list(map(reverse_complement, p_rv)) + probes])
 
         # Store primers as fastq in prep for alignment algorithm
-        primers_fa = 'primers.fa'
+        primers_fa = f'{work_dir}primers.fa'
         save_as_fasta(primers, primers_fa)
 
         if log is not None:
@@ -4002,7 +4002,7 @@ def predict_pcr_results(refs, pairs, fail_on_non_match=False, tm_thresholds=None
             probes.append(pair[2])
 
     # Store primer and probe sequences as fasta (required for BLASTing)
-    primers_fa = 'primers.fa'
+    primers_fa = f'{work_dir}primers.fa'
     save_as_fasta(dict(primers), primers_fa)
 
     # Align primers to references (BLASTing)
@@ -4951,14 +4951,16 @@ def get_fasta_files(inputs, ref=''):
         path_glob = glob.glob(input)
         # Catch non paths inputs
         if path_glob == []:
+            if not os.path.exists('inputs/'):
+                os.mkdir('inputs/')
             # Assume fasta accession ID. Try download file
-            with Popen(["download_genomes.sh", input], stdout=PIPE, stderr=PIPE) as p:
+            with Popen(["download_genomes.sh", input], stdout=PIPE, stderr=PIPE, cwd='inputs/') as p:
                 stdout = p.stdout.read().decode('utf-8')
                 stderr = p.stderr.read().decode('utf-8')
 
             sys.stderr.write(stdout)
             sys.stderr.write(stderr)
-            path = glob.glob(f"{input}_*")
+            path = glob.glob(f"inputs/{input}_*")
             path = path[0] if path != [] else ''
 
             # Check if file was downloaded
