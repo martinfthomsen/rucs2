@@ -1789,8 +1789,8 @@ def blast_to_ref(reference, fasta, blast_settings=None, buffer=False):
             cmd.extend(['-dbtype', blast_settings['dbtype']])
         else:
             cmd.extend(['-dbtype', defaults['dbtype'][-1]])
-        so_path = 'blast_db.out.txt'
-        se_path = 'blast_db.err.txt'
+        so_path = f'{work_dir}blast_db.out.txt'
+        se_path = f'{work_dir}blast_db.err.txt'
         with open_(reference, 'r') as six, open_(so_path, 'w') as so, open_(se_path, 'w') as se:
             so.write(f"#CMD ")
             if reference[-3:] == '.gz':
@@ -1832,8 +1832,8 @@ def blast_to_ref(reference, fasta, blast_settings=None, buffer=False):
         elif v is not None: cmd.extend([a, str(v)])
 
     # print(' '.join(cmd))
-    so_path = 'blastn.%s.tsv'%(name)
-    se_path = 'blastn.err.txt'
+    so_path = f'{work_dir}blastn.{name}.tsv'
+    se_path = f'{work_dir}blastn.err.txt'
     with open_(so_path, 'w') as so, open_(se_path, 'w') as se:
         ec = Popen(cmd, stdout=so, stderr=se).wait()
         if ec != 0:
@@ -2161,10 +2161,10 @@ def compute_consensus_sequences(kmers, reference, kmer_size=20,
                                 charspace='nATGC', name_prefix='consensus',
                                 buffer=False):
     ''' Method for computing scaffolds and contigs from a '''
-    scaffolds_file = "%s.scaffolds.fa"%name_prefix
-    contigs_file = "%s.contigs.fa"%name_prefix
-    auxiliary_file="%s.aux.tsv"%name_prefix
-    dissected_scafs_file = "%s.disscafs.fa"%name_prefix
+    scaffolds_file = f'{result_dir}{name_prefix}.scaffolds.fa'
+    contigs_file = f'{result_dir}{name_prefix}.contigs.fa'
+    auxiliary_file= f'{result_dir}{name_prefix}.aux.tsv'
+    dissected_scafs_file = f'{result_dir}{name_prefix}.disscafs.fa'
     clen = len(charspace)
     max_ns = settings['ucs']['max_ns']
 
@@ -3844,8 +3844,8 @@ def get_blast_annotations(fasta, blast_settings=None, dbpath=''):
 
     # print(' '.join(cmd))
     name = os.path.basename(fasta).rsplit('.',1)[0]
-    so_path = '%s.blastx.tsv'%(name)
-    se_path = '%s.blastx.err'%(name)
+    so_path = f'{work_dir}{name}.blastx.tsv'
+    se_path = f'{work_dir}{name}.blastx.err'
     with open_(so_path, 'w') as so, open_(se_path, 'w') as se:
         ec = Popen(cmd, stdout=so, stderr=se).wait()
         if ec != 0:
@@ -4880,7 +4880,7 @@ def test(args):
     pos = ["%s/testdata/bla.fa"%(rucs_dir)]
     neg = ["%s/testdata/sul.fa"%(rucs_dir)]
     main(pos, neg, None, quiet=args.quiet, clean_run=False, annotate=True)
-    if os.path.exists('results.tsv'):
+    if os.path.exists(f'{result_dir}results.tsv'):
         print('Test completed successfully!')
     else:
         print('Test completed with errors!')
