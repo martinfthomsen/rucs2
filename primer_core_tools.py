@@ -324,33 +324,16 @@ def compute_tm(seq1, seq2=None):
         >>> compute_tm('CAACATTTTCGTGTCGCCCTT', 'AAGGGCGACACGAGAATGTTG')
         (61.9, 63.1, 51.6)
     '''
-    p3_args = settings['pcr']['priming']['primer3']
-    dna_conc = p3_args['PRIMER_DNA_CONC'] if 'PRIMER_DNA_CONC' in p3_args else 50.0
-    dntp_conc = p3_args['PRIMER_DNTP_CONC'] if 'PRIMER_DNTP_CONC' in p3_args else 0.6
-    dv_conc = p3_args['PRIMER_SALT_DIVALENT'] if 'PRIMER_SALT_DIVALENT' in p3_args else 1.5
-    mv_conc = p3_args['PRIMER_SALT_MONOVALENT'] if 'PRIMER_SALT_MONOVALENT' in p3_args else 50.0
-    salt_correction_method = p3_args['PRIMER_SALT_CORRECTIONS'] if 'PRIMER_SALT_CORRECTIONS' in p3_args else 1
-    tm_method = p3_args['PRIMER_TM_FORMULA'] if 'PRIMER_TM_FORMULA' in p3_args else 1
-    temp_c = p3_args['PRIMER_OPT_TM'] if 'PRIMER_OPT_TM' in p3_args else 60
-    thal_type = 1      # type of thermodynamic alignment {1:any, 2:end1, 3:end2, 4:hairpin} (No effect)
-    max_loop = 0       # Maximum size of loops in the structure.
-    max_nn_length = 60 # Maximum length for nearest-neighbor calcs
-    temponly = 1       # Return melting temperature of predicted structure
-    dimer = 1          # if non-zero dimer structure is calculated (No effect)
-    # NOTE: max_loop must be zero, to avoid Primer3 crashing
+    # Initiate the thermodynamic analyses (defining: p3_primer, p3_probe)
+    configure_p3_thermoanalysis()
 
-    # Initiate the thermodynamic analyses
-    ThermoAnalysis = primer3.thermoanalysis.ThermoAnalysis
-    p3_therm = ThermoAnalysis(thal_type, mv_conc, dv_conc, dntp_conc, dna_conc,
-                              temp_c, max_loop, temponly, dimer, max_nn_length,
-                              tm_method, salt_correction_method)
-    tm_seq1 = round_sig(p3_therm.calc_tm(seq1))
+    tm_seq1 = round_sig(p3_primer.calc_tm(seq1))
     if seq2 is not None:
-        tm_seq2 = round_sig(p3_therm.calc_tm(seq2))
-        tm_dimer = round_sig(p3_therm.calc_heterodimer(seq1, seq2).tm)
+        tm_seq2 = round_sig(p3_primer.calc_tm(seq2))
+        tm_dimer = round_sig(p3_primer.calc_heterodimer(seq1, seq2).tm)
     else:
         tm_seq2 = tm_seq1
-        tm_dimer = round_sig(p3_therm.calc_heterodimer(seq1,
+        tm_dimer = round_sig(p3_primer.calc_heterodimer(seq1,
                                                        reverse_complement(seq1)).tm)
 
     return tm_seq1, tm_seq2, tm_dimer
@@ -394,32 +377,15 @@ Probe distance to primer: N/A
     if settings_file is not None:
         load_global_settings(settings_file)
 
-    p3_args = settings['pcr']['priming']['primer3']
-    dna_conc = p3_args['PRIMER_DNA_CONC'] if 'PRIMER_DNA_CONC' in p3_args else 50.0
-    dntp_conc = p3_args['PRIMER_DNTP_CONC'] if 'PRIMER_DNTP_CONC' in p3_args else 0.6
-    dv_conc = p3_args['PRIMER_SALT_DIVALENT'] if 'PRIMER_SALT_DIVALENT' in p3_args else 1.5
-    mv_conc = p3_args['PRIMER_SALT_MONOVALENT'] if 'PRIMER_SALT_MONOVALENT' in p3_args else 50.0
-    salt_correction_method = p3_args['PRIMER_SALT_CORRECTIONS'] if 'PRIMER_SALT_CORRECTIONS' in p3_args else 1
-    tm_method = p3_args['PRIMER_TM_FORMULA'] if 'PRIMER_TM_FORMULA' in p3_args else 1
-    temp_c = p3_args['PRIMER_OPT_TM'] if 'PRIMER_OPT_TM' in p3_args else 60
-    thal_type = 1      # type of thermodynamic alignment {1:any, 2:end1, 3:end2, 4:hairpin} (No effect)
-    max_loop = 0       # Maximum size of loops in the structure.
-    # NOTE: max_loop must be zero, to avoid Primer3 crashing
-    max_nn_length = 60 # Maximum length for nearest-neighbor calcs
-    temponly = 1       # Return melting temperature of predicted structure
-    dimer = 1          # if non-zero dimer structure is calculated (No effect)
-    tm_threshold = settings['pcr']['priming']['threshold_tm'] if 'threshold_tm' in p3_args else 47
-    max_probe_dist = settings['pcr']['priming']['max_probe_dist'] if 'max_probe_dist' in p3_args else 30
-    min_primer_tm = p3_args['PRIMER_MIN_TM'] if 'PRIMER_MIN_TM' in p3_args else 57
-    max_primer_tm = p3_args['PRIMER_MAX_TM'] if 'PRIMER_MAX_TM' in p3_args else 62
-    min_probe_tm = p3_args['PRIMER_INTERNAL_MIN_TM'] if 'PRIMER_INTERNAL_MIN_TM' in p3_args else 67
-    max_probe_tm = p3_args['PRIMER_INTERNAL_MAX_TM'] if 'PRIMER_INTERNAL_MAX_TM' in p3_args else 72
+    # Initiate the thermodynamic analyses (defining: p3_primer, p3_probe)
+    configure_p3_thermoanalysis()
 
-    # Initiate the thermodynamic analyses
-    ThermoAnalysis = primer3.thermoanalysis.ThermoAnalysis
-    p3_therm = ThermoAnalysis(thal_type, mv_conc, dv_conc, dntp_conc, dna_conc,
-                              temp_c, max_loop, temponly, dimer, max_nn_length,
-                              tm_method, salt_correction_method)
+    threshold_tm = settings['pcr']['priming']['threshold_tm'] if 'threshold_tm' in p3_args else 47
+    max_probe_dist = settings['pcr']['priming']['max_probe_dist'] if 'max_probe_dist' in p3_args else 30
+    min_primer_tm = settings['pcr']['priming']['primer3']['PRIMER_MIN_TM'] if 'PRIMER_MIN_TM' in p3_args else 57
+    max_primer_tm = settings['pcr']['priming']['primer3']['PRIMER_MAX_TM'] if 'PRIMER_MAX_TM' in p3_args else 62
+    min_probe_tm = settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_MIN_TM'] if 'PRIMER_INTERNAL_MIN_TM' in p3_args else 67
+    max_probe_tm = settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_MAX_TM'] if 'PRIMER_INTERNAL_MAX_TM' in p3_args else 72
 
     n = "\x1B[0m"
     h = "\x1B[1;4m"
@@ -455,9 +421,9 @@ Probe distance to primer: N/A
     print("GC%% content: %7s  %7s  %5s"%(gc1, gc2, gc3))
 
     # Melting temperature
-    tm1 = neg2mask(round(p3_therm.calc_tm(forward),1))
-    tm2 = neg2mask(round(p3_therm.calc_tm(reverse),1))
-    tm3 = neg2mask(round(p3_therm.calc_tm(probe),1)) if probe is not None else 'N/A'
+    tm1 = neg2mask(round(p3_primer.calc_tm(forward),1))
+    tm2 = neg2mask(round(p3_primer.calc_tm(reverse),1))
+    tm3 = neg2mask(round(p3_primer.calc_tm(probe),1)) if probe is not None else 'N/A'
     m1, m2, m3 = n, n, n
     if isinstance(tm1, float): m1 = g if tm1 > min_primer_tm and tm1 < max_primer_tm else r
     if isinstance(tm2, float): m2 = g if tm2 > min_primer_tm and tm2 < max_primer_tm else r
@@ -465,34 +431,34 @@ Probe distance to primer: N/A
     print("Melting Tm:  %s%7s  %s%7s  %s%5s%s"%(m1, tm1, m2, tm2, m3, tm3, n))
 
     # Homo dimer temperature
-    tm1 = neg2mask(round(p3_therm.calc_homodimer(forward).tm,1))
-    tm2 = neg2mask(round(p3_therm.calc_homodimer(reverse).tm,1))
-    tm3 = neg2mask(round(p3_therm.calc_homodimer(probe).tm,1)) if probe is not None else 'N/A'
+    tm1 = neg2mask(round(p3_primer.calc_homodimer(forward).tm,1))
+    tm2 = neg2mask(round(p3_primer.calc_homodimer(reverse).tm,1))
+    tm3 = neg2mask(round(p3_primer.calc_homodimer(probe).tm,1)) if probe is not None else 'N/A'
     m1, m2, m3 = n, n, n
-    if isinstance(tm1, float): m1 = r if tm1 > tm_threshold else g
-    if isinstance(tm2, float): m2 = r if tm2 > tm_threshold else g
-    if isinstance(tm3, float): m3 = r if tm3 > tm_threshold else g
+    if isinstance(tm1, float): m1 = r if tm1 > threshold_tm else g
+    if isinstance(tm2, float): m2 = r if tm2 > threshold_tm else g
+    if isinstance(tm3, float): m3 = r if tm3 > threshold_tm else g
     print("Homo dimer:  %s%7s  %s%7s  %s%5s%s"%(m1, tm1, m2, tm2, m3, tm3, n))
 
     # Hairpin temperature
-    tm1 = neg2mask(round(p3_therm.calc_hairpin(forward).tm,1))
-    tm2 = neg2mask(round(p3_therm.calc_hairpin(reverse).tm,1))
-    tm3 = neg2mask(round(p3_therm.calc_hairpin(probe).tm,1)) if probe is not None else 'N/A'
+    tm1 = neg2mask(round(p3_primer.calc_hairpin(forward).tm,1))
+    tm2 = neg2mask(round(p3_primer.calc_hairpin(reverse).tm,1))
+    tm3 = neg2mask(round(p3_primer.calc_hairpin(probe).tm,1)) if probe is not None else 'N/A'
     m1, m2, m3 = n, n, n
-    if isinstance(tm1, float): m1 = r if tm1 > tm_threshold else g
-    if isinstance(tm2, float): m2 = r if tm2 > tm_threshold else g
-    if isinstance(tm3, float): m3 = r if tm3 > tm_threshold else g
+    if isinstance(tm1, float): m1 = r if tm1 > threshold_tm else g
+    if isinstance(tm2, float): m2 = r if tm2 > threshold_tm else g
+    if isinstance(tm3, float): m3 = r if tm3 > threshold_tm else g
     print("Hairpin:     %s%7s  %s%7s  %s%5s%s\n"%(m1, tm1, m2, tm2, m3, tm3, n))
 
     print("              Fw-Rv  Fw-Pr  Rv-Pr")
     # Hetero dimer temperatur
-    tm1 = neg2mask(round(p3_therm.calc_heterodimer(forward, reverse).tm,1))
-    tm2 = neg2mask(round(p3_therm.calc_heterodimer(forward, probe).tm,1)) if probe is not None else 'N/A'
-    tm3 = neg2mask(round(p3_therm.calc_heterodimer(reverse, probe).tm,1)) if probe is not None else 'N/A'
+    tm1 = neg2mask(round(p3_primer.calc_heterodimer(forward, reverse).tm,1))
+    tm2 = neg2mask(round(p3_primer.calc_heterodimer(forward, probe).tm,1)) if probe is not None else 'N/A'
+    tm3 = neg2mask(round(p3_primer.calc_heterodimer(reverse, probe).tm,1)) if probe is not None else 'N/A'
     m1, m2, m3 = n, n, n
-    if isinstance(tm1, float): m1 = r if tm1 > tm_threshold else g
-    if isinstance(tm2, float): m2 = r if tm2 > tm_threshold else g
-    if isinstance(tm3, float): m3 = r if tm3 > tm_threshold else g
+    if isinstance(tm1, float): m1 = r if tm1 > threshold_tm else g
+    if isinstance(tm2, float): m2 = r if tm2 > threshold_tm else g
+    if isinstance(tm3, float): m3 = r if tm3 > threshold_tm else g
     print("Hetero dimer: %s%5s  %s%5s  %s%5s%s\n"%(m1, tm1, m2, tm2, m3, tm3, n))
 
     # Check Probe not starting with GC
@@ -3007,30 +2973,10 @@ def filter_primer_alignments(ref, alignments, probes=[]):
         {'CAACATTTTCGTGTCGCCCTT': ['reference_+_1043']}
     '''
     buffer = settings['input']['use_ram_buffer']
-    p3_args = settings['pcr']['priming']['primer3']
-    dna_conc = p3_args['PRIMER_DNA_CONC'] if 'PRIMER_DNA_CONC' in p3_args else 50.0
-    dna_conc_probe = p3_args['PRIMER_INTERNAL_DNA_CONC'] if 'PRIMER_INTERNAL_DNA_CONC' in p3_args else 50.0
-    dntp_conc = p3_args['PRIMER_DNTP_CONC'] if 'PRIMER_DNTP_CONC' in p3_args else 0.6
-    dv_conc = p3_args['PRIMER_SALT_DIVALENT'] if 'PRIMER_SALT_DIVALENT' in p3_args else 1.5
-    mv_conc = p3_args['PRIMER_SALT_MONOVALENT'] if 'PRIMER_SALT_MONOVALENT' in p3_args else 50.0
-    salt_correction_method = p3_args['PRIMER_SALT_CORRECTIONS'] if 'PRIMER_SALT_CORRECTIONS' in p3_args else 1
-    tm_method = p3_args['PRIMER_TM_FORMULA'] if 'PRIMER_TM_FORMULA' in p3_args else 1
-    temp_c = p3_args['PRIMER_OPT_TM'] if 'PRIMER_OPT_TM' in p3_args else 60
-    thal_type = 1      # type of thermodynamic alignment {1:any, 2:end1, 3:end2, 4:hairpin} (No effect)
-    max_loop = 0       # Maximum size of loops in the structure.
-    max_nn_length = 60 # Maximum length for nearest-neighbor calcs
-    temponly = 1       # Return melting temperature of predicted structure
-    dimer = 1          # if non-zero dimer structure is calculated (No effect)
-    # NOTE: max_loop must be zero, to avoid Primer3 crashing
 
-    # Initiate the thermodynamic analyses
-    ThermoAnalysis = primer3.thermoanalysis.ThermoAnalysis
-    p3_primer = ThermoAnalysis(thal_type, mv_conc, dv_conc, dntp_conc, dna_conc,
-                               temp_c, max_loop, temponly, dimer, max_nn_length,
-                               tm_method, salt_correction_method)
-    p3_probe = ThermoAnalysis(thal_type, mv_conc, dv_conc, dntp_conc,
-                              dna_conc_probe, temp_c, max_loop, temponly, dimer,
-                              max_nn_length, tm_method, salt_correction_method)
+    # Initiate the thermodynamic analyses (defining: p3_primer, p3_probe)
+    configure_p3_thermoanalysis()
+
     # EXTRACT contigs from reference
     contigs = dict((name, seq) for seq, name, desc in seqs_from_file(ref, use_ram_buffer=buffer))
 
@@ -3128,14 +3074,18 @@ def configure_p3_thermoanalysis():
 
         # Initiate the thermodynamic analyses
         ThermoAnalysis = primer3.thermoanalysis.ThermoAnalysis
-        p3_primer = ThermoAnalysis(mv_conc, dv_conc, dntp_conc, dna_conc, dmso_conc,
-                                   dmso_fact, formamide_conc, annealing_temp_c,
-                                   temp_c, max_loop, temp_only, debug, max_nn_length,
-                                   tm_method, salt_correction_method)
-        p3_probe  = ThermoAnalysis(mv_conc, dv_conc, dntp_conc, dna_conc_probe, dmso_conc,
-                                   dmso_fact, formamide_conc, annealing_temp_c,
-                                   temp_c, max_loop, temp_only, debug, max_nn_length,
-                                   tm_method, salt_correction_method)
+        p3_primer = ThermoAnalysis(mv_conc=mv_conc, dv_conc=dv_conc,
+            dntp_conc=dntp_conc, dna_conc=dna_conc, dmso_conc=dmso_conc,
+            dmso_fact=dmso_fact, formamide_conc=formamide_conc,
+            annealing_temp_c=annealing_temp_c, temp_c=temp_c, max_loop=max_loop,
+            temp_only=temp_only, debug=debug, max_nn_length=max_nn_length,
+            tm_method=tm_method, salt_correction_method=salt_correction_method)
+        p3_probe  = ThermoAnalysis(mv_conc=mv_conc, dv_conc=dv_conc,
+            dntp_conc=dntp_conc, dna_conc=dna_conc_probe, dmso_conc=dmso_conc,
+            dmso_fact=dmso_fact, formamide_conc=formamide_conc,
+            annealing_temp_c=annealing_temp_c, temp_c=temp_c, max_loop=max_loop,
+            temp_only=temp_only, debug=debug, max_nn_length=max_nn_length,
+            tm_method=tm_method, salt_correction_method=salt_correction_method)
 
 
 def compute_binding_sites(ref, alignments, probes=[], filter=True):
@@ -3171,30 +3121,6 @@ def compute_binding_sites(ref, alignments, probes=[], filter=True):
 
     # Initiate the thermodynamic analyses (defining: p3_primer, p3_probe)
     configure_p3_thermoanalysis()
-    # p3_args = settings['pcr']['priming']['primer3']
-    # dna_conc = p3_args['PRIMER_DNA_CONC'] if 'PRIMER_DNA_CONC' in p3_args else 50.0
-    # dna_conc_probe = p3_args['PRIMER_INTERNAL_DNA_CONC'] if 'PRIMER_INTERNAL_DNA_CONC' in p3_args else 50.0
-    # dntp_conc = p3_args['PRIMER_DNTP_CONC'] if 'PRIMER_DNTP_CONC' in p3_args else 0.6
-    # dv_conc = p3_args['PRIMER_SALT_DIVALENT'] if 'PRIMER_SALT_DIVALENT' in p3_args else 1.5
-    # mv_conc = p3_args['PRIMER_SALT_MONOVALENT'] if 'PRIMER_SALT_MONOVALENT' in p3_args else 50.0
-    # salt_correction_method = p3_args['PRIMER_SALT_CORRECTIONS'] if 'PRIMER_SALT_CORRECTIONS' in p3_args else 1
-    # tm_method = p3_args['PRIMER_TM_FORMULA'] if 'PRIMER_TM_FORMULA' in p3_args else 1
-    # temp_c = p3_args['PRIMER_OPT_TM'] if 'PRIMER_OPT_TM' in p3_args else 60
-    # thal_type = 1      # type of thermodynamic alignment {1:any, 2:end1, 3:end2, 4:hairpin} (No effect)
-    # max_loop = 0       # Maximum size of loops in the structure.
-    # max_nn_length = 60 # Maximum length for nearest-neighbor calcs
-    # temponly = 1       # Return melting temperature of predicted structure
-    # dimer = 1          # if non-zero dimer structure is calculated (No effect)
-    # # NOTE: max_loop must be zero, to avoid Primer3 crashing
-    #
-    # # Initiate the thermodynamic analyses
-    # ThermoAnalysis = primer3.thermoanalysis.ThermoAnalysis
-    # p3_primer = ThermoAnalysis(thal_type, mv_conc, dv_conc, dntp_conc, dna_conc,
-    #                            temp_c, max_loop, temponly, dimer, max_nn_length,
-    #                            tm_method, salt_correction_method)
-    # p3_probe = ThermoAnalysis(thal_type, mv_conc, dv_conc, dntp_conc,
-    #                           dna_conc_probe, temp_c, max_loop, temponly, dimer,
-    #                           max_nn_length, tm_method, salt_correction_method)
 
     # EXTRACT contigs from reference
     contigs = dict((name, seq) for seq, name, desc in seqs_from_file(ref, use_ram_buffer=buffer))
