@@ -4823,14 +4823,24 @@ def anno(args):
 
 def vpcr(args):
     ''' Virtual PCR - Simulate PCR and predict PCR product for the provided
-    primer pairs against the provided references. '''
+    primer pairs against the provided references.
+
+    MINIMUM CMDLINE ARGUMENT INPUTS:
+       --pairs pair_file.tsv        - This is a tab-separated file listing the forward and reverse primer sequences (and probes)
+       --references references/*    - This is a list of all the reference samples to run the virtual PCR against
+    '''
     pairs = get_pairs(args.pairs)
     min_grade = settings['pcr']['priming']['threshold_grade']
     virtual_pcr(args.references, pairs, output=None, name=None, tm_thresholds=args.tm_thresholds, min_grade=min_grade)
 
 def pcrs(args):
     ''' Show PCR Statistics - Analyse the temperature and more for the provided
-    primer pairs. '''
+    primer pairs.
+
+    MINIMUM CMDLINE ARGUMENT INPUTS:
+       --pairs pair_file.tsv        - This is a tab-separated file listing the forward and reverse primer sequences (and probes)
+       --template template.fa       - This is a fasta file containing the template where the primers and probes align to
+    '''
     # Get pairs
     pairs = get_pairs(args.pairs)
     to_upper = settings['input']['to_upper']
@@ -4881,6 +4891,8 @@ def get_pairs(pairs_file):
     headers = []
     with open_(pairs_file) as f:
         for l in f:
+            l = l.strip()
+            if l == '': continue # Skip empty rows
             if l.startswith('#'):
                 try:
                     headers = l[1:].split('\t')
