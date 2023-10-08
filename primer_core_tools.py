@@ -925,7 +925,6 @@ class LogObj(object):
         self.progress = self.ProgressesObj(quiet)
         self.stats = self.StatObj()
 
-
 class multirange():
     ''' Class for keeping track of marked ranges
 
@@ -1225,7 +1224,7 @@ class multirange():
         self.starts, self.ends, self.tags = test_start_values
 
 class RegexTermReplacementObj():
-    ''' For a given string, replace all keys from a given dictionary to their
+    r''' For a given string, replace all keys from a given dictionary to their
     corresponding value.
 
     USAGE
@@ -2441,7 +2440,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
             pair = dict([x.rsplit(' ', 1) for x in notes['pair'].split(', ')])
             headers = ['considered', 'too many Ns', 'GC content failed',
                        'long poly-x seq', 'low tm', 'high tm',
-                       'high hairpin stability', 'ok']
+                       'high any compl', 'high hairpin stability', 'ok']
             headers_pair = ['considered', 'unacceptable product size',
                             'high any compl', 'high end compl',
                             'tm diff too large', 'no internal oligo', 'ok']

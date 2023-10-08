@@ -128,21 +128,21 @@
             // Other
             "PRIMER_NUM_RETURN":                10000    // How many primer pairs to return by Primer3 (set high to increase likelihood of results. Set low to speed up processing time.) The bigger the template, the more candidates are needed to cover all locations.
          },
-         "primer3_seq": { // Primer3 sequence parameters, these are not currently used, but available for manipulation.
+         "primer3_seq": { // Primer3 sequence parameters, used in the primer design process. These are not required.
             // For more info, see: http://primer3.sourceforge.net/primer3_manual.htm
             // https://libnano.github.io/primer3-py/quickstart.html#primer-design
-            "SEQUENCE_TARGET": null,                     // [[<start>,<length>], ...]
-            "SEQUENCE_PRIMER_PAIR_OK_REGION_LIST": null, // [[<left_start>,<left_length>,<right_start>,<right_length>], ...] (NOTE: Use -1 to leave empty)
-            "SEQUENCE_INCLUDED_REGION": null,            // eg. [[36,342], ...]
-            "SEQUENCE_EXCLUDED_REGION": null,            // eg. [[36,342], ...]
-            "SEQUENCE_INTERNAL_EXCLUDED_REGION": null,   //
-            "SEQUENCE_PRIMER": null,                     //
-            "SEQUENCE_INTERNAL_OLIGO": null,             //
-            "SEQUENCE_PRIMER_REVCOMP": null,             //
-            "SEQUENCE_FORCE_LEFT_START": null,           //
-            "SEQUENCE_FORCE_LEFT_END": null,             //
-            "SEQUENCE_FORCE_RIGHT_START": null,          //
-            "SEQUENCE_FORCE_RIGHT_END": null             //
+            "SEQUENCE_TARGET": null,                     // If one or more targets is specified then a legal primer pair must flank at least one of them. [[<start>,<length>], ...]
+            "SEQUENCE_PRIMER_PAIR_OK_REGION_LIST": null, // This tag allows detailed specification of possible locations of left and right primers in primer pairs. [[<left_start>,<left_length>,<right_start>,<right_length>], ...] (NOTE: Use -1 to leave empty)
+            "SEQUENCE_INCLUDED_REGION": null,            // A sub-region of the given sequence in which to pick primers. eg. [[36,342], ...]
+            "SEQUENCE_EXCLUDED_REGION": null,            // Left and Right primers and oligos may not overlap any region specified in this tag. eg. [[36,342], ...]
+            "SEQUENCE_INTERNAL_EXCLUDED_REGION": null,   // Middle oligos may not overlap any region specified by this tag. Left and right primers may overlap. The associated value must be a space-separated list of <start>,<length> pairs, where <start> is the index of the first base of an excluded region, and <length> is its length. Often one would make Target regions excluded regions for internal oligos.
+            "SEQUENCE_PRIMER": null,                     // Set fixed forward primer sequence (primer left) *Must be a substring of SEQUENCE_TEMPLATE
+            "SEQUENCE_INTERNAL_OLIGO": null,             // Set fixed probe sequence (internal oligo) *Must be a substring of SEQUENCE_TEMPLATE
+            "SEQUENCE_PRIMER_REVCOMP": null,             // Set fixed reverse primer sequence (primer right) *Must be a substring of SEQUENCE_TEMPLATE
+            "SEQUENCE_FORCE_LEFT_START": null,           // Forces the 5' end of the left primer to be at the indicated position.
+            "SEQUENCE_FORCE_LEFT_END": null,             // Forces the 3' end of the left primer to be at the indicated position.
+            "SEQUENCE_FORCE_RIGHT_START": null,          // Forces the 5' end of the right primer to be at the indicated position.
+            "SEQUENCE_FORCE_RIGHT_END": null             // Forces the 3' end of the right primer to be at the indicated position.
          },
          "blastn_settings": { // Primer binding searches
             "num_alignments":  1000,

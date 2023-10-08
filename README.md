@@ -6,6 +6,8 @@ This tool was created as part of a research project.
 For publication of results made using this tool, please cite:
 Martin Christen Frølund Thomsen, Henrik Hasman, Henrik Westh, Hülya Kaya, Ole Lund, RUCS: rapid identification of PCR primers for unique core sequences, Bioinformatics, Volume 33, Issue 24, December 2017, Pages 3917–3921, https://doi.org/10.1093/bioinformatics/btx526
 
+A freely available online implementation of the original RUCS can be found here: https://cge.food.dtu.dk/services/RUCS/
+
 ## RUCS - *R*apid Identification of PCR Primers Pairs for *U*nique *C*ore *S*equences ##
 This repository contains the source code for a bioinformatics tool, which have
 several usage cases:
@@ -107,7 +109,7 @@ primer Tm, Hairpin Tm, primer-probe distance and much more.
 Example of usage:
 ```bash
 docker run --rm -v `pwd`:/workdir \
-       rucs spst --pairs pair_file.tsv --template template.fa
+       rucs pcrs --pairs pair_file.tsv --template template.fa
 ```
 
 ### expl - Explore the genomes ###
