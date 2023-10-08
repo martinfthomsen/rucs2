@@ -1,5 +1,5 @@
 #!/bin/bash
-# This script will test the following entrypoints: vpcr   #full, fucs, fppp, , anno, pcrs, expl, test
+# This script will test the following entrypoints: vpcr, pcrs, fucs, fppp   #full, anno, expl, test
 
 # CMD to run: bash entrypoint_tests.sh
 # ENTRY point tests:
@@ -20,8 +20,13 @@ docker run --rm -v `pwd`/script_tests/test3:/workdir rucs pcrs --pairs inputs/pa
 mkdir -p script_tests/test4/inputs
 docker run --rm -v `pwd`/script_tests/test4:/workdir -v $BLASTDB:/blastdb rucs fucs --positives ASM1929502v1 ASM1300761v1 NZ_KU341381.1 --negatives ASM584v2 ASM886v2
 
+# Test 5. fppp
+mkdir -p script_tests/test5/inputs && cp testdata/test4_unique_core_sequences.disscafs.fa script_tests/test5/inputs/template.fa  && cp script_tests/test4/inputs/* script_tests/test5/inputs/
+docker run --rm -v `pwd`/script_tests/test5:/workdir -v $BLASTDB:/blastdb rucs fppp --template inputs/template.fa --positives ASM1929502v1 ASM1300761v1 --negatives ASM584v2 ASM886v2 -v
+
 # Evaluate tests:
 cmp -s testdata/test1_products.tsv script_tests/test1/results/products.tsv && echo -e "\x1B[32mTest 1 - Passed \x1B[0m" || echo -e "\x1B[31mTest 1 - Failed! \x1B[0m"
 cmp -s testdata/test2_products.tsv script_tests/test2/results/products.tsv && echo -e "\x1B[32mTest 2 - Passed \x1B[0m" || echo -e "\x1B[31mTest 2 - Failed! \x1B[0m"
 cmp -s testdata/test3_terminal_output.txt script_tests/test3/results/terminal_output.txt && echo -e "\x1B[32mTest 3 - Passed \x1B[0m" || echo -e "\x1B[31mTest 3 - Failed! \x1B[0m"
 cmp -s testdata/test4_unique_core_sequences.disscafs.fa script_tests/test4/results/unique_core_sequences.disscafs.fa && echo -e "\x1B[32mTest 4 - Passed \x1B[0m" || echo -e "\x1B[31mTest 4 - Failed! \x1B[0m"
+cmp -s testdata/test5_results_best.tsv script_tests/test5/results/results_best.tsv && echo -e "\x1B[32mTest 5 - Passed \x1B[0m" || echo -e "\x1B[31mTest 5 - Failed! \x1B[0m"

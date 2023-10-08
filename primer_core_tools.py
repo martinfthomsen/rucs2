@@ -191,6 +191,7 @@ def find_primer_pairs(contig_file, positives, negatives, contig_names=None,
     stats_file = f'{result_dir}{name}stats.log'
     pairs_json_file = f'{result_dir}{name}pairs.json'
     products_file = f'{result_dir}{name}products.tsv'
+    full_products_file = f'{result_dir}{name}products_full.tsv'
     results_file = f'{result_dir}{name}results.tsv'
     results_file_best = f'{result_dir}{name}results_best.tsv'
 
@@ -228,7 +229,7 @@ def find_primer_pairs(contig_file, positives, negatives, contig_names=None,
             json.dump(pairs[:no_tested_pp], f)
 
         # Create test summary file
-        with open_(products_file, 'w') as f:
+        with open_(full_products_file, 'w') as f:
             rp = range(len(positives))
             rn = range(len(negatives))
             f.write('#%s\t%s\n'%('\t'.join(('P_%s'%(x+1) for x in rp)),
@@ -237,6 +238,24 @@ def find_primer_pairs(contig_file, positives, negatives, contig_names=None,
                 (','.join(map(str, x)) for x in
                 (p['products']['pos'] + p['products']['neg'] if 'test' in p else [])
                 )) for p in pairs[:no_tested_pp])))
+
+        # Prepare reference and pcr_products list
+        refs = positives + negatives
+        lp = len(positives)
+        pcr_products = []
+        for p, pair in enumerate(good_pp):
+            pcr_products.append([[] for r in refs])
+            for r, ref in enumerate(positives):
+                pcr_products[p][r] = pair['products']['pos'][r]
+            for r, ref in enumerate(negatives):
+                pcr_products[p][lp+r] = pair['products']['neg'][r]
+
+        # Pickle dump of products
+        with open_(f'{work_dir}pcr_products.pkl', 'wb') as f:
+            pickle.dump(pcr_products, f)
+
+        # Print PCR results to products file
+        print_pcr_Results(refs, pcr_products, products_file)
 
         # Create tab separated summary file of good pairs
         with open_(results_file_best, 'w') as f:
@@ -2374,9 +2393,19 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
     339	60.0	TGAAGCCATACCAAACGACGA	GAGGCACCTATCTCAGCGATC	0
     '''
     p3_args = settings['pcr']['priming']['primer3']
+    if isinstance(p3_args['PRIMER_PRODUCT_SIZE_RANGE'], list):
+        if isinstance(p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0], list):
+            product_length_limits = [lim for lims in p3_args['PRIMER_PRODUCT_SIZE_RANGE'] for lim in lims]
+            min_seq_len = min(product_length_limits)
+        else:
+            min_seq_len = p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0]
+    else:
+        exit('Settings error: invalid input format for PRIMER_PRODUCT_SIZE_RANGE, expected "list", got: ' + p3_args['PRIMER_PRODUCT_SIZE_RANGE'])
+
     qpcr = p3_args['PRIMER_PICK_INTERNAL_OLIGO'] == 1
     to_upper = settings['input']['to_upper']
     filter_grade = settings['pcr']['priming']['threshold_grade']
+    tm_thresholds = settings['pcr']['priming']['tm_thresholds']
     buffer = settings['input']['use_ram_buffer']
     # Input validation
     assert (contig_names is None or isinstance(contig_names, list)), \
@@ -2406,7 +2435,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
             # Ignore unspecified contigs
             ignored += 1
             continue
-        if len(seq) < p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0]:
+        if len(seq) < min_seq_len:
             # Ignore sequences which are too short for Primer3 settings
             too_short += 1
             continue
@@ -2503,7 +2532,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
                                 'Primer Prediction Overview (%s) for Contig %s'%(
                                    len(primers), name),
                                 ['Aligned','Grade 1', 'Grade 2', 'Grade 3',
-                                 'Grade 4', 'Reference'])
+                                 'Grade 4', 'Grade 5', 'Reference'])
             log.progress.add('pos%s'%i, 'Aligning primers to positive references',
                              'pcr')
         else:
@@ -2529,24 +2558,29 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
                         0 if filter_grade <= 1 else '-',
                         0 if filter_grade <= 2 else '-',
                         0 if filter_grade <= 3 else '-',
+                        0 if filter_grade <= 4 else '-',
                         0, os.path.basename(ref)]
 
             # Filter primer matches which fail the thermodynamic test
-            alignments = filter_primer_alignments(ref, alignments, probes)
+            # alignments = filter_primer_alignments(ref, alignments, probes)
+            binding_sites = compute_binding_sites(ref, alignments, probes, filter=True)
+            # print(f"Stats: {sum(map(len, binding_sites.values()))} binding sites found for {ref}")
+            binding_sites = grade_binding_sites(binding_sites, tm_thresholds, filter_grade)
+            # print(f"Stats: {sum(map(len, binding_sites.values()))} graded binding sites found for {ref}")
 
             # Update primer-reference matrix
             for p in primers:
-                primers[p]['pos'].append(alignments[p] if p in alignments else [])
+                primers[p]['pos'].append(binding_sites[p] if p in binding_sites else [])
 
             if log is not None:
                 log.progress["%s_pos_%s"%(i, j)].log_time()
                 # Update prim_log with grade data
-                for v in alignments.values():
+                for v in binding_sites.values():
                     max_g = 0
                     for a in v:
-                        #(contig_name, grade, strand, position)
-                        if a[1] > max_g:
-                            max_g = a[1]
+                        #(contig_name, strand, pos, tm, grade)
+                        if a[-1] > max_g:
+                            max_g = a[-1]
 
                     if max_g >= filter_grade:
                         prim_log[max_g] += 1
@@ -2581,22 +2615,29 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
                         0 if filter_grade <= 1 else '-',
                         0 if filter_grade <= 2 else '-',
                         0 if filter_grade <= 3 else '-',
+                        0 if filter_grade <= 4 else '-',
                         0, os.path.basename(ref)]
             # Filter primer matches which fail the thermodynamic test
-            alignments = filter_primer_alignments(ref, alignments, probes)
+            # alignments = filter_primer_alignments(ref, alignments, probes)
+            # Filter primer matches which fail the thermodynamic test
+            binding_sites = compute_binding_sites(ref, alignments, probes, filter=True)
+            # print(f"Stats: {sum(map(len, binding_sites.values()))} binding sites found for {ref}")
+            binding_sites = grade_binding_sites(binding_sites, tm_thresholds, filter_grade)
+            # print(f"Stats: {sum(map(len, binding_sites.values()))} graded binding sites found for {ref}")
+
             # Update primer-reference matrix
             for p in primers:
-                primers[p]['neg'].append(alignments[p] if p in alignments else [])
+                primers[p]['neg'].append(binding_sites[p] if p in binding_sites else [])
 
             if log is not None:
                 log.progress["%s_neg_%s"%(i, j)].log_time()
                 # Update prim_log with grade data
-                for v in alignments.values():
+                for v in binding_sites.values():
                     max_g = 0
                     for a in v:
-                        #(contig_name, grade, strand, position)
-                        if a[1] > max_g:
-                           max_g = a[1]
+                        #(contig_name, strand, pos, tm, grade)
+                        if a[-1] > max_g:
+                           max_g = a[-1]
 
                     if max_g >= filter_grade:
                         prim_log[max_g] += 1
@@ -2722,7 +2763,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
                 sid_registry[sid].append(name)
 
         # Store sequences as fasta
-        env_fasta = 'pcr_products_with_skirts.fa'
+        env_fasta = f'{work_dir}pcr_products_with_skirts.fa'
         save_as_fasta(sequences, env_fasta, add_unique_id=False)
 
         # Analyse PCR product environments
@@ -2751,7 +2792,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
 
     if too_short:
         print("%s sequence were too short to be analysed (<%s)!"%(
-              too_short, p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0]))
+              too_short, min_seq_len))
     if no_pairs:
         print(("%s sequence had no identifiable primer pairs!")%(no_pairs))
     if skipped:
@@ -2799,8 +2840,16 @@ def compute_primer_pairs(query_sequence):
     p3_seq_args = {k:v for k,v in p3_seq_args.items() if v is not None}
 
     # Check if sequence size is valid
-    if (isinstance(p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0], int) and
-        len(query_sequence) < p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0]):
+    if isinstance(p3_args['PRIMER_PRODUCT_SIZE_RANGE'], list):
+        if isinstance(p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0], list):
+            product_length_limits = [lim for lims in p3_args['PRIMER_PRODUCT_SIZE_RANGE'] for lim in lims]
+            min_seq_len = min(product_length_limits)
+        else:
+            min_seq_len = p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0]
+    else:
+        exit('Settings error: invalid input format for PRIMER_PRODUCT_SIZE_RANGE, expected "list", got: ' + p3_args['PRIMER_PRODUCT_SIZE_RANGE'])
+
+    if len(query_sequence) < min_seq_len:
         return []
 
     # Set Sequence
@@ -3029,9 +3078,9 @@ def filter_primer_alignments(ref, alignments, probes=[]):
             # Evaluate thermodynamic results
             grade = 1 if tm > 0 else 0
             if primer in probes:
-                target_tm = p3_args['PRIMER_INTERNAL_OPT_TM']
+                target_tm = settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_OPT_TM']
             else:
-                target_tm = temp_c
+                target_tm = settings['pcr']['priming']['primer3']['PRIMER_OPT_TM']
             # primer grade scheme
             prim_settings = settings['pcr']['priming']
             if tm >= prim_settings['threshold_tm']: grade += 1
@@ -3290,9 +3339,10 @@ def estimate_primer_rank(alignments, scheme='positive'):
     '''  '''
     penalty = settings["pcr"]["priming"]["penalties"][scheme]
     # Get grade summary
-    grade_sum = {0:0,1:0,2:0,3:0,4:0}
+    grade_sum = {0:0,1:0,2:0,3:0,4:0,5:0}
     for aln in alignments:
-        grade_sum[aln[1]] += 1
+        # contig_name, strand, pos, tm, grade
+        grade_sum[aln[-1]] += 1
 
     # Compute primer penalty
     penalty_score = 0
@@ -3371,15 +3421,15 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
             try:
                 rc_p_rv = reverse_complement(p_rv)
                 fw_locs = AdvancedDictionary((
-                    (contig_name, (strand, (grade, pos)))
-                    for contig_name, grade, strand, pos in primers[p_fw]['pos'][i]))
+                    (contig_name, (strand, (grade, pos, tm)))
+                    for contig_name, strand, pos, tm, grade in primers[p_fw]['pos'][i]))
                 rv_locs = AdvancedDictionary((
-                    (contig_name, (strand, (grade, pos)))
-                    for contig_name, grade, strand, pos in primers[rc_p_rv]['pos'][i]))
+                    (contig_name, (strand, (grade, pos, tm)))
+                    for contig_name, strand, pos, tm, grade in primers[rc_p_rv]['pos'][i]))
                 if qpcr:
                     probe_locs = AdvancedDictionary((
-                       (contig_name, (strand, (grade, pos)))
-                       for contig_name, grade, strand, pos in primers[probe]['pos'][i]))
+                       (contig_name, (strand, (grade, pos, tm)))
+                       for contig_name, strand, pos, tm, grade in primers[probe]['pos'][i]))
                 else:
                     probe_locs = AdvancedDictionary({})
             except:
@@ -3420,9 +3470,8 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
             products = filtered_products
             match_count += len(products)
 
-            # UPDATE pair with PCR product lengths
-            product_lengths = [x[-1] for x in products]
-            p['products']['pos'].append(product_lengths)
+            # UPDATE pair with PCR products
+            p['products']['pos'].append(products)
 
             # Compute sensitivity
             sensi += any(True for x in products if x[-1] > lb and x[-1] < hb)
@@ -3450,15 +3499,15 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
             try:
                 rc_p_rv = reverse_complement(p_rv)
                 fw_locs = AdvancedDictionary((
-                    (contig_name, (strand, (grade, pos)))
-                    for contig_name, grade, strand, pos in primers[p_fw]['neg'][i]))
+                    (contig_name, (strand, (grade, pos, tm)))
+                    for contig_name, strand, pos, tm, grade in primers[p_fw]['neg'][i]))
                 rv_locs = AdvancedDictionary((
-                    (contig_name, (strand, (grade, pos)))
-                    for contig_name, grade, strand, pos in primers[rc_p_rv]['neg'][i]))
+                    (contig_name, (strand, (grade, pos, tm)))
+                    for contig_name, strand, pos, tm, grade in primers[rc_p_rv]['neg'][i]))
                 if qpcr:
                     probe_locs = AdvancedDictionary((
-                       (contig_name, (strand, (grade, pos)))
-                       for contig_name, grade, strand, pos in primers[probe]['neg'][i]))
+                       (contig_name, (strand, (grade, pos, tm)))
+                       for contig_name, strand, pos, tm, grade in primers[probe]['neg'][i]))
                 else:
                     probe_locs = AdvancedDictionary({})
             except:
@@ -3497,9 +3546,8 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
             products = filtered_products
             match_count += len(products)
 
-            # UPDATE pair with PCR product lengths
-            product_lengths = [x[-1] for x in products]
-            p['products']['neg'].append(product_lengths)
+            # UPDATE pair with PCR products
+            p['products']['neg'].append(products)
 
             # Compute specificity
             hb = target + settings['pcr']['product_deviation']
