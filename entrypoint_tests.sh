@@ -16,7 +16,12 @@ docker run --rm -v `pwd`/script_tests/test2:/workdir -v $BLASTDB:/blastdb rucs v
 mkdir -p script_tests/test3/inputs && mkdir -p script_tests/test3/results && cp testdata/test1_pair_file.tsv script_tests/test3/inputs/pair_file.tsv && cp testdata/test3_template.fna.gz script_tests/test3/inputs/template.fna.gz
 docker run --rm -v `pwd`/script_tests/test3:/workdir rucs pcrs --pairs inputs/pair_file.tsv --template inputs/template.fna.gz > script_tests/test3/results/terminal_output.txt
 
+# Test 4. fucs
+mkdir -p script_tests/test4/inputs
+docker run --rm -v `pwd`/script_tests/test4:/workdir -v $BLASTDB:/blastdb rucs fucs --positives ASM1929502v1 ASM1300761v1 NZ_KU341381.1 --negatives ASM584v2 ASM886v2
+
 # Evaluate tests:
 cmp -s testdata/test1_products.tsv script_tests/test1/results/products.tsv && echo -e "\x1B[32mTest 1 - Passed \x1B[0m" || echo -e "\x1B[31mTest 1 - Failed! \x1B[0m"
 cmp -s testdata/test2_products.tsv script_tests/test2/results/products.tsv && echo -e "\x1B[32mTest 2 - Passed \x1B[0m" || echo -e "\x1B[31mTest 2 - Failed! \x1B[0m"
 cmp -s testdata/test3_terminal_output.txt script_tests/test3/results/terminal_output.txt && echo -e "\x1B[32mTest 3 - Passed \x1B[0m" || echo -e "\x1B[31mTest 3 - Failed! \x1B[0m"
+cmp -s testdata/test4_unique_core_sequences.disscafs.fa script_tests/test4/results/unique_core_sequences.disscafs.fa && echo -e "\x1B[32mTest 4 - Passed \x1B[0m" || echo -e "\x1B[31mTest 4 - Failed! \x1B[0m"

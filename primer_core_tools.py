@@ -1349,7 +1349,16 @@ def find_unique_core_sequences(positives, negatives, reference, kmer_size=20):
 
     A unique core sequence is a sequence only found in the positive genomes
     '''
-    min_seq_len = settings['pcr']['priming']['primer3']['PRIMER_PRODUCT_SIZE_RANGE'][0]
+    p3_args = settings['pcr']['priming']['primer3']
+    if isinstance(p3_args['PRIMER_PRODUCT_SIZE_RANGE'], list):
+        if isinstance(p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0], list):
+            product_length_limits = [lim for lims in p3_args['PRIMER_PRODUCT_SIZE_RANGE'] for lim in lims]
+            min_seq_len = min(product_length_limits)
+        else:
+            min_seq_len = p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0]
+    else:
+        exit('Settings error: invalid input format for PRIMER_PRODUCT_SIZE_RANGE, expected "list", got: ' + p3_args['PRIMER_PRODUCT_SIZE_RANGE'])
+
     if log is not None:
         # Initialize k-mer and sequences statistics logging
         log.progress.add('ucs', 'Finding unique core sequences', 'main')
@@ -4347,12 +4356,23 @@ def find_ucs(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
     if negatives is None:
         negatives = []
 
+    # Create run subdirectories to store temporary, result files, etc.
+    work_dir, ref_dir, result_dir = setup_directories(get_ref_dir=True)
+
     stats_file = '%sstats.log'%("%s_"%name if name is not None else '')
 
     if kmer_size is None:
         kmer_size = settings['ucs']['kmer_size']
 
-    min_seq_len = settings['pcr']['priming']['primer3']['PRIMER_PRODUCT_SIZE_RANGE'][0]
+    p3_args = settings['pcr']['priming']['primer3']
+    if isinstance(p3_args['PRIMER_PRODUCT_SIZE_RANGE'], list):
+        if isinstance(p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0], list):
+            product_length_limits = [lim for lims in p3_args['PRIMER_PRODUCT_SIZE_RANGE'] for lim in lims]
+            min_seq_len = min(product_length_limits)
+        else:
+            min_seq_len = p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0]
+    else:
+        exit('Settings error: invalid input format for PRIMER_PRODUCT_SIZE_RANGE, expected "list", got: ' + p3_args['PRIMER_PRODUCT_SIZE_RANGE'])
 
     # Create reference directory to store reference links, and BWA index files
     ref_dir = 'references'
@@ -4482,7 +4502,16 @@ def explore_representation(positives, negatives, kmer_size=None, reuse=False):
     ''' Explore Over- and underrepresentation of k-mer in the positive genomes
     versus the negative genomes.
     '''
-    min_seq_len = settings['pcr']['priming']['primer3']['PRIMER_PRODUCT_SIZE_RANGE'][0]
+    p3_args = settings['pcr']['priming']['primer3']
+    if isinstance(p3_args['PRIMER_PRODUCT_SIZE_RANGE'], list):
+        if isinstance(p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0], list):
+            product_length_limits = [lim for lims in p3_args['PRIMER_PRODUCT_SIZE_RANGE'] for lim in lims]
+            min_seq_len = min(product_length_limits)
+        else:
+            min_seq_len = p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0]
+    else:
+        exit('Settings error: invalid input format for PRIMER_PRODUCT_SIZE_RANGE, expected "list", got: ' + p3_args['PRIMER_PRODUCT_SIZE_RANGE'])
+
     kmer_count_threshold = settings['explore']['kmer_count_threshold']
     sensitivity_threshold = settings['explore']['sensitivity_threshold']
     fall_out_threshold = settings['explore']['fall-out_threshold']
@@ -4758,7 +4787,15 @@ def explore(positives, negatives, kmer_size=None, quiet=False, clean_run=True,
     if kmer_size is None:
         kmer_size = settings['ucs']['kmer_size']
 
-    min_seq_len = settings['pcr']['priming']['primer3']['PRIMER_PRODUCT_SIZE_RANGE'][0]
+    p3_args = settings['pcr']['priming']['primer3']
+    if isinstance(p3_args['PRIMER_PRODUCT_SIZE_RANGE'], list):
+        if isinstance(p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0], list):
+            product_length_limits = [lim for lims in p3_args['PRIMER_PRODUCT_SIZE_RANGE'] for lim in lims]
+            min_seq_len = min(product_length_limits)
+        else:
+            min_seq_len = p3_args['PRIMER_PRODUCT_SIZE_RANGE'][0]
+    else:
+        exit('Settings error: invalid input format for PRIMER_PRODUCT_SIZE_RANGE, expected "list", got: ' + p3_args['PRIMER_PRODUCT_SIZE_RANGE'])
 
     # Create reference directory to store reference links, and BWA index files
     ref_dir = 'references'
