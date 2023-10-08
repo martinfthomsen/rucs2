@@ -4972,7 +4972,7 @@ def get_fasta_files(inputs, ref=''):
 
             sys.stderr.write(stdout)
             sys.stderr.write(stderr)
-            path = glob.glob(f"inputs/{input}_*")
+            path = glob.glob(f"inputs/{input}*")
             path = path[0] if path != [] else ''
 
             # Check if file was downloaded
