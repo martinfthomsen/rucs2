@@ -2458,10 +2458,10 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
         if log is not None:
             # Prepare logs for primer pairs statistics
             log.stats.add_table('prims%s'%i,
-                                'Primer3 primer scanning of contig %s'%name,
+                                'P3 primer scan - %s'%name,
                                 ['Right', 'Left', 'Probe', 'Category'])
             log.stats.add_table('pair%s'%i,
-                                'Primer3 pair scanning of contig %s'%name,
+                                'P3 pair scan - %s'%name,
                                 ['Pairs', 'Category'])
             log.progress.add('scan%s'%i,
                              'Scanning contig %s for primer pairs'%name, 'pcr')
@@ -2500,10 +2500,10 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
                        'reported: %s')%miss_head)
             # Log Primer3 notes as statistics
             for h in headers:
-                log.stats.add_row('prims%s'%i, [right.get(h, '-'), left.get(h, '-'), probe.get(h, '-'), h])
+                log.stats.add_row('prims%s'%i, [right.get(h, 0), left.get(h, 0), probe.get(h, 0), h])
 
             for h in headers_pair:
-                log.stats.add_row('pair%s'%i, [pair.get(h, '-'), h])
+                log.stats.add_row('pair%s'%i, [pair.get(h, 0), h])
 
         if len(pairs) == 0:
             # Skip contigs with no primer pair candidates
