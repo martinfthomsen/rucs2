@@ -46,18 +46,21 @@
          "max_probe_dist":       30,   // Maximum distance between the probe and primer (This is currently only used for coloring in pcrs)
          "penalties": { // Priming penalty scores
             "positive": {
-               "no_grade_4":    20,
-               "no_grade_3":    30,
-               "multi_grade_4": 10,
-               "multi_grade_3":  7,
-               "multi_grade_2":  3,
-               "multi_grade_1":  1
+               "no_grade_5":    10,    // Penalty for a primer with no optimal binding to a positive reference
+               "no_grade_4":    20,    // Penalty for a primer with no good binding to a positive reference
+               "no_grade_3":    30,    // Penalty for a primer with no expected binding to a positive reference
+               "multi_grade_5": 10,    // Penalty for a primer with multiple optimal binding positions to a positive reference
+               "multi_grade_4":  8,    // Penalty for a primer with multiple good binding positions to a positive reference
+               "multi_grade_3":  5,    // Penalty for a primer with multiple expected binding positions to a positive reference
+               "multi_grade_2":  3,    // Penalty for a primer with multiple non-negligible binding positions to a positive reference
+               "multi_grade_1":  1     // Penalty for a primer with multiple negligible binding positions to a positive reference
             },
             "negative": {
-               "grade_4": 10,
-               "grade_3":  7,
-               "grade_2":  3,
-               "grade_1":  1
+               "grade_5": 25,          // Penalty for a primer with one or more optimal binding sites to a negative reference
+               "grade_4": 18,          // Penalty for a primer with one or more optimal binding sites to a negative reference
+               "grade_3": 10,          // Penalty for a primer with one or more optimal binding sites to a negative reference
+               "grade_2":  8,          // Penalty for a primer with one or more optimal binding sites to a negative reference
+               "grade_1":  2           // Penalty for a primer with one or more optimal binding sites to a negative reference
             }
          },
          "primer3":{ // Default settings for Primer3 modified sligthly

@@ -2653,6 +2653,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
         # Compute primer rank based on the number of hits to the negative references
         for p in primers:
             # Rank primers based on their performance
+            # Compute the sum of the primer's penalties to each reference
             penalty_pos = sum([estimate_primer_rank(aln, scheme='positive')
                             for aln in primers[p]['pos']])
             penalty_neg = sum([estimate_primer_rank(aln, scheme='negative')
@@ -2670,8 +2671,8 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
             p['right']['pen_n'] = primers[p_rv]['penalty'][1]
             # Compute ranks for forward and reverse primer
             if not 'test' in p: p['test'] = {}
-            penalty_pos = primers[p_fw]['penalty'][0] + primers[p_rv]['penalty'][0]
-            penalty_neg = primers[p_fw]['penalty'][1] + primers[p_rv]['penalty'][1]
+            penalty_pos = (primers[p_fw]['penalty'][0] + 1) * (primers[p_rv]['penalty'][0] + 1) - 1
+            penalty_neg = (primers[p_fw]['penalty'][1] + 1) * (primers[p_rv]['penalty'][1] + 1) - 1
             if qpcr:
                 probe = p['internal']['sequence']
                 # Store ranks for probe
@@ -2683,7 +2684,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
             # Store pair rank
             p['test']['penalty'] = penalty_pos + penalty_neg
 
-        # Sort primer pairs according to their rank and penalty
+        # Sort primer pairs according to their RUCS and Primer3 penalty scores
         if log is not None:
             log.progress['rank%s'%i].log_time()
             log.progress.add('sort%s'%i, 'Sorting primer pairs', 'pcr')
@@ -2813,9 +2814,9 @@ def pair_sort(p):
     if 'test' in p:
         t = p['test']
         u = sum(map(int, list("{0:b}".format(t['unique_flags']).zfill(3))))
-        return (t['sensitivity'], t['specificity'], u, 1/(1+t['noise']))
+        return (t['sensitivity'], t['specificity'], u, 1/(1+t['noise']), 1/((1+t['penalty'])*(1+p['pair']['penalty'])))
     else:
-        return (0,0,0,0)
+        return (0,0,0,0,0)
 
 def compute_primer_pairs(query_sequence):
     ''' Use the Primer 3 software to identify primer pair candidates for the
@@ -3336,7 +3337,17 @@ def align_seqs(a, b=None):
     return (''.join(s[0]), ''.join(s[1]), similarity)
 
 def estimate_primer_rank(alignments, scheme='positive'):
-    '''  '''
+    ''' Calculate the penalty for the alignments given the scheme (positive or negative)
+
+    For an implicit primer, summarize the alignments of the primer to the
+    implicit reference. Based on the alignment summary and the given scheme,
+    calculate the penalty based on the penalty rules and settings.
+
+    Penalty rules:
+        * Penalize primers not binding well to a positive reference
+        * Penalize primers with multiple binding sites to a positive reference
+        * Penalize primers that binds to a negative reference
+    '''
     penalty = settings["pcr"]["priming"]["penalties"][scheme]
     # Get grade summary
     grade_sum = {0:0,1:0,2:0,3:0,4:0,5:0}
@@ -3347,34 +3358,34 @@ def estimate_primer_rank(alignments, scheme='positive'):
     # Compute primer penalty
     penalty_score = 0
     if scheme == 'positive':
-        if grade_sum[4] == 0:
-            penalty_score += penalty['no_grade_4']
-            if grade_sum[3] == 0:
-                penalty_score += penalty['no_grade_3']
-            elif grade_sum[3] > 1:
-                penalty_score += penalty['multi_grade_3']
+        if grade_sum[5] == 0: # No optimal binding site
+            if grade_sum[4] == 0: # No good binding site
+                if grade_sum[3] == 0: # No expected binding site
+                    penalty_score += penalty['no_grade_3']
+                else:
+                    penalty_score += penalty['no_grade_4']
             else:
-                if grade_sum[2] > 0:
-                    penalty_score += penalty['multi_grade_2']
-                elif grade_sum[1] > 0:
-                    penalty_score += penalty['multi_grade_1']
-        elif grade_sum[4] > 1:
+                penalty_score += penalty['no_grade_5']
+        if grade_sum[5] > 1: # Multiple optimal binding sites
+            penalty_score += penalty['multi_grade_5']
+        elif grade_sum[4] > 1: # Multiple good binding sites
             penalty_score += penalty['multi_grade_4']
-        else:
-            if grade_sum[3] > 0:
-                penalty_score += penalty['multi_grade_3']
-            elif grade_sum[2] > 0:
-                penalty_score += penalty['multi_grade_2']
-            elif grade_sum[1] > 0:
-                penalty_score += penalty['multi_grade_1']
+        elif grade_sum[3] > 1: # Multiple expected binding sites
+            penalty_score += penalty['multi_grade_3']
+        elif grade_sum[2] > 1: # Multiple non-negligible binding sites
+            penalty_score += penalty['multi_grade_2']
+        elif grade_sum[1] > 1: # Multiple gonegligibleod binding sites
+            penalty_score += penalty['multi_grade_1']
     elif scheme == 'negative':
-        if grade_sum[4] > 0:
+        if grade_sum[5] > 0: # one or more optimal binding sites
+            penalty_score += penalty['grade_5']
+        elif grade_sum[4] > 0: # one or more good binding sites
             penalty_score += penalty['grade_4']
-        elif grade_sum[3] > 0:
+        elif grade_sum[3] > 0: # one or more expected binding sites
             penalty_score += penalty['grade_3']
-        elif grade_sum[2] > 0:
+        elif grade_sum[2] > 0: # one or more non-negligible binding sites
             penalty_score += penalty['grade_2']
-        elif grade_sum[1] > 0:
+        elif grade_sum[1] > 0: # one or more negligible binding sites
             penalty_score += penalty['grade_1']
     else:
         raise ValueError('Error: Unknown scheme %s'%scheme)
