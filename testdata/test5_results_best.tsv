@@ -1,0 +1,70 @@
+#pair	sequence_id	product_size	unique_flags	sensitivity	specificity	noise	penalty	p3_penalty	forward_primer	forward_tm	forward_length	forward_gc%	forward_position	reverse_primer	reverse_tm	reverse_length	reverse_gc%	reverse_position	probe	probe_tm	probe_length	probe_gc%	probe_position	annotation
+0	136_83_0	177	3	1.0	1.0	0.0	23	1.32	CCTTGCCCCAAGTCGGATAA	59.7	20	55.0	1957	CTGACACTTATGGCACGGTCT	60.1	21	52.4	2133						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+1	164_0_2	228	3	1.0	1.0	0.0	36	0.8	GCAAAGATCGGAAGGGTTACG	59.3	21	52.4	538	GAGCTGCACATGAACCCATTC	59.9	21	52.4	765						Transposase for insertion sequence element IS257 in transposon Tn4003; Uncharacterized protein pYV0051
+2	136_83_0	225	3	1.0	1.0	0.0	25	1.6	GGCTTATGCACGCGAAAGAAA	60.1	21	47.6	1851	CCAAGCCGAGACCAAGGATC	60.5	20	60.0	2075						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+3	112_13136_1	193	3	1.0	1.0	0.0	30	1.56	GACCGAGGTCGATCACATCTG	60.3	21	57.1	703	GCATCCGTATGAGACTCATGCT	60.3	22	50.0	895						Dihydropteroate pyrophosphorylase type II
+4	136_83_0	246	3	1.0	1.0	0.0	30	1.6	GATCCTTGGTCTCGGCTTGG	60.5	20	60.0	2056	TCAGCCAAACCTATCCCATCG	59.9	21	52.4	2301						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+5	136_83_0	243	3	1.0	1.0	0.0	85	0.4	AGACCGTGCCATAAGTGTCAG	60.1	21	52.4	2113	CGAGTGTTGCCGTTTTCTTGA	59.7	21	47.6	2355						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+6	112_13136_1	247	3	1.0	1.0	0.0	25	4.76	GCTCGTGTGTGCGGATGA	60.4	18	61.1	97	AACCGCCTTGTCCTTGATCC	60.3	20	55.0	343						Dihydropteroate pyrophosphorylase type II
+7	136_83_0	153	3	1.0	1.0	0.0	196	1.43	TGTCGGCACTAGGATCAAAGT	59.1	21	47.6	357	GCGATGCTGATCTACTTGCTG	59.5	21	52.4	509						
+8	136_83_0	153	3	1.0	1.0	0.0	198	1.57	CGCAGGAAAGCACTTATCAGG	59.3	21	52.4	225	ACTTTGATCCTAGTGCCGACA	59.1	21	47.6	377						
+9	85_51027_3	246	3	1.0	1.0	0.0	405	0.27	TTTCTTTCACGGCCACTTTGC	60.2	21	47.6	529	GCAGCCGTCACTCAGATGATA	59.9	21	52.4	774						Insertion element IS2A uncharacterized 48.2 kDa protein; ORF4; Transposase InsD for insertion element IS2A/D/F/H/I/K; Protein YoeA
+10	136_83_0	225	3	1.0	1.0	0.0	240	1.24	GTGCGGTGGGTTTGGAAAAA	59.8	20	50.0	755	GGTATGCCAAATGCCTTTGCA	60.1	21	47.6	979						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+11	136_83_0	150	3	1.0	1.0	0.0	325	0.81	TCGGATTGACATAGCTACGCA	59.3	21	47.6	1828	ATTATCCGACTTGGGGCAAGG	60.1	21	52.4	1977						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+12	136_83_0	246	3	1.0	1.0	0.0	505	0.2	AAAGTATCGCGCTCATAGCCA	59.9	21	47.6	1626	TTTCTTTCGCGTGCATAAGCC	60.1	21	47.6	1871						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+13	112_13136_1	211	3	1.0	1.0	0.0	560	0.15	TTTGCGCGAAACAGACAGAAG	60.0	21	47.6	209	TGGCGACATCATGGATCACAT	59.9	21	47.6	419						Dihydropteroate pyrophosphorylase type II
+14	164_0_2	234	3	1.0	1.0	0.0	560	0.2	GTGCACGCATCACCTCAATAC	59.9	21	52.4	135	AGATCCCGCGATTCATCAACA	59.9	21	47.6	368						Transposase for insertion sequence element IS257 in transposon Tn4003; Uncharacterized protein pYV0051
+15	136_83_0	235	3	1.0	1.0	0.0	240	1.82	AACACAGGCTTTAGCACATAGC	59.3	22	45.5	2175	TGCAGCATACTTCTGTGTGGT	59.9	21	47.6	2409						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+16	136_83_0	230	3	1.0	1.0	0.0	538	0.27	CTAAGCCAACGAGCATACCGA	60.2	21	52.4	1294	CGCGGATGAGTATGATGTCGA	60.1	21	52.4	1523						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+17	136_83_0	223	3	1.0	1.0	0.0	483	0.47	GTCATGGGTCAGGACGGTATC	59.9	21	57.1	866	CGCTCAAAGTATCCAGTGGCT	60.4	21	52.4	1088						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+18	136_83_0	182	3	1.0	1.0	0.0	238	2.02	CCCAAACCAATGATACGCATGA	59.3	22	45.5	2016	CGCTATGTGCTAAAGCCTGTG	59.7	21	52.4	2197						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+19	136_83_0	162	3	1.0	1.0	0.0	350	1.23	TGATCAAGGACTGATGTTCGCA	60.0	22	45.5	1129	ACTTTGTCGCTGCCAATAACG	59.8	21	47.6	1290						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+20	136_83_0	186	3	1.0	1.0	0.0	560	0.4	TGGTGCAGCATGATCAGCATA	60.1	21	47.6	1242	TTCGGACTCAAAAGGCGTGAT	60.3	21	47.6	1427						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+21	164_0_2	166	3	1.0	1.0	0.0	283	1.81	TTACCCAGAAACCGGTATGCA	59.4	21	47.6	395	GGCGTAACCCTTCCGATCTT	59.8	20	55.0	560						Transposase for insertion sequence element IS257 in transposon Tn4003; Uncharacterized protein pYV0051
+22	136_83_0	218	3	1.0	1.0	0.0	308	1.76	AGCGATACTCATCTCAGCAAGT	59.3	22	45.5	669	GATACCGTCCTGACCCATGAC	59.9	21	57.1	886						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+23	136_83_0	202	3	1.0	1.0	0.0	286	2.22	CAGCAAGTAGATCAGCATCGC	59.5	21	52.4	489	ACTTGCTGAGATGAGTATCGCT	59.3	22	45.5	690						
+24	112_13136_1	235	3	1.0	1.0	0.0	474	0.95	TGATAACTGTCGAGCGAGACG	59.9	21	52.4	585	TCGTCAACATAACCTCGGACA	59.1	21	47.6	819						Dihydropteroate pyrophosphorylase type II
+25	136_83_0	155	3	1.0	1.0	0.0	560	0.66	CAACGATCGCCATGACAAGAG	59.7	21	52.4	650	CCGCATTCATCCGCTGATTTC	60.3	21	52.4	804						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+26	164_0_2	210	3	1.0	1.0	0.0	408	1.29	TGTTACGACGGGAGGAGAGAT	60.1	21	52.4	423	TCGATCACTCCACGATTTACCG	60.2	22	50.0	632						Transposase for insertion sequence element IS257 in transposon Tn4003; Uncharacterized protein pYV0051
+27	136_83_0	206	3	1.0	1.0	0.0	328	1.88	CGCTGTTCTTTTGGTGCAAAG	59.1	21	47.6	945	TGCGAACATCAGTCCTTGATCA	60.0	22	45.5	1150						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+28	136_83_0	170	3	1.0	1.0	0.0	505	0.94	AATTGCGCTTTTGGCAGCTTA	60.0	21	42.9	1383	TCTGTGCCGTGTATGTTCAGC	60.9	21	52.4	1552						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+29	136_83_0	172	3	1.0	1.0	0.0	505	0.94	CGCCATGATCGCTGACATACA	60.9	21	52.4	1012	ACGCCAGTGTGTGAAGGTAAT	59.9	21	47.6	1183						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+30	164_0_2	235	3	1.0	1.0	0.0	295	2.37	ATCTGTCGGTGTTCAACGTCA	59.9	21	47.6	263	GCTGGGCGTATCTGTACCG	60.3	19	63.2	497						Transposase for insertion sequence element IS257 in transposon Tn4003; Uncharacterized protein pYV0051
+31	136_83_0	249	3	1.0	1.0	0.0	451	1.22	CGCACGATGTGACATTGCTAA	59.6	21	47.6	1570	TCTACTCGGTGGGTAAGCTTG	59.2	21	52.4	1818						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+32	136_83_0	160	3	1.0	1.0	0.0	463	1.43	GCCACTGGATACTTTGAGCGA	60.4	21	52.4	1069	GGGCCTGCGTATTTTAAGCG	60.0	20	55.0	1228						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+33	136_83_0	232	3	1.0	1.0	0.0	399	1.84	CGGTGCGGTCTTTGACTTTG	60.0	20	55.0	802	CTGTATGTCAGCGATCATGGC	59.2	21	52.4	1033						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+34	136_83_0	219	3	1.0	1.0	0.0	474	1.42	TCATCTTATAGCAGCCCATCGC	60.4	22	50.0	101	GCCCTGTGCATTTGACGATTT	60.1	21	47.6	319						
+35	164_0_2	208	3	1.0	1.0	0.0	418	1.76	CGGTAAATCGTGGAGTGATCGA	60.2	22	50.0	611	GCACTGTTGCAAATAGTCGGT	59.5	21	47.6	818						Transposase for insertion sequence element IS257 in transposon Tn4003; Uncharacterized protein pYV0051
+36	136_83_0	221	3	1.0	1.0	0.0	432	1.76	ACACTCGCCACAAGAACAAAC	59.6	21	47.6	2349	TTCAGTATGGGATTGCGCAATG	59.6	22	45.5	2569						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+37	136_83_0	214	3	1.0	1.0	0.0	505	1.6	GCTGAACATACACGGCACAGA	60.9	21	52.4	1532	CAAAGACGCGGTACAAGCAAC	60.7	21	52.4	1745						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+38	136_83_0	227	3	1.0	1.0	0.0	538	1.46	TCACTGGGACAAGCCACTTG	60.2	20	55.0	416	GACCCTTGAGCACAGTCAGAT	59.7	21	52.4	642						
+39	164_0_2	189	3	1.0	1.0	0.0	460	1.92	CCATGATCGCATTCAATCACGT	59.7	22	45.5	227	TGCATACCGGTTTCTGGGTAA	59.4	21	47.6	415						Transposase for insertion sequence element IS257 in transposon Tn4003; Uncharacterized protein pYV0051
+40	136_83_0	204	3	1.0	1.0	0.0	488	1.78	CACGCCACAAGATACTTACGC	59.7	21	52.4	1435	AGCGCGATACTTTCCCACAG	60.5	20	55.0	1638						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+41	136_83_0	216	3	1.0	1.0	0.0	432	2.14	GCTCATTACCTTCACACACTGG	59.3	22	50.0	1159	ATAAATCCGCGACCAACAACG	59.6	21	47.6	1374						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+42	136_83_0	206	3	1.0	1.0	0.0	443	2.25	AAAAAGCTTGCTTGGCAACCA	60.1	21	42.9	554	CGCACACTCCATTCGTATTATGG	59.8	23	47.8	759						
+43	112_13136_1	166	3	1.0	1.0	0.0	250	5.0	TCCCGAATGTGCAGTTAACGA	60.0	21	47.6	18	GTGGTCCGGGGGATGTC	59.0	17	70.6	183						Dihydropteroate pyrophosphorylase type II
+44	136_83_0	241	3	1.0	1.0	0.0	505	2.14	TGGCTTACGCATATCAGGCTT	59.9	21	47.6	1703	ATTGGGCTTGATCGTGGCA	60.0	19	52.6	1943						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+45	164_0_2	176	3	1.0	1.0	0.0	432	2.67	ACCTTCACGTAGGTTTCATCCAT	59.7	23	43.5	506	ATCAGTTACCGTGAGCTGCAG	60.4	21	52.4	681						Transposase for insertion sequence element IS257 in transposon Tn4003; Uncharacterized protein pYV0051
+46	136_83_0	155	3	1.0	1.0	0.0	505	2.28	CGGCAGCGTACCATCAAAAAT	59.9	21	47.6	282	CCAAGTGGCTTGTCCCAGT	59.8	19	57.9	436						
+47	136_83_0	193	3	1.0	1.0	0.0	505	2.34	AAAAACACCCACGCAAGCC	59.9	19	52.6	16	GATTTGCGCTGTTTGCCTTTG	59.8	21	47.6	208						
+48	136_83_0	172	3	1.0	1.0	0.0	560	2.02	CGATGGGATAGGTTTGGCTGA	59.9	21	52.4	2281	CCGCAATTATCCCACCGTTTAT	59.1	22	45.5	2452						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+49	164_0_2	151	3	1.0	1.0	0.0	670	1.55	TGTTGCAAAGTTAGCGATGAGG	59.5	22	45.5	5	GTATTGAGGTGATGCGTGCAC	59.9	21	52.4	155						Transposase for insertion sequence element IS257 in transposon Tn4003; Uncharacterized protein pYV0051
+50	112_13136_1	193	3	1.0	1.0	0.0	538	2.34	TCATTGAGATAGGCCACACCAC	60.1	22	50.0	534	GGGCAGATGTGATCGACCTC	60.2	20	60.0	726						Dihydropteroate pyrophosphorylase type II
+51	112_13136_1	150	3	1.0	1.0	0.0	474	3.62	GAAACTGTCCGAGGTTATGTTGAC	59.8	24	45.8	794	GGATCACCGCAAACAGGTTAC	59.5	21	52.4	943						Dihydropteroate pyrophosphorylase type II
+52	85_51027_3	176	3	1.0	1.0	0.0	560	3.0	GTACTGTTTCACTGTCGAAGCC	59.5	22	50.0	385	GGCACATACTGGCAAAGTGG	59.5	20	55.0	560						Insertion element IS2A uncharacterized 48.2 kDa protein; ORF4; Transposase InsD for insertion element IS2A/D/F/H/I/K; Protein YoeA
+53	164_0_2	206	3	1.0	1.0	0.0	551	3.22	CTGCTTACCAGGCGCATTTC	59.9	20	55.0	68	CACCGACAGATTAAGTACCGGAA	60.1	23	47.8	273						Transposase for insertion sequence element IS257 in transposon Tn4003; Uncharacterized protein pYV0051
+54	112_13136_1	200	3	1.0	1.0	0.0	445	4.69	GCGAGGTTTCGGGAGCAG	60.8	18	66.7	283	TGCCAAACTCGTCGTTATGCA	60.9	21	47.6	482						Dihydropteroate pyrophosphorylase type II
+55	112_13136_1	152	3	1.0	1.0	0.0	481	4.6	ACCGAATGCATAACGACGAGT	60.1	21	47.6	456	CCCGTCTCGCTCGACAG	59.5	17	70.6	607						Dihydropteroate pyrophosphorylase type II
+56	112_13136_1	232	3	1.0	1.0	0.0	481	4.7	GATCAAGGACAAGGCGGTTG	59.2	20	55.0	325	CGTGGTGTGGCCTATCTCA	59.1	19	57.9	556						Dihydropteroate pyrophosphorylase type II
+57	136_83_0	154	3	1.0	1.0	0.0	984	2.18	ATACTCATCCGCGCCCAGATA	60.9	21	52.4	1511	CGATCATGTCAGCTTCAATGGC	60.3	22	50.0	1664						Polymyxin resistance protein MCR-1; phosphatidylethanolamine transferase Mcr-1
+58	112_13136_1	238	3	1.0	1.0	0.0	560	4.61	ACGAATTCTTGCGGTTTCTTTCA	59.7	23	39.1	35	GGCGCGGTTCGATGAATTG	60.3	19	57.9	272						Dihydropteroate pyrophosphorylase type II
+59	85_51027_3	210	3	1.0	1.0	0.0	628	4.25	CTCTGCTATGCCGTTACTCTCC	60.3	22	54.5	200	GGCGGCTTCGACAGTGAAA	61.0	19	57.9	409						Insertion element IS2A uncharacterized 48.2 kDa protein; ORF4; Transposase InsD for insertion element IS2A/D/F/H/I/K; Protein YoeA
+60	106_798_4	279	3	1.0	1.0	0.0	670	4.31	GCTTCCGGCGTCTCCAG	60.2	17	70.6	11	GAGCGATAACCCAGTGCACTA	59.9	21	52.4	289						Insertion element IS2A uncharacterized 48.2 kDa protein; Transposase InsD for insertion element IS2A/D/F/H/I/K
+61	106_798_4	101	3	1.0	1.0	0.0	615	5.71	GCTTCCGGCGTCTCCAG	60.2	17	70.6	11	TCTTCGGTTCAAGCCCCAAC	60.5	20	55.0	111						Insertion element IS2A uncharacterized 48.2 kDa protein; Transposase InsD for insertion element IS2A/D/F/H/I/K
+62	85_51027_3	227	3	1.0	1.0	0.0	615	5.87	GCCTCACGGTCACAGCAG	60.7	18	66.7	432	GATGGTATGCCTGCTATCAATGC	59.9	23	47.8	658						Insertion element IS2A uncharacterized 48.2 kDa protein; ORF4; Transposase InsD for insertion element IS2A/D/F/H/I/K; Protein YoeA
+63	106_798_4	258	3	1.0	1.0	0.0	775	6.48	GATGTTGGGGCTTGAACCG	59.1	19	57.9	89	AGACACCTGTTATCACTTAACCCA	59.4	24	41.7	346						Insertion element IS2A uncharacterized 48.2 kDa protein; Transposase InsD for insertion element IS2A/D/F/H/I/K
+64	85_51027_3	182	3	1.0	1.0	0.0	1655	5.78	CCGCTGCCGTAGATATTCC	57.9	19	57.9	38	AGAGTAACGGCATAGCAGAGA	58.3	21	47.6	219						Insertion element IS2A uncharacterized 48.2 kDa protein; ORF4; Transposase InsD for insertion element IS2A/D/F/H/I/K; Protein YoeA
+65	85_51027_3	157	3	1.0	1.0	0.0	1493	7.41	TCGTTGATTGCTTTCTTTCACG	58.1	22	40.9	518	CAGACAGGCCGAACTTGAT	57.5	19	52.6	674						Insertion element IS2A uncharacterized 48.2 kDa protein; ORF4; Transposase InsD for insertion element IS2A/D/F/H/I/K; Protein YoeA
+66	85_51027_3	203	3	1.0	1.0	0.0	1568	7.61	CCGGGCAACAAGGGAGA	58.8	17	64.7	872	ATAGACTGGCCCCCTGAATC	58.6	20	55.0	1074						Insertion element IS2A uncharacterized 48.2 kDa protein; Transposase InsC for insertion element IS2A/D/F/H/I/K
+67	85_51027_3	152	0	1.0	1.0	2.0	593	2.01	ACATCCGTATCATCTGAGTGACG	60.0	23	47.8	747	GGAATGACGGTCTCCCTTGTT	60.0	21	52.4	898						ORF4; Transposase InsD for insertion element IS2A/D/F/H/I/K; Protein YoeA; Insertion element IS2A uncharacterized 48.2 kDa protein; Transposase InsC for insertion element IS2A/D/F/H/I/K
+68	85_51027_3	244	0	1.0	1.0	2.0	615	2.63	ATACCATCAAGTTCGGCCTGT	59.4	21	47.6	651	TGACGGTCTCCCTTGTTGC	59.9	19	57.9	894						ORF4; Transposase InsD for insertion element IS2A/D/F/H/I/K; Protein YoeA; Insertion element IS2A uncharacterized 48.2 kDa protein; Transposase InsC for insertion element IS2A/D/F/H/I/K
