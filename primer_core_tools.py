@@ -3959,8 +3959,9 @@ def present_pairs_full(pairs):
         605	60.0	CAACATTTTCGTGTCGCCCTT	AATTGTTGCCGGGAAGCTAGA	0
         636	60.0	CAACATTTTCGTGTCGCCCTT	TGCAACTTTATCCGCCTCCAT	0
     '''
-    def _repr(p, h):
+    def _repr(i, p, h):
         return '\t'.join(["%s"]*len(h))%(
+            i,
             p['sequence_id'],
             p['pair']['product_size'],
             p['test']['unique_flags'],
@@ -3986,13 +3987,13 @@ def present_pairs_full(pairs):
             p['internal']['position'] if p['internal'] else '',
             '; '.join(p['annotations']) if 'annotations' in p else ''
             )
-    h = ['sequence_id', 'product_size', 'unique_flags', 'sensitivity',
+    h = ['pair', 'sequence_id', 'product_size', 'unique_flags', 'sensitivity',
          'specificity', 'noise', 'penalty', 'p3_penalty', 'forward_primer',
          'forward_tm', 'forward_length', 'forward_gc%', 'forward_position',
          'reverse_primer', 'reverse_tm', 'reverse_length', 'reverse_gc%',
          'reverse_position', 'probe', 'probe_tm', 'probe_length',
          'probe_gc%', 'probe_position', 'annotation']
-    return "#%s\n%s"%('\t'.join(h), '\n'.join((_repr(p, h) for p in pairs)))
+    return "#%s\n%s"%('\t'.join(h), '\n'.join((_repr(i, p, h) for i, p in enumerate(pairs))))
 
 def load_file_list(file_):
     ''' Extracts file paths from a file, and stores them in a list.
