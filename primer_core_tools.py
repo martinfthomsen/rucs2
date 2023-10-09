@@ -234,10 +234,13 @@ def find_primer_pairs(contig_file, positives, negatives, contig_names=None,
             rn = range(len(negatives))
             f.write('#%s\t%s\n'%('\t'.join(('P_%s'%(x+1) for x in rp)),
                                  '\t'.join(('N_%s'%(x+1) for x in rn))))
-            f.write('\n'.join(('\t'.join(
-                (','.join(map(str, x)) for x in
-                (p['products']['pos'] + p['products']['neg'] if 'test' in p else [])
-                )) for p in pairs[:no_tested_pp])))
+            f.write('\n'.join(
+                ('\t'.join(  # old version, kept for later debugging
+                    [','.join(str(y[-1]) for y in x) for x in p['products']['pos']]
+                    + [','.join(str(y[-1]) for y in x) for x in p['products']['neg']]
+                    if 'test' in p else []
+                    ) for p in pairs[:no_tested_pp])
+                ))
 
         # Prepare reference and pcr_products list
         refs = positives + negatives
@@ -3460,10 +3463,10 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
             # Find best target match
             best_target = [False, False, False] # [forward, reverse, probe]
             for product in products:
-                # product format: [fw_contig_name, fw_strand, fw_position, rv_contig_name, rv_strand, rv_position, [fw_grade, rv_grade], product_size]
+                # product format: [fw_contig_name, fw_strand, fw_position, rv_contig_name, rv_strand, rv_position, [fw_grade, rv_grade], [fw_tm, rv_tm], product_size]
                 if product[-1] > lb and product[-1] < hb:
-                    target_match = [product[-2][0] >= mg, product[-2][1] >= mg,
-                                    qpcr and product[-2][2] >= mg]
+                    target_match = [product[-3][0] >= mg, product[-3][1] >= mg,
+                                    qpcr and product[-3][2] >= mg]
                     if sum(target_match) > sum(best_target):
                         best_target = target_match
 
@@ -3536,9 +3539,10 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
             # Post process products
             filtered_products = []
             for product in products:
+                # product format: [fw_contig_name, fw_strand, fw_position, rv_contig_name, rv_strand, rv_position, [fw_grade, rv_grade], [fw_tm, rv_tm], product_size]
                 # Identify binding primers/probe
                 good_binders = np.zeros(3, dtype=bool)
-                for j, g in enumerate(product[-2]):
+                for j, g in enumerate(product[-3]):
                     if g >= mg: good_binders[j] = True
 
                 if good_binders.any():
@@ -3548,7 +3552,7 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
                     p['test']['unique_flags'] = binarray2num(current_flags * remove_flags)
 
                 # Filter products with bad grades
-                if any(g < mg for g in product[-2]):
+                if any(g < mg for g in product[-3]):
                     therm_count += 1
                 else:
                     filtered_products.append(product)
@@ -3561,6 +3565,7 @@ def validate_primer_pairs(pairs, p_refs, n_refs, primers, seq_id=None):
             p['products']['neg'].append(products)
 
             # Compute specificity
+            # Use product size deviation limit, to determine when the product size is indistiguishable from target size.
             hb = target + settings['pcr']['product_deviation']
             lb = target - settings['pcr']['product_deviation']
             speci += not any(True for x in products if x[-1] > lb and x[-1] < hb)
@@ -3684,6 +3689,7 @@ def find_pcr_products(fw_locs, rv_locs, probe_locs, fw_len, rv_len, probe_len,
                         else:
                             probes = np.array([])
                         pcr_grades.append(0 if probes.shape[0] == 0 else probes[:,0].max())
+                        pcr_tms.append(0 if probes.shape[0] == 0 else probes[:,0].max())
                     # Filter bad products
                     if filter_on_grade and any(g < mg for g in pcr_grades):
                         therm_count += 1
@@ -4145,7 +4151,14 @@ def predict_pcr_results(refs, pairs, fail_on_non_match=False, tm_thresholds=None
     return pcr_results
 
 def print_pcr_Results(refs, pcr_results, output=None):
-    """ Print PCR results """
+    """ Print PCR results
+
+    Fetch pair index (i), product size (p[-1]) and calculate binding grade for the product based on the binding grade for fwd and rvs primer (p[6][0] and p[6][1])
+    * ppp = products per pair (rows of output)
+    * ppr = products per reference (columns of output)
+    * p   = product
+
+    """
     if output is not None:
         if '/' not in output or os.path.exists(os.path.dirname(output)):
             with open_(output, 'w') as f:
