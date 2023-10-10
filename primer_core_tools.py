@@ -2565,10 +2565,9 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
                         0, os.path.basename(ref)]
 
             # Filter primer matches which fail the thermodynamic test
-            # alignments = filter_primer_alignments(ref, alignments, probes)
             binding_sites = compute_binding_sites(ref, alignments, probes, filter=True)
             # print(f"Stats: {sum(map(len, binding_sites.values()))} binding sites found for {ref}")
-            binding_sites = grade_binding_sites(binding_sites, tm_thresholds, filter_grade)
+            binding_sites = grade_binding_sites(binding_sites, probes, tm_thresholds, filter_grade)
             # print(f"Stats: {sum(map(len, binding_sites.values()))} graded binding sites found for {ref}")
 
             # Update primer-reference matrix
@@ -2620,12 +2619,11 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
                         0 if filter_grade <= 3 else '-',
                         0 if filter_grade <= 4 else '-',
                         0, os.path.basename(ref)]
-            # Filter primer matches which fail the thermodynamic test
-            # alignments = filter_primer_alignments(ref, alignments, probes)
+
             # Filter primer matches which fail the thermodynamic test
             binding_sites = compute_binding_sites(ref, alignments, probes, filter=True)
             # print(f"Stats: {sum(map(len, binding_sites.values()))} binding sites found for {ref}")
-            binding_sites = grade_binding_sites(binding_sites, tm_thresholds, filter_grade)
+            binding_sites = grade_binding_sites(binding_sites, probes, tm_thresholds, filter_grade)
             # print(f"Stats: {sum(map(len, binding_sites.values()))} graded binding sites found for {ref}")
 
             # Update primer-reference matrix
@@ -2663,7 +2661,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
                             for aln in primers[p]['neg']])
             primers[p]['penalty'] = (penalty_pos, penalty_neg)
 
-        # Compute primer pair rank
+        # Compute primer pair penalty
         for p in pairs:
             p_fw = p['left']['sequence']
             p_rv = reverse_complement(p['right']['sequence'])
@@ -3235,7 +3233,7 @@ def compute_binding_sites(ref, alignments, probes=[], filter=True):
 
     return binding_sites
 
-def grade_binding_sites(binding_sites, thresholds=None, min_grade=None):
+def grade_binding_sites(binding_sites, probes=[], thresholds=None, min_grade=None):
     ''' Grade the binding sites for each primer sequence based on the
     thermodynamics according to the predefined threshold criteria
 
@@ -3279,7 +3277,10 @@ def grade_binding_sites(binding_sites, thresholds=None, min_grade=None):
         {'CAACATTTTCGTGTCGCCCTT': [('reference', '+', 1043, 50.132, 3)]}
 
     '''
+    p3_set = settings["pcr"]["priming"]["primer3"]
     thresholds = (0, 20, 40, [55,65], [59,61]) if thresholds is None else thresholds
+    thresholds_probe = (0, 20, 40, p3_set["PRIMER_MIN_TM"], [p3_set["PRIMER_INTERNAL_MIN_TM"], p3_set["PRIMER_INTERNAL_MAX_TM"]])
+
     min_grade  = 0 if min_grade is None else min_grade
     # Grade and filter binding sites
     graded_binding_sites = {}
@@ -3288,7 +3289,8 @@ def grade_binding_sites(binding_sites, thresholds=None, min_grade=None):
         for (contig_name, strand, position, tm) in binding_sites[primer]:
             # Compute binding grade based on the thermodynamics and defined thresholds
             grade = 0
-            for threshold in thresholds:
+            ths = thresholds_probe if primer in probes else thresholds
+            for threshold in ths:
                 try:
                     if isinstance(threshold, list):
                         if tm > threshold[0] and tm < threshold[1]:
@@ -3685,11 +3687,14 @@ def find_pcr_products(fw_locs, rv_locs, probe_locs, fw_len, rv_len, probe_len,
                     pcr_tms = [t_fw, t_rv]
                     if qpcr:
                         if probe_plus is not None:
+                            # Select probes that are within the forward and reverse primer bind site
                             probes = probe_plus[np.logical_and(probe_plus[:,1]>(p_fw+fw_len), probe_plus[:,1]<(p_rv-probe_len))]
                         else:
                             probes = np.array([])
-                        pcr_grades.append(0 if probes.shape[0] == 0 else probes[:,0].max())
-                        pcr_tms.append(0 if probes.shape[0] == 0 else probes[:,0].max())
+                        # Append the best PCR grade for the probe
+                        pcr_grades.append(0 if probes.shape[0] == 0 else int(probes[:,0].max()))
+                        # Append the best PCR Tm for the probe
+                        pcr_tms.append(0 if probes.shape[0] == 0 else probes[:,2].max())
                     # Filter bad products
                     if filter_on_grade and any(g < mg for g in pcr_grades):
                         therm_count += 1
@@ -3717,10 +3722,14 @@ def find_pcr_products(fw_locs, rv_locs, probe_locs, fw_len, rv_len, probe_len,
                     pcr_tms = [t_fw, t_rv]
                     if qpcr:
                         if probe_minus is not None:
+                            # Select probes that are within the forward and reverse primer bind site
                             probes = probe_minus[np.logical_and(probe_minus[:,1]>(p_rv+rv_len), probe_minus[:,1]<(p_fw-probe_len))]
                         else:
                             probes = np.array([])
-                        pcr_grades.append(0 if probes.shape[0] == 0 else probes[:,0].max())
+                        # Append the best PCR grade for the probe
+                        pcr_grades.append(0 if probes.shape[0] == 0 else int(probes[:,0].max()))
+                        # Append the best PCR Tm for the probe
+                        pcr_tms.append(0 if probes.shape[0] == 0 else probes[:,2].max())
                     # Filter bad products
                     if filter_on_grade and any(g < mg for g in pcr_grades):
                         therm_count += 1
@@ -4101,7 +4110,7 @@ def predict_pcr_results(refs, pairs, fail_on_non_match=False, tm_thresholds=None
         # Filter primer matches which fail the thermodynamic test
         binding_sites = compute_binding_sites(ref, alignments, probes, filter=False)
         print(f"Stats: {sum(map(len, binding_sites.values()))} binding sites found for {ref}")
-        binding_sites = grade_binding_sites(binding_sites, tm_thresholds, min_grade)
+        binding_sites = grade_binding_sites(binding_sites, probes, tm_thresholds, min_grade)
         print(f"Stats: {sum(map(len, binding_sites.values()))} graded binding sites found for {ref}")
         for p, pair in enumerate(pairs):
             fw = pair[0]
@@ -4158,6 +4167,7 @@ def print_pcr_Results(refs, pcr_results, output=None):
     * ppp = products per pair (rows of output)
     * ppr = products per reference (columns of output)
     * p   = product
+    product format: [fw_contig_name, fw_strand, fw_position, rv_contig_name, rv_strand, rv_position, [fw_grade, rv_grade (, pr_grade)], [fw_tm, rv_tm (, pr_tm)], product_size]
 
     """
     if output is not None:
@@ -4165,7 +4175,7 @@ def print_pcr_Results(refs, pcr_results, output=None):
             with open_(output, 'w') as f:
                 f.write(f"Pair\\ref\t" + '\t'.join(map(os.path.basename, refs)))
                 f.write('\n')
-                f.write('\n'.join([f"{i}:\t" + '\t'.join((','.join([f"{p[-1]}({p[6][0]*p[6][1]/25})" for p in ppr]) for ppr in ppp)) for i, ppp in enumerate(pcr_results)]))
+                f.write('\n'.join([f"{i}:\t" + '\t'.join((','.join([f"{p[-1]}({p[6][0]*p[6][1]/25*p[6][2]/5 if len(p[6]) == 3 else p[6][0]*p[6][1]/25})" for p in ppr]) for ppr in ppp)) for i, ppp in enumerate(pcr_results)]))
                 f.write('\n')
         else:
             print(f"Pair\\ref\t" + '\t'.join(map(os.path.basename, refs)))
