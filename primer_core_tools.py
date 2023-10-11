@@ -39,7 +39,8 @@ settings = None
 ################################################################################
 # Program Entry Points
 def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
-         clean_run=True, annotate=True, settings_file=None, name=None):
+         clean_run=True, annotate=True, settings_file=None, name=None,
+         reuse=False):
     ''' RUCS - a tool for designing PCR primer pairs suitable for
     distinguishing closely related strains
 
@@ -118,7 +119,8 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
 
         pairs, good_pp = find_validated_primer_pairs(contig_file, positives,
                                                      negatives,
-                                                     annotate=annotate)
+                                                     annotate=annotate,
+                                                     reuse=reuse)
 
         # Check how many primer pairs have been tested (only tested pp in results)
         no_tested_pp = 0
@@ -174,7 +176,7 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
 
 def find_primer_pairs(contig_file, positives, negatives, contig_names=None,
                       quiet=False, clean_run=True, annotate=True,
-                      settings_file=None, name=None):
+                      settings_file=None, name=None, reuse=False):
     ''' This methods allows you to run Primer Identification for a one or more
         fasta entries '''
     # Set Globals
@@ -212,7 +214,8 @@ def find_primer_pairs(contig_file, positives, negatives, contig_names=None,
         pairs, good_pp = find_validated_primer_pairs(contig_file, positives,
                                                      negatives,
                                                      contig_names=contig_names,
-                                                     annotate=annotate)
+                                                     annotate=annotate,
+                                                     reuse=reuse)
 
         # Check how many primer pairs have been tested (only tested pp in results)
         no_tested_pp = 0
@@ -2376,7 +2379,8 @@ def load_global_settings(settings_file='settings.default.cjson'):
 
 def find_validated_primer_pairs(contig_file, p_refs, n_refs,
                                 contig_names=None, annotate=True,
-                                top_x_only=None):
+                                skip_start=0, max_contigs=0,
+                                max_primer_pairs=10000, reuse=False):
     ''' if you do not have scaffolds, the contigs can be passed here
 
     USAGE
@@ -2425,33 +2429,54 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
     # WHILE UCS and need more good PP
     plen = len(p_refs)
     nlen = len(n_refs)
-    primer_pairs = []
-    good_pp = []
     too_short = 0
     skipped = 0
     ignored = 0
     no_pairs = 0
+    max_pp_reached = False
+    primer_pairs = []
+    good_pp = []
+    if reuse:
+        # Try fetching previously computed values
+        try:
+            with open(f'{work_dir}good_primer_pairs.pkl', 'rb') as f:
+                reuse_i, too_short, skipped, ignored, no_pairs, good_pp = pickle.load(f)
+            with open(f'{work_dir}primer_pairs.pkl', 'rb') as f:
+                max_pp_reached, primer_pairs = pickle.load(f)
+        except Exception as e:
+            reuse_i = -1
+            log.progress.add('reuse', f'Could not load primer pair dumps from previous run. {e}', 'pcr')
+        else:
+            log.progress.add('reuse', f'Reuse successful. Primer pair data from the first {reuse_i+1} contigs was loaded.', 'pcr')
+
     for i, (seq, name, desc) in enumerate(seqs_from_file(contig_file,
                                                          to_upper=to_upper,
                                                          use_ram_buffer=buffer)):
+        if reuse and i <= reuse_i:
+            # Skip previously processed contigs
+            continue
+        if i < skip_start:
+            # Ignore beginning contig, that are requested omitted
+            skipped += 1
+            continue
+        if max_contigs > 0 and i >= max_contigs:
+            # Ignore contig, since the desired number of contigs have been analysed
+            break
         if contig_names is not None and name not in contig_names and str(i) not in contig_names:
             # Ignore unspecified contigs
             ignored += 1
             continue
-        if len(seq) < min_seq_len:
+        seqlen = len(seq)
+        if seqlen < min_seq_len:
             # Ignore sequences which are too short for Primer3 settings
             too_short += 1
             continue
-        if len(seq) - seq.count('n') < 50:
+        if seqlen - seq.count('n') < 50:
             # Ignore scarce sequences content
             too_short += 1
             continue
         if len(good_pp) >= settings['pcr']['no_good_pp']:
             # Ignore contig, since the desired number of good pairs is reached
-            skipped += 1
-            continue
-        if top_x_only is not None and i >= top_x_only:
-            # Ignore contig, since the desired number of contigs have been analysed
             skipped += 1
             continue
 
@@ -2464,9 +2489,9 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
                                 'P3 pair scan - %s'%name,
                                 ['Pairs', 'Category'])
             log.progress.add('scan%s'%i,
-                             'Scanning contig %s for primer pairs'%name, 'pcr')
+                             f'Scanning contig #{i} {name} for primer pairs (size:{seqlen})', 'pcr')
         else:
-            print(' Scanning contig %s for primer pairs'%name)
+            print(f' Scanning contig #{i} {name} for primer pairs (size:{seqlen})')
 
         # COMPUTE primer pairs for sequence
         pairs, notes = compute_primer_pairs(seq)
@@ -2700,17 +2725,30 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
 
         good_pp.extend(validate_primer_pairs(pairs,p_refs,n_refs,primers,i))
 
-        # Add evaluated pairs to the final list of primer pairs
-        for p in pairs:
-            if ('test' in p and
-                'penalty' in p['test']):
-                primer_pairs.append(p)
+        if not max_pp_reached:
+            # Add evaluated pairs to the final list of primer pairs
+            for p in pairs:
+                if ('test' in p and
+                    'penalty' in p['test']):
+                    primer_pairs.append(p)
+
+            # Check if max_pp is reached
+            if len(primer_pairs) > max_primer_pairs:
+                max_pp_reached = True
+                log.progress.add('max_pp_reached',
+                                 'Maximum number of primer_pairs stored. Now only good primer pairs will be kept!', 'pcr')
+            with open(f'{work_dir}primer_pairs.pkl', 'wb') as f:
+                pickle.dump((max_pp_reached, primer_pairs), f)
 
         if log is not None:
             log.progress.add('status_%s'%(name),
                              'Current good pp: %s'%(len(good_pp)), 'pcr')
         else:
             print(' Current good pp: %s'%(len(good_pp)))
+
+        # Dump good primer pairs as backup for reuse purposes, if an error happens
+        with open(f'{work_dir}good_primer_pairs.pkl', 'wb') as f:
+            pickle.dump((i, too_short, skipped, ignored, no_pairs, good_pp), f)
 
     # Annotate PCR products with flanks (regions)
     if annotate:
@@ -2720,7 +2758,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
             print(' Annotating PCR product environment')
         flank_size = settings['pcr']['annotation']['flank_size']
         regions = {}
-        for p in primer_pairs:
+        for p in good_pp:
             sid = p['sequence_id']
             start = p['left']['position'] - flank_size
             end   = p['right']['position'] + flank_size + 1
@@ -2772,7 +2810,7 @@ def find_validated_primer_pairs(contig_file, p_refs, n_refs,
         annotations = get_blast_annotations(env_fasta,
             settings['pcr']['annotation']['blastx_settings'],
             settings['pcr']['annotation']['blast_db_path'])
-        for p in primer_pairs:
+        for p in good_pp:
             p_notes = []
             sid     = p['sequence_id']
             start   = p['left']['position']
@@ -4932,7 +4970,7 @@ def explore(positives, negatives, kmer_size=None, quiet=False, clean_run=True,
 def full(args):
     ''' Run full diagnostic: fucs + fppp '''
     main(args.positives, args.negatives, args.reference, quiet=args.quiet,
-         clean_run=True, annotate=True)
+         clean_run=True, annotate=True, reuse=args.reuse)
 
 def fucs(args):
     ''' Find Unique Core Sequences '''
@@ -4943,7 +4981,8 @@ def fppp(args):
     ''' Find PCR Primer Pairs '''
     settings['pcr']['seq_selection'] = None
     find_primer_pairs(args.template, args.positives, args.negatives,
-                      quiet=args.quiet, clean_run=True, annotate=True)
+                      quiet=args.quiet, clean_run=True, annotate=True,
+                      reuse=args.reuse)
 
 def anno(args):
     ''' Annotate sequences using a protein BLAST DB '''
@@ -5235,7 +5274,7 @@ if __name__ == '__main__':
                               "settings"))
     # Standard arguments
     parser.add_argument("-r", "--reuse", default=False, action='store_true',
-                        help=("This option allows the reuse of some result files"
+                        help=("This option allows the reuse of some work files"
                               " making subsequent rerun of the tool faster"))
     parser.add_argument("-v", "--verbose", default=False, action='store_true',
                         help=("This option write live information of the "
