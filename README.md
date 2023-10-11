@@ -186,6 +186,66 @@ https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=assembly&term=JWIZ
 If this site is able to load, the download script should also work.
 
 
+### View good primer pair from the dump file generated while running fppp/main ###
+This is useful if a job has failed, or you just want to have a look at the
+already identified good primer pairs candidates.
+
+1. Open a python terminal within the RUCS container.
+```bash
+docker run -it --entrypoint python3 --rm -v `pwd`:/workdir rucs
+```
+2. Extract the good primer pairs.
+```python
+import sys
+sys.path.append('/tools/')
+from primer_core_tools import *
+load_global_settings('settings.default.cjson')
+work_dir, ref_dir, result_dir = setup_directories(get_ref_dir=True)
+with open(f'{work_dir}good_primer_pairs.pkl', 'rb') as f:
+    reuse_i, too_short, skipped, ignored, no_pairs, good_pp = pickle.load(f)
+
+```
+3. Show the primer pairs on screen (good for small files).
+   Can be copy/pasted to an Excelsheet.
+```python
+print(present_pairs_full(good_pp))
+```
+4. Save the primer pairs as a tsv file (good for large files).
+   Can be opened and viewed in Excel.
+```python
+with open_('~/Downloads/good_primer_pairs.tsv', 'w') as f:
+    f.write(present_pairs_full(good_pp))
+```
+5. Define positives and negative set (the same order as the original run)
+```python
+positives = get_fasta_files(['inputs/positives/*'])
+negatives = get_fasta_files(['inputs/negatives/*'])
+```
+6. Extract PCR results.
+```python
+refs = positives + negatives
+lp = len(positives)
+pcr_products = []
+for p, pair in enumerate(good_pp):
+    pcr_products.append([[] for r in refs])
+    for r, ref in enumerate(positives):
+        pcr_products[p][r] = pair['products']['pos'][r]
+    for r, ref in enumerate(negatives):
+        pcr_products[p][lp+r] = pair['products']['neg'][r]
+
+```
+7. Show PCR results on screen (good for small files).
+   Can be copy/pasted to an Excelsheet.
+```python
+print_pcr_Results(refs, pcr_products)
+```
+8. Save the PCR results as a tsv file (good for large files).
+   Can be opened and viewed in Excel.
+```python
+print_pcr_Results(refs, pcr_products, '~/Downloads/products.tsv')
+```
+
+
 ## Installation and setup? ##
 1. Install and start docker
 2. Install the RUCS program

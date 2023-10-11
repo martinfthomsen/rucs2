@@ -4217,11 +4217,11 @@ def print_pcr_Results(refs, pcr_results, output=None):
                 f.write('\n')
         else:
             print(f"Pair\\ref\t" + '\t'.join(map(os.path.basename, refs)))
-            print('\n'.join([f"{i}:\t" + '\t'.join(p) for i, p in enumerate(pcr_results)]))
+            print('\n'.join([f"{i}:\t" + '\t'.join((','.join([f"{p[-1]}({p[6][0]*p[6][1]/25*p[6][2]/5 if len(p[6]) == 3 else p[6][0]*p[6][1]/25})" for p in ppr]) for ppr in ppp)) for i, ppp in enumerate(pcr_results)]))
             raise OSError('Error: Output path directory do not exist!')
     else:
         print(f"Pair\\ref\t" + '\t'.join(map(os.path.basename, refs)))
-        print('\n'.join([f"{i}:\t" + '\t'.join(p) for i, p in enumerate(pcr_results)]))
+        print('\n'.join([f"{i}:\t" + '\t'.join((','.join([f"{p[-1]}({p[6][0]*p[6][1]/25*p[6][2]/5 if len(p[6]) == 3 else p[6][0]*p[6][1]/25})" for p in ppr]) for ppr in ppp)) for i, ppp in enumerate(pcr_results)]))
 
 def generate_sequence_atlas_data_file(reference_file, core_sequence_file, unique_core_sequence_file, aux_file, file_name='results.json'):
     ''' Generate Sequence Atlas data file (json)
