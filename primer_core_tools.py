@@ -309,7 +309,7 @@ def virtual_pcr(references, pairs, output=None, name=None, tm_thresholds=None, m
     # Create symlinks for all reference
     refs = create_symbolic_files(references, ref_dir, reuse=True)
 
-    fail_on_non_match=True
+    fail_on_non_match=False
     tm_thresholds = settings['pcr']['priming']['tm_thresholds'] if tm_thresholds is None else tm_thresholds
     min_grade = settings['pcr']['priming']['threshold_grade'] if min_grade is None else min_grade
     pcr_products = predict_pcr_results(refs, pairs, fail_on_non_match, tm_thresholds, min_grade)
@@ -3058,85 +3058,6 @@ def round_sig(number, sig_fig=3, lmin=-1.0e+300, lmax=1.0e+300):
         return lmax
     else:
        return round(number, -int(np.log10(abs(number))) -1 + sig_fig)
-
-def filter_primer_alignments(ref, alignments, probes=[]):
-    ''' Remove primer alignments where the heterodimer thermodynamics do not
-    meet the threshold criteria
-
-    ref is a path to the reference file
-    alignments is a dict of with primer seq as keys and a list of alignments as
-    values EG. {'TGATAAGGCGATGGCAGATGA': ['contig-name_+_4351']}
-
-    # Grades
-    # 0 = no priming         alignment_similarity < 0.6
-    # 1 = unlikely priming   Tm < threshold_tm
-    # 2 = potential priming  Tm > threshold_tm
-    # 3 = probable priming   Tm = temp_c +- viable_tm_diff
-    # 4 = definite priming   Tm = temp_c +- good_tm_diff
-
-    USAGE:
-        >>> ref = 'old/reference_tem.fa'
-        >>> alignments = {'CAACATTTTCGTGTCGCCCTT': ['reference_+_1043',
-        ...                                         'reference_+_300']}
-        >>> filter_primer_alignments(ref, alignments)
-        {'CAACATTTTCGTGTCGCCCTT': ['reference_+_1043']}
-    '''
-    buffer = settings['input']['use_ram_buffer']
-
-    # Initiate the thermodynamic analyses (defining: p3_primer, p3_probe)
-    configure_p3_thermoanalysis()
-
-    # EXTRACT contigs from reference
-    contigs = dict((name, seq) for seq, name, desc in seqs_from_file(ref, use_ram_buffer=buffer))
-
-    # VALIDATE primer alignments
-    validated_alignments = {}
-    for primer in alignments:
-        validated_alignments[primer] = []
-        # COMPUTE primer details
-        primer_rc = reverse_complement(primer)
-        primer_len = len(primer)
-        for (contig_name, cigar, strand, position) in alignments[primer]:
-            tm = None
-            # EXTRACT sequence
-            seq = contigs[contig_name][position:position+primer_len].upper()
-            # CALCULATE the alignment hetero-dimer annealing temperature
-            seq2 = primer
-            if strand == '+':
-                seq2 = primer_rc
-            if len(re.findall('[^M0-9]', cigar)) > 0:
-                # verify that primer3 is able to analyse the alignment
-                s_aln, p_aln, sim = align_seqs(seq, reverse_complement(seq2))
-                if sim < settings['pcr']['priming']['alignment_similarity']:
-                    tm = 0
-            if tm is None:
-                if primer in probes:
-                    tm = p3_probe.calc_heterodimer(seq, seq2).tm
-                else:
-                    tm = p3_primer.calc_heterodimer(seq, seq2).tm
-
-            # Evaluate thermodynamic results
-            grade = 1 if tm > 0 else 0
-            if primer in probes:
-                target_tm = settings['pcr']['priming']['primer3']['PRIMER_INTERNAL_OPT_TM']
-            else:
-                target_tm = settings['pcr']['priming']['primer3']['PRIMER_OPT_TM']
-            # primer grade scheme
-            prim_settings = settings['pcr']['priming']
-            if tm >= prim_settings['threshold_tm']: grade += 1
-            if (    tm > target_tm - prim_settings['viable_tm_diff']
-                and tm < target_tm + prim_settings['viable_tm_diff']):
-                grade += 1
-            if (    tm > target_tm - prim_settings['good_tm_diff']
-                and tm < target_tm + prim_settings['good_tm_diff']):
-                grade += 1
-            if grade >= prim_settings['threshold_grade']:
-                validated_alignments[primer].append((contig_name, grade, strand,
-                                                     position))
-            # else:
-            #     print('BAD:', tm, primer, alignment, ref)
-
-    return validated_alignments
 
 def configure_p3_thermoanalysis():
     ''' Configure the P3 thermodynamic analysis and provide it as global variables '''
