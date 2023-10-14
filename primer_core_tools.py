@@ -5024,7 +5024,7 @@ def parse_tsv(tsv_file, sep='\t', comment='#'):
     return tsv
 
 
-def get_fasta_files(inputs, ref=''):
+def get_fasta_files(inputs, subdir=''):
     ''' Expand truncated paths, download files for provided accession IDs and
     ignore non fasta files
 
@@ -5036,22 +5036,26 @@ def get_fasta_files(inputs, ref=''):
     ['CP000672.1_GCA_000016485.1_ASM1648v1_genomic.fna.gz', 'test.fa', 'ARBW00000000_GCA_000379905.1_ASM37990v1_genomic.fna.gz']
     '''
     paths = []
-    if ref:
+    if subdir:
         ref = f" from the {ref} argument"
+        dir = f'inputs/{subdir}/'
+    else:
+        ref = ""
+        dir = 'inputs/'
+    if not os.path.exists(dir):
+        os.makedirs(dir)
     for input in inputs:
         path_glob = glob.glob(input)
         # Catch non paths inputs
         if path_glob == []:
-            if not os.path.exists('inputs/'):
-                os.mkdir('inputs/')
             # Assume fasta accession ID. Try download file
-            with Popen(["download_genomes.sh", input], stdout=PIPE, stderr=PIPE, cwd='inputs/') as p:
+            with Popen(["download_genomes.sh", input], stdout=PIPE, stderr=PIPE, cwd=dir) as p:
                 stdout = p.stdout.read().decode('utf-8')
                 stderr = p.stderr.read().decode('utf-8')
 
             sys.stderr.write(stdout)
             sys.stderr.write(stderr)
-            path = glob.glob(f"inputs/{input}*")
+            path = glob.glob(f"{dir}{input}*")
             path = path[0] if path != [] else ''
 
             # Check if file was downloaded
@@ -5283,11 +5287,11 @@ if __name__ == '__main__':
 
     # Handle wildcards in positives, negatives and references
     if args.positives is not None:
-        args.positives = get_fasta_files(args.positives, ref='positives')
+        args.positives = get_fasta_files(args.positives, subdir='positives')
     if args.negatives is not None:
-        args.negatives = get_fasta_files(args.negatives, ref='negatives')
+        args.negatives = get_fasta_files(args.negatives, subdir='negatives')
     if args.references is not None:
-        args.references = get_fasta_files(args.references, ref='references')
+        args.references = get_fasta_files(args.references, subdir='references')
 
     args.quiet = False if args.verbose else True
 
