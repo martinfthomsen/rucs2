@@ -8,6 +8,12 @@ Martin Christen Frølund Thomsen, Henrik Hasman, Henrik Westh, Hülya Kaya, Ole 
 
 A freely available online implementation of the original RUCS can be found here: https://cge.food.dtu.dk/services/RUCS/
 
+
+## qPCR (Real-time PCR) ##
+There are two forms of qPCR: qPCR based on intercalating dyes, for example SYBR green; and hydrolysis probes such as TaqMan probes. The primary advantage of intercalating dyes is that they are cheaper than buying specific dye-tagged probes. However, dye binds non-specifically to doublestranded DNA, so the measured value can be misleading. For instance, dye may detect primer dimers or an unexpected amplification, rather than the target amplicons.
+Which brings us to the advantage of hydrolysis probes, they are specific to a target and only gives a signal when the  polymerase is incorporating the probe into the amplicon. Additionally, the specificity of TaqMan probes also allows for multiplexing. Ie. having multiple probes with different dyes attached. This makes it possible to check for multiple specific targets of interest in the same PCR reaction.
+
+RUCS supports both qPCR methods. For SYBR green, the standard options of RUCS will work. For TaqMan, the user has to specify the --pick_probe argument must be specified.
 ## RUCS - *R*apid Identification of PCR Primers Pairs for *U*nique *C*ore *S*equences ##
 This repository contains the source code for a bioinformatics tool, which have
 several usage cases:
