@@ -1353,9 +1353,9 @@ def create_symbolic_files(files, directory, reuse=False):
         if not os.path.exists(fil):
             raise OSError('OSError: File "%s" does not exist.'%fil)
         name = os.path.basename(fil)
-        sym_path = "%s/%s"%(directory, name)
+        sym_path = "%s/%s"%(directory.rstrip('/'), name)
         try:
-            _ = os.stat(sym_path)
+            _ = os.lstat(sym_path)
         except FileNotFoundError:
             os.symlink(os.path.abspath(fil), sym_path)
         except OSError:
@@ -4419,9 +4419,6 @@ def find_ucs(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
     else:
         exit('Settings error: invalid input format for PRIMER_PRODUCT_SIZE_RANGE, expected "list", got: ' + p3_args['PRIMER_PRODUCT_SIZE_RANGE'])
 
-    # Create reference directory to store reference links, and BWA index files
-    ref_dir = 'references'
-    if not os.path.exists(ref_dir): os.mkdir(ref_dir)
     try:
         log.progress.add('main', 'Running find_ucs', None)
 
@@ -4843,7 +4840,7 @@ def explore(positives, negatives, kmer_size=None, quiet=False, clean_run=True,
         exit('Settings error: invalid input format for PRIMER_PRODUCT_SIZE_RANGE, expected "list", got: ' + p3_args['PRIMER_PRODUCT_SIZE_RANGE'])
 
     # Create reference directory to store reference links, and BWA index files
-    ref_dir = 'references'
+    ref_dir = f'{work_dir}references'
     if not os.path.exists(ref_dir): os.mkdir(ref_dir)
     try:
         log.progress.add('main', 'Running exploration', None)
