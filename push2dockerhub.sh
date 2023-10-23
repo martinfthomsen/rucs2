@@ -2,29 +2,25 @@ DOCKER HUB
 
 create user (online - https://hub.docker.com/)
 create repository (online - https://hub.docker.com/)
+login to docker from cmdline:
+docker login --username=mcft
+# provide password
+
 docker tag <IMAGE> <USER>/<REPOSITORY>:<VERSION>
 docker push <USER>/<REPOSITORY>:<VERSION>
 
 
 # Get current version from git tag of current commit
-git checkout tags/1.0.1
+git checkout tags/v1.3.0
 version=$(git tag -l --points-at HEAD)
-pv=${version%.*}
-ppv=${pv%.*}
 docker-compose build
 
 # Update all versions variants
-docker tag rucs genomicepidemiology/rucs:$version
-docker tag rucs genomicepidemiology/rucs:$pv
-docker tag rucs genomicepidemiology/rucs:$ppv
-docker tag rucs genomicepidemiology/rucs
-
+docker tag rucs mcft/rucs2:$version
+docker tag rucs mcft/rucs2
 # Push all versions variants
-docker push genomicepidemiology/rucs:$version
-docker push genomicepidemiology/rucs:$pv
-docker push genomicepidemiology/rucs:$ppv
-docker push genomicepidemiology/rucs
-
+docker push mcft/rucs2:$version
+docker push mcft/rucs2
 
 HotFix procedure
 ==================
@@ -67,6 +63,3 @@ Made changes to wrong branch, and want to switch branch without loosing the chan
 # Delete hunks which you don't want to apply to the new branch
 # Stage and commit your changes
 # Delete stash when you are finished with it
-
-
-

@@ -6,6 +6,14 @@ This tool was created as part of a research project.
 For publication of results made using this tool, please cite:
 Martin Christen Frølund Thomsen, Henrik Hasman, Henrik Westh, Hülya Kaya, Ole Lund, RUCS: rapid identification of PCR primers for unique core sequences, Bioinformatics, Volume 33, Issue 24, December 2017, Pages 3917–3921, https://doi.org/10.1093/bioinformatics/btx526
 
+A freely available online implementation of the original RUCS can be found here: https://cge.food.dtu.dk/services/RUCS/
+
+
+## qPCR (Real-time PCR) ##
+There are two forms of qPCR: qPCR based on intercalating dyes, for example SYBR green; and hydrolysis probes such as TaqMan probes. The primary advantage of intercalating dyes is that they are cheaper than buying specific dye-tagged probes. However, dye binds non-specifically to doublestranded DNA, so the measured value can be misleading. For instance, dye may detect primer dimers or an unexpected amplification, rather than the target amplicons.
+Which brings us to the advantage of hydrolysis probes, they are specific to a target and only gives a signal when the  polymerase is incorporating the probe into the amplicon. Additionally, the specificity of TaqMan probes also allows for multiplexing. Ie. having multiple probes with different dyes attached. This makes it possible to check for multiple specific targets of interest in the same PCR reaction.
+
+RUCS supports both qPCR methods. For SYBR green, the standard options of RUCS will work. For TaqMan, the user has to specify the --pick_probe argument must be specified.
 ## RUCS - *R*apid Identification of PCR Primers Pairs for *U*nique *C*ore *S*equences ##
 This repository contains the source code for a bioinformatics tool, which have
 several usage cases:
@@ -35,8 +43,7 @@ classes and functions should be well documented in the source code.
 This is the main method, which combines fucs and fppp into one serial execution.
 
 Example of usage:
-```
-#!bash
+```bash
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
        rucs full -v --positives positives/* other/positive.fa --negatives negatives/*
 ```
@@ -58,8 +65,7 @@ contigs, containing the unique core sequences; dissected scaffolds,
 containing the fragments of the scaffolds which are usable for primer design.
 
 Example of usage:
-```
-#!bash
+```bash
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
        rucs fucs --positives positives/* --negatives negatives/*
 ```
@@ -76,8 +82,7 @@ annotated with gene annotations and the list of candidates with all relevant
 information is stored in a tab separated file.
 
 Example of usage:
-```
-#!bash
+```bash
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
        rucs fppp --template template.fa --positives positives/* --negatives negatives/*
 ```
@@ -86,8 +91,7 @@ docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
 Simulate PCR in silico for a list of primer pairs against a list of references
 
 Example of usage:
-```
-#!bash
+```bash
 docker run --rm -v `pwd`:/workdir \
        rucs vpcr --pairs pair_file.tsv --references references/*
 ```
@@ -99,8 +103,7 @@ It is reccommended to use the environment variable $BLASTDB to point to the
 BLAST repository, but a full path to the directory can also be provided.
 
 Example of usage:
-```
-#!bash
+```bash
 docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
        rucs anno --template template.fa
 ```   
@@ -110,10 +113,9 @@ This method will annotate a PCR primer set with PCR statistics, such as
 primer Tm, Hairpin Tm, primer-probe distance and much more.
 
 Example of usage:
-```
-#!bash
+```bash
 docker run --rm -v `pwd`:/workdir \
-       rucs spst --pairs pair_file.tsv --template template.fa
+       rucs pcrs --pairs pair_file.tsv --template template.fa
 ```
 
 ### expl - Explore the genomes ###
@@ -144,8 +146,7 @@ There are four specific settings for this feature:
  - align_percent_threshold [default 0.05] - The alignment percent threshold defines the acceptable amount of kmers to not be aligned to a contig. These k-mers are lost from further analysis to speed up the process. Set to 0, if you want as much data as possible.
 
 **Example of usage**
-```
-#!bash
+```bash
 docker run --rm -v `pwd`:/workdir rucs expl -v --positives positives/* --negatives negatives/*
 ```
 
@@ -177,8 +178,7 @@ where the downloaded files should be stored must be mounted to the internal
 arguments.
 
 The download script can be invoked like so:
-```
-#!bash
+```bash
 docker run -it --entrypoint download_genomes.sh --rm -v `pwd`/positives:/workdir rucs CP063056 ARBW00000000 BBXJ00000000
 docker run -it --entrypoint download_genomes.sh --rm -v `pwd`/negatives:/workdir rucs JWIZ01 JADGLC01 CP000672.1
 ```
@@ -192,6 +192,66 @@ https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=assembly&term=JWIZ
 If this site is able to load, the download script should also work.
 
 
+### View good primer pair from the dump file generated while running fppp/main ###
+This is useful if a job has failed, or you just want to have a look at the
+already identified good primer pairs candidates.
+
+1. Open a python terminal within the RUCS container.
+```bash
+docker run -it --entrypoint python3 --rm -v `pwd`:/workdir rucs
+```
+2. Extract the good primer pairs.
+```python
+import sys
+sys.path.append('/tools/')
+from primer_core_tools import *
+load_global_settings('settings.default.cjson')
+work_dir, ref_dir, result_dir = setup_directories(get_ref_dir=True)
+with open(f'{work_dir}good_primer_pairs.pkl', 'rb') as f:
+    reuse_i, too_short, skipped, ignored, no_pairs, good_pp = pickle.load(f)
+
+```
+3. Show the primer pairs on screen (good for small files).
+   Can be copy/pasted to an Excelsheet.
+```python
+print(present_pairs_full(good_pp))
+```
+4. Save the primer pairs as a tsv file (good for large files).
+   Can be opened and viewed in Excel.
+```python
+with open_('~/Downloads/good_primer_pairs.tsv', 'w') as f:
+    f.write(present_pairs_full(good_pp))
+```
+5. Define positives and negative set (the same order as the original run)
+```python
+positives = get_fasta_files(['inputs/positives/*'])
+negatives = get_fasta_files(['inputs/negatives/*'])
+```
+6. Extract PCR results.
+```python
+refs = positives + negatives
+lp = len(positives)
+pcr_products = []
+for p, pair in enumerate(good_pp):
+    pcr_products.append([[] for r in refs])
+    for r, ref in enumerate(positives):
+        pcr_products[p][r] = pair['products']['pos'][r]
+    for r, ref in enumerate(negatives):
+        pcr_products[p][lp+r] = pair['products']['neg'][r]
+
+```
+7. Show PCR results on screen (good for small files).
+   Can be copy/pasted to an Excelsheet.
+```python
+print_pcr_Results(refs, pcr_products)
+```
+8. Save the PCR results as a tsv file (good for large files).
+   Can be opened and viewed in Excel.
+```python
+print_pcr_Results(refs, pcr_products, '~/Downloads/products.tsv')
+```
+
+
 ## Installation and setup? ##
 1. Install and start docker
 2. Install the RUCS program
@@ -200,19 +260,25 @@ If this site is able to load, the download script should also work.
 ### Install the RUCS program ###
 There are several ways to install the RUCS programs
 
-#### Pull image from DockerHub (option 1) - The easiest ####
-https://hub.docker.com/r/genomicepidemiology/rucs/
+#### Pull latest image from DockerHub (option 1) - The easiest ####
+https://hub.docker.com/repository/docker/mcft/rucs2
 
 1. Pull image
 2. Tag image
 3. Run test and see if everything is ok and ready to use
 
 Commands for installation:
+```bash
+docker image pull mcft/rucs2
+docker tag mcft/rucs2 rucs
+docker run --rm -v `pwd`/test:/workdir -v $BLASTDB:/blastdb rucs test
 ```
-#!bash
+
+##### Pull the original version #####
+```bash
 docker image pull genomicepidemiology/rucs
 docker tag genomicepidemiology/rucs rucs
-docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
+docker run --rm -v `pwd`/test:/workdir -v $BLASTDB:/blastdb rucs test
 ```
 
 #### Clone Git repository and build image (option 2) - the more challenging ####
@@ -221,12 +287,11 @@ docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
 3. Run test and see if everything is ok and ready to use
 
 Commands for installation:
-```
-#!bash
+```bash
 git clone https://github.com/martinfthomsen/rucs2
 cd rucs2
 docker-compose build
-docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
+docker run --rm -v `pwd`/test:/workdir -v $BLASTDB:/blastdb rucs test
 ```
 
 #### Direct install (option 3) - the most challenging ####
@@ -234,8 +299,7 @@ docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs test
 system from the Dockerfile.
 After everything is installed and ready, Verify that all dependencies are in
 your local PATH and the Python modules are properly installed:
-```
-#!bash
+```bash
 which python3 samtools bwa blastn blastx makeblastdb
 python3 -c 'import gzip, json, types, shutil, glob, bisect, primer3, numpy, subprocess, difflib, tabulate'
 ```
@@ -246,8 +310,7 @@ A BLAST protein database must be installed separately if you want RUCS to
 annotate the results with protein annotations. we recommend installing the
 swissprot database. It is recommended to use the environment variable $BLASTDB
 to point to the BLAST database.
-```
-#!bash
+```bash
 BLASTDB=/blastdb
 mkdir $BLASTDB
 docker run --rm --entrypoint update_blastdb.pl -v $BLASTDB:/workdir rucs --decompress swissprot
@@ -255,15 +318,13 @@ docker run --rm --entrypoint update_blastdb.pl -v $BLASTDB:/workdir rucs --decom
 
 If you are using the the $BLASTDB environment variable, it is recommended to set
 it in your bash_profile file:
-```
-#!bash
+```bash
 echo "BLASTDB=$BLASTDB" >> ~/.bash_profile
 ```
 
 Alternatively, it is possible to run the local script to this repo
 (install_db.sh), to download multiple databases in parallel:
-```
-#!bash
+```bash
 ./install_db.sh $BLASTDB swissprot
  ```
 The alternative script also downloads the file all_blast_db_files.txt, which
@@ -274,7 +335,7 @@ You can also choose to download other databases such as refseq_protein.
 Downloading the refseq_protein database can take a while, since the database
 is > 20 GB...
 
-**OBS: If you don't need the annotation capabilities, you can opt out of this!**
+***OBS: If you don't need the annotation capabilities, you can opt out of this!***
 
 
 ## Usage example? ##
@@ -282,45 +343,101 @@ is > 20 GB...
 
 ### See help menu ###
 To see the help page, run the following command:
-```
-#!bash
+```bash
 docker run --rm rucs --help
  ```
 
 ### Example of full run using default options ###
-This example assumes that the $BLASTDB environment variable is set. Here are the
-steps:
-1. Create run directory
-2. Setup positive dataset
-   - download/copy the positive sequences
-3. Setup negative dataset
-   - download/copy the negative sequences
-4. Run the full RUCS command
-5. Inspect the results, etc.
+This example below assumes that the $BLASTDB environment variable is set.
 
+*Command:*
+```bash
+docker run --rm -v `pwd`/test:/workdir -v $BLASTDB:/blastdb rucs full --positives CP000672.1 ARBW00000000 --negatives JWIZ01
 ```
-#!bash
-mkdir ~/my_first_rucs_analysis && cd $_
-docker run -it --entrypoint download_genomes.sh --rm -v `pwd`/positives:/workdir rucs CP000672.1 ARBW00000000
-docker run -it --entrypoint download_genomes.sh --rm -v `pwd`/negatives:/workdir rucs JWIZ01
-docker run --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb \
-       rucs full --positives positives/* --negatives negatives/*
+RUCS will create the run directory "test" in your current directory, download
+the fasta files for the two provided accession IDs in the positives argument,
+and the single accession ID in the negatives argument. RUCS will then run the
+full analysis algorithm to identify the good PCR primer pairs that only produces
+amplicons for the samples in the positives argument.
 
- ```
+
+As the -v option is provided to RUCS, the screen should display the following
+progress log information:
+```bash
+processing CP000672.1...
+found GCA_000016485.1_ASM1648v1_genomic.fna.gz! Downloading...
+processing ARBW00000000...
+found GCA_000379905.1_ASM37990v1_genomic.fna.gz! Downloading...
+processing JWIZ01...
+found GCA_001038205.1_ASM103820v1_genomic.fna.gz! Downloading...
+# Running RUCS...
+#    Prepare reference: CP000672.1_GCA_000016485.1_ASM1648v1_genomic.fna.gz...
+#    Prepare inputs: 2 positive and 1 negative genomes...
+#    Finding unique core sequences...
+#       Computing k-mer intersection...
+#          Extracting k-mers from CP000672.1_GCA_000016485.1_ASM1648v1_genomic.fna.gz...
+#          Extracting k-mers from ARBW00000000_GCA_000379905.1_ASM37990v1_genomic.fna.gz...
+#       Aligning core_kmers.fq to reference.fa...
+#       Computing k-mer contigs and scaffolds...
+#       Computing k-mer complement to the negative genomes...
+#          Extracting k-mers from JWIZ01_GCA_001038205.1_ASM103820v1_genomic.fna.gz...
+#          Filtering the negative k-mers found in {os.path.basename(genome)}...
+#       Computing k-mer contigs and scaffolds...
+#    Find valid primer pairs for PCR...
+#       Scanning contig 0_1375921_0 for primer pairs...
+#       Aligning primers to positive references...
+#          Aligning primers.fa to CP000672.1_GCA_000016485.1_ASM1648v1_genomic.fna.gz...
+#          Aligning primers.fa to ARBW00000000_GCA_000379905.1_ASM37990v1_genomic.fna.gz...
+#       Aligning primers to negative references...
+#          Aligning primers.fa to JWIZ01_GCA_001038205.1_ASM103820v1_genomic.fna.gz...
+#       Ranking primer pairs...
+#       Sorting primer pairs...
+#       Validating primer pairs...
+#       Current good pp: 71...
+#       Annotating PCR product environment...
+372 sequence were ignored since they were not in the sequence selection!
+```
+Your new run directory should now hold the following files:
+
+```bash
+ARBW00000000_GCA_000379905.1_ASM37990v1_genomic.fna.gz
+CP000672.1_GCA_000016485.1_ASM1648v1_genomic.fna.gz
+JWIZ01_GCA_001038205.1_ASM103820v1_genomic.fna.gz
+core_sequences.aux.tsv
+core_sequences.contigs.fa
+core_sequences.disscafs.fa
+core_sequences.scaffolds.fa
+pairs.json
+pcr_products_with_skirts.blastx.err
+pcr_products_with_skirts.blastx.tsv
+pcr_products_with_skirts.fa
+primers.fa
+products.tsv
+results.tsv
+results_best.tsv
+stats.log
+unique_core_sequences.aux.tsv
+unique_core_sequences.contigs.fa
+unique_core_sequences.disscafs.fa
+unique_core_sequences.scaffolds.fa
+```
+
+You will find a list of the best candidates in the "results_best.tsv" file.
+
 
 ### Example of running in interactive mode ###
 This example assumes the same setup steps as the example of the full run
 (step 1-3) has been performed.
-Steps:
-4. Run the docker image in interactive mode
-5. Run the full analysis command directly on the main script
-6. Inspect the results, etc.
 
-```
-#!bash
+Steps:
+
+1. Run the docker image in interactive mode
+2. Run the full analysis command directly on the main script
+3. Inspect the results, etc.
+
+```bash
 docker run -it --entrypoint /bin/bash --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs
 primer_core_tools.py full --positives positives/* other/positive.fa --negatives negatives/*
-
 ```
 In the interactive mode, you are inside the RUCS container, and you will only be
 able to interact with the container and the material you bring with you through
@@ -329,60 +446,137 @@ You can run any command available in there and manipulate what ever files you
 wish. OBS! Only changes made in the mounted directories are kept after you exit
 the container.
 
+#### Open interactive python terminal inside the container ####
 You can also run python inside the container and import the primer core tools
-from RUCS:
-```
-#!bash
+from RUCS.
+
+The following command will open an interactive terminal inside the RUCS container.
+```bash
 docker run -it --entrypoint python3 --rm -v `pwd`:/workdir -v $BLASTDB:/blastdb rucs
-import sys
-sys.path.append('/tools/')
-from primer_core_tools import *
-load_global_settings('settings.default.cjson')
-positives = [x for x in glob.glob("positives/*") if check_file_type(x) == 'fasta']
-negatives = [x for x in glob.glob("negatives/*") if check_file_type(x) == 'fasta']
-reference = positives[0]
-main(positives, negatives, reference, quiet=False, clean_run=True, annotate=True)
+```
+
+#### Run full RUCS through interactive python terminal ####
+The following commands will run the full RUCS algorithm using the files in the
+positives directory as the positives references, and vice-versa for the
+negatives references.
+```python
+>>> import sys
+>>> sys.path.append('/tools/')
+>>> from primer_core_tools import *
+>>> load_global_settings('settings.default.cjson')
+>>> positives = [x for x in glob.glob("positives/*") if check_file_type(x) == 'fasta']
+>>> negatives = [x for x in glob.glob("negatives/*") if check_file_type(x) == 'fasta']
+>>> reference = positives[0]
+>>> main(positives, negatives, reference, quiet=False, clean_run=True, annotate=True)
+...
+```
+
+#### Look for available files ####
+To check which files are available to you in your directories you can run the
+following command.
+
+This example finds all files ending with ".fa" in your current working directory
+```python
+>>> find_files('*.fa')
+['core_sequences.contigs.fa', 'core_sequences.disscafs.fa', ...]
+```
+
+#### Load fasta file ####
+Sometimes when working with RUCS, it is nice to be able to interact with the
+sequence data from the involved fasta files.
+
+Below is an example of how to parse a fasta file and store the sequences in a list
+```python
+>>> my_seqs = [seq for seq, name, desc in seqs_from_file('bla.fa')]
+>>> my_seqs[0]
+'ATGCGACCATTTTT...'
+```
+
+#### Load results_best.tsv ####
+The primary results from RUCS are stored in the results_best.tsv file. These are
+the good primer pair candidates identified to spefically produce amplicons for
+the positives references. The results are stored as a TSV file which can be
+loadet and processed in the terminal.
+
+Below is an example of how to load the identified primer pairs and statistics
+from results_best.tsv and extract useful information.
+```python
+>>> results = parse_tsv('results_best.tsv')
+>>> results[0]['sequence_id']
+'0_1375921_0'
+>>> results[0]['forward_primer']
+'CACCCAGTAGAGCACACTTTG'
+>>> results[0]['forward_position']
+'2525'
+```
+
+#### Extract subsequence from sequence ####
+In the results_best.tsv file you will find the primer/probe positions, but as
+the positions here refer to the position in the dissected scaffold of the unique
+core sequence, it rarely translates into the position in the reference sequence.
+However, the results also provides the sequence id from the dissected scaffolds,
+which provides the necessary information to compute the primer/probe position
+relative to the reference sequence.
+
+The first number of the sequence id refer to the index of the sequence in the
+reference.
+The second number of the sequence id refer to the position of the dissected
+scaffold in the reference sequence.
+
+Below is an example of how to use the sequence id and the forward_position to
+extract the forward_primer sequence from the reference sequence.
+```python
+>>> sequence_id = "0_1375921_0"
+>>> forward_primer = "CACCCAGTAGAGCACACTTTG"
+>>> forward_position = "2525"
+>>> sid = int(sequence_id.split('_')[0])
+>>> spos = int(sequence_id.split('_')[1])
+>>> ppos = int(forward_position)
+>>> length = len(forward_primer)
+>>> my_seqs[sid][spos+ppos:spos+ppos+length] == forward_primer
+True
 ```
 
 
 ## Result Explanation ##
 
-#### full run ####
+### full run ###
 The full run creates 8 note worthy files.
-**debug.log** This file gives an overview and statistics on the progress.
+**stats.log** This file gives an overview and statistics on the progress.
 
 The fucs part of the algorithm produces 3 important result files:
-* core_sequences.contigs.fa
-* unique_core_sequences.contigs.fa
-* unique_core_sequences.disscafs.fa
-These files contain the core sequences and unique core sequences respectively in
-two formats. Contigs contains the clean sequences annotated with position in the
-reference. disscafs contains the dissected scaffolds, where the sequences which
+* **core_sequences.contigs.fa** This file contain the core sequences, the sequences which are common to all the positive references .
+* **unique_core_sequences.contigs.fa** This file contain the unique core sequences, the sequences which are common to all the positive references and not found in any of the negative references.
+* **unique_core_sequences.disscafs.fa** This file contain the dissected scaffolds for the unique core sequences.
+
+*contigs* contains the clean sequences annotated with position in the reference.
+
+*disscafs* contains the dissected scaffolds, where the sequences which
 are close in proximity have been joined with stretches of n's to fill out the
 gaps between the sequences.
+This makes it possible to identify primer pairs which are uniquely binding but where the amplicon contains non-unique stretches of DNA.
 
 The fppp part of the algorithm creates 3 important files:
-**results_best.tsv** This file shows the best matches
-**results.tsv** This shows the details for all the tested pairs
-**products.tsv** This file shows the vpcr results for all the tested pairs
+* **results_best.tsv** This file shows the best matches for primer pair candidates.
+* **results.tsv** This file provides an exaustive list of all the tested primer pair candidates.
+* **products.tsv** This file provides the results of the virtual PCR for all tested primer pair candidates.
 
-#### fucs run ####
+### fucs run ###
 See first part of the full run
 
-#### fppp run ####
+### fppp run ###
 See last part of the full run
 
-#### vpcr run ####
+### vpcr run ###
 This entry point provides one important file
 **products.tsv** This file shows the vpcr results for all the tested pairs
 
-#### anno run ####
+### anno run ###
 This entry point provides no result files, but instead shows the annotations
 found directly on the screen in a json format.
 EG.
-```
-#!json
-{'0': [(1, 735, ['DIM/GIM/SIM family subclass B1 metallo-beta-lactamase'])]}
+```json
+{"0": [1, 735, ["DIM/GIM/SIM family subclass B1 metallo-beta-lactamase"]]}
 ```
 The key **'0'** is the contig name where the annotaion was discovered.
 
@@ -396,13 +590,28 @@ The third item in a hit
 **['DIM/GIM/SIM family subclass B1 metallo-beta-lactamase']** is a reduced list
 of BLAST annotations matching the given hit.
 
-#### pcrs run ####
+### pcrs run ###
 This entry point provides no result files, but instead shows the the statistics
 for the provided pairs directly on the screen.
 
+### expl run ###
+The Explore entrypoint is similar to the fucs entry point. But where fucs method is
+focussed on identifying unique core sequences, the Explore method tries to find
+over-represented (ors) and under-represented sequences (urs):
+* **ors.contigs.fa** This file contain the contigs of the over-represented sequences.
+* **ors.disscafs.fa** This file contain the dissected scaffolds of the over-represented sequences.
+* **urs.contigs.fa** This file contain the contigs of the under-represented sequences.
+* **urs.disscafs.fa** This file contain the dissected scaffolds of the under-represented sequences.
+
+ORS can be used to identify primer pairs to target most of the positive references, and
+URS can be used to identify primer pairs to target most of the negative references.
+
+For instance, sometimes what strains have in common might not be what DNA they share, but ratcher what they are missing. The URS will provide this insight of any missing DNA.
+The explore method stops at this stage. To get primer pair identification, Virtual PCR, etc. please run the FPPP method using either the ors.disscafs.fa or urs.disscafs.fa as the template option.
+
 
 ## Troubleshoot ##
-#### MAC OS: BLAST annotation fails without errors! ####
+### MAC OS: BLAST annotation fails without errors! ###
 This is probably caused by lack of RAM. For MACs and Windows, a virtual machine
 is used to run a Linux environment where Docker can run. This machine has a
 limit on how much of the host's RAM it may access. Check if you have enough RAM
@@ -410,8 +619,7 @@ allocated, or try to increase the amount of RAM for your machine. Otherwise,
 consider using a smaller BLAST database.
 
 ## Docker Cleanup Commands ##
-```
-#!bash
+```bash
 # Stop and remove all containers (instances of images)
 docker rm $(docker stop $(docker ps -aq))
 # Remove all exited containers
@@ -422,20 +630,24 @@ docker rmi $(docker images -qf "dangling=true")
 docker volume rm $(docker volume ls -qf dangling=true)
 ```
 
-## Who do I talk to? ##
+## Contact ##
 You can report your issues here: https://github.com/martinfthomsen/rucs2/issues
 
 
-License
-=======
+## License ##
 
-RUCS 2: https://github.com/martinfthomsen/rucs2
-Copyright (c) 2023, Martin Christen Frølund Thomsen.
+**RUCS 2**: https://github.com/martinfthomsen/rucs2
 
-Original RUCS: https://bitbucket.org/genomicepidemiology/rucs
-Copyright (c) 2017, Martin Christen Frølund Thomsen, Technical University of Denmark.
+Copyright ©️ 2023, Martin Christen Frølund Thomsen.
 
-All rights reserved.
+
+**Original RUCS**: https://bitbucket.org/genomicepidemiology/rucs
+
+Copyright ©️ 2017, Martin Christen Frølund Thomsen, Technical University of Denmark.
+
+
+*All rights reserved.*
+
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -443,8 +655,10 @@ You may obtain a copy of the License at
 
    http://www.apache.org/licenses/LICENSE-2.0
 
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+
 See the License for the specific language governing permissions and
 limitations under the License.

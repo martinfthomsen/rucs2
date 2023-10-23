@@ -15,7 +15,7 @@ next minor code release.
 
 ## Making a Release ##
 To make a new release:
-1. Create a new branch from the master branch
+1. Create a new development branch from the master branch
    a) if it is a new patch, prefix it with the release type: "patch/"
    b) if it is a new feature, prefix it with the release type: "feature/"
    c) if it is a new product, prefix it with the release type: "product/"
@@ -26,10 +26,78 @@ fx feature/add_explore_mode
    docker-compose build
 5. Test and verify that the code functions as expected
 6. Create pull request for the branch to the master
-    - Go to the repo in a webbrowser https://github.com/martinfthomsen/rucs2
-    - Spe
+    - Go to the pull request pane for the repo https://github.com/martinfthomsen/rucs2/pulls
+    - Click "New pull request" button
+    - Select the development branch you wish to merge with the master branch
+    - Verify everything look ok for merging and resolve any listed issues
+    - Click "Create pull request"
+    - Write some description of the new additions/changes
+    - Make sure to link to the issues which this branch resolves (using the # tag fx. #1 for issue nummer one 1)
+    - Submit the pull request
 7. Merge pull request
+    - Go to the pull request pane for the repo https://github.com/martinfthomsen/rucs2/pulls
+    - Click on the pull request you wish to merge
+    - Verify that everything is in order for the merger (or reject it)
+    - Click to merge the pull request
+    - Confirm the merger
 8. Publish a new release for the new commit to the master branch
+    - Go to the newly merged commit to the master branch
+    - Add tag with a name according to the release using semantic versioning. fx. v1.2.0. (remember to push it to the server if you add the tag locally)
+      The first number is the product release
+      The second number is the feature release
+      The third number is the patch release
+      According to the branch type being merged, increment the correct number.
+      If it is a new feature release, remember to reset the patch number to 0.
+      And if it is a product release, both feature and patch number should be reset to 0.
+    - Go to the releases pane for the repo https://github.com/martinfthomsen/rucs2/releases
+    - Click on "Draft a new release"
+    - Choose the tag of the new release
+    - Use the tag name as the release name
+    - Click "Generate release notes"
+    - Finish the release notes with ample documentation of the changes
+      Suggestion: Look up the pull request description, as they might contain a good description of the changes.
+      Suggestion: Look at a previos release note for inspiration of how to write the new release note
+      Suggestion: Look at the contained git commits descriptions for further details
+    - Publish release
+
+
+## Pushing to DockerHub ##
+1. login to docker from cmdline:
+```
+docker login --username=<USER>
+# provide password
+```
+2. Checkout the git tag you wish to submit
+```
+git checkout tags/<TAG>
+version=$(git tag -l --points-at HEAD)
+```
+3. Build image
+```
+docker-compose build
+```
+4. Add local docker tags for the build
+```
+docker tag rucs <USER>/rucs2:$version
+docker tag rucs <USER>/rucs2
+```
+5. Push tagged builds to DockerHub
+```
+docker push <USER>/rucs2:$version
+docker push <USER>/rucs2
+```
+
+### Example ###
+```
+docker login --username=mcft
+git checkout tags/v1.3.0
+version=$(git tag -l --points-at HEAD)
+docker-compose build
+docker tag rucs mcft/rucs2:$version
+docker tag rucs mcft/rucs2
+docker push mcft/rucs2:$version
+docker push mcft/rucs2
+```
 
 
 ## Debugging ##

@@ -1,0 +1,80 @@
+
+[1;4mPCR Stat Analysis for pair 1[0m
+
+PCR product size: 344bp
+
+         Sequence
+Forward: AGATGTCAACATTGATTTCTTGACCT
+Reverse: GGCGTTGACGTGCAGATC
+Probe:   None
+
+             Forward  Reverse  Probe
+Length:         26       18      N/A  
+GC% content:    34.6     61.1    N/A
+Melting Tm:  [32m   57.1  [32m   57.1  [0m  N/A[0m
+Homo dimer:  [0m    -    [0m    -    [0m  N/A[0m
+Hairpin:     [0m    -    [0m    -    [0m  N/A[0m
+
+              Fw-Rv  Fw-Pr  Rv-Pr
+Hetero dimer: [32m  9.2  [0m  N/A  [0m  N/A[0m
+
+
+[1;4mPCR Stat Analysis for pair 2[0m
+
+PCR product size: 457bp
+
+         Sequence
+Forward: ATGAAGATCATTTCTTTGGCACCA
+Reverse: GCATGACAGATTTGTAGCCGAA
+Probe:   None
+
+             Forward  Reverse  Probe
+Length:         24       22      N/A  
+GC% content:    37.5     45.5    N/A
+Melting Tm:  [32m   57.1  [32m   57.2  [0m  N/A[0m
+Homo dimer:  [0m    -    [0m    -    [0m  N/A[0m
+Hairpin:     [0m    -    [0m    -    [0m  N/A[0m
+
+              Fw-Rv  Fw-Pr  Rv-Pr
+Hetero dimer: [0m  -    [0m  N/A  [0m  N/A[0m
+
+
+[1;4mPCR Stat Analysis for pair 3[0m
+
+PCR product size: 957bp
+
+         Sequence
+Forward: ATGAAGATCATTTCTTTGGCACCA
+Reverse: CGCGTGCTTTCATTGATTGTTT
+Probe:   None
+
+             Forward  Reverse  Probe
+Length:         24       22      N/A  
+GC% content:    37.5     40.9    N/A
+Melting Tm:  [32m   57.1  [32m   57.1  [0m  N/A[0m
+Homo dimer:  [0m    -    [0m    -    [0m  N/A[0m
+Hairpin:     [0m    -    [0m    -    [0m  N/A[0m
+
+              Fw-Rv  Fw-Pr  Rv-Pr
+Hetero dimer: [0m  -    [0m  N/A  [0m  N/A[0m
+
+
+[1;4mPCR Stat Analysis for pair 4[0m
+
+PCR product size: 682bp
+
+         Sequence
+Forward: ATGAAGATCATTTCTTTGGCACCA
+Reverse: GTTCAAAGAACTCCCACATACGC
+Probe:   None
+
+             Forward  Reverse  Probe
+Length:         24       23      N/A  
+GC% content:    37.5     47.8    N/A
+Melting Tm:  [32m   57.1  [32m   58.0  [0m  N/A[0m
+Homo dimer:  [0m    -    [0m    -    [0m  N/A[0m
+Hairpin:     [0m    -    [0m    -    [0m  N/A[0m
+
+              Fw-Rv  Fw-Pr  Rv-Pr
+Hetero dimer: [32m  6.5  [0m  N/A  [0m  N/A[0m
+
