@@ -19,7 +19,7 @@ To make a new release:
    a) if it is a new patch, prefix it with the release type: "patch/"
    b) if it is a new feature, prefix it with the release type: "feature/"
    c) if it is a new product, prefix it with the release type: "product/"
-2. Name the release using a short but descriptive title in snake-case.
+2. Name the release using a short but descriptive title in snake case.
 fx feature/add_explore_mode
 3. Make the needed changes to your local the repo
 4. Build the Docker image
@@ -41,7 +41,7 @@ fx feature/add_explore_mode
     - Click to merge the pull request
     - Confirm the merger
 8. Publish a new release for the new commit to the master branch
-    - Go to the newly merged commit to the master branch
+    - Go to the newly merged commit to the master branch (fx on your local instance)
     - Add tag with a name according to the release using semantic versioning. fx. v1.2.0. (remember to push it to the server if you add the tag locally)
       The first number is the product release
       The second number is the feature release
