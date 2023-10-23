@@ -4129,20 +4129,23 @@ def print_pcr_Results(refs, pcr_results, output=None):
     product format: [fw_contig_name, fw_strand, fw_position, rv_contig_name, rv_strand, rv_position, [fw_grade, rv_grade (, pr_grade)], [fw_tm, rv_tm (, pr_tm)], product_size]
 
     """
+    # Check if alternative IDs for the input files exists
+    input_details = {os.path.basename(x['filepath']):x['id'] for x in parse_tsv('inputs/inputs.tsv') if 'filepath' in x}
     if output is not None:
         if '/' not in output or os.path.exists(os.path.dirname(output)):
             with open_(output, 'w') as f:
-                f.write(f"Pair\\ref\t" + '\t'.join(map(os.path.basename, refs)))
+                f.write(f"Pair\\ref\t" + '\t'.join((input_details.get(os.path.basename(r), os.path.basename(r)) for r in refs)))
                 f.write('\n')
                 f.write('\n'.join([f"{i}:\t" + '\t'.join((','.join([f"{p[-1]}({round_sig(p[6][0]*p[6][1]/25*p[6][2]/5) if len(p[6]) == 3 else round_sig(p[6][0]*p[6][1]/25)})" for p in ppr]) for ppr in ppp)) for i, ppp in enumerate(pcr_results)]))
                 f.write('\n')
         else:
-            print(f"Pair\\ref\t" + '\t'.join(map(os.path.basename, refs)))
+            f.write(f"Pair\\ref\t" + '\t'.join((input_details.get(os.path.basename(r), os.path.basename(r)) for r in refs)))
             print('\n'.join([f"{i}:\t" + '\t'.join((','.join([f"{p[-1]}({round_sig(p[6][0]*p[6][1]/25*p[6][2]/5) if len(p[6]) == 3 else round_sig(p[6][0]*p[6][1]/25)})" for p in ppr]) for ppr in ppp)) for i, ppp in enumerate(pcr_results)]))
             raise OSError('Error: Output path directory do not exist!')
     else:
-        print(f"Pair\\ref\t" + '\t'.join(map(os.path.basename, refs)))
+        f.write(f"Pair\\ref\t" + '\t'.join((input_details.get(os.path.basename(r), os.path.basename(r)) for r in refs)))
         print('\n'.join([f"{i}:\t" + '\t'.join((','.join([f"{p[-1]}({round_sig(p[6][0]*p[6][1]/25*p[6][2]/5) if len(p[6]) == 3 else round_sig(p[6][0]*p[6][1]/25)})" for p in ppr]) for ppr in ppp)) for i, ppp in enumerate(pcr_results)]))
+
 
 def generate_sequence_atlas_data_file(reference_file, core_sequence_file, unique_core_sequence_file, aux_file, file_name='results.json'):
     ''' Generate Sequence Atlas data file (json)
@@ -5037,37 +5040,63 @@ def get_fasta_files(inputs, subdir=''):
     '''
     paths = []
     if subdir:
-        ref = f" from the {ref} argument"
+        ref = f" from the {subdir} argument"
         dir = f'inputs/{subdir}/'
     else:
         ref = ""
         dir = 'inputs/'
     if not os.path.exists(dir):
         os.makedirs(dir)
-    for input in inputs:
-        path_glob = glob.glob(input)
-        # Catch non paths inputs
-        if path_glob == []:
-            # Assume fasta accession ID. Try download file
-            with Popen(["download_genomes.sh", input], stdout=PIPE, stderr=PIPE, cwd=dir) as p:
-                stdout = p.stdout.read().decode('utf-8')
-                stderr = p.stderr.read().decode('utf-8')
+    # Load previous inputfile if existing to dictionary
+    try:
+        prev_inputs = parse_tsv('inputs/inputs.tsv')
+        headers = [x.lower() for x in prev_inputs[0].keys()]
+        prev_inputs = {x['id']:x for x in prev_inputs}
+    except (IndexError, FileNotFoundError) as e:
+        prev_inputs = {}
+        headers = ['id', 'filepath', 'accession', 'genus', 'species', 'strain']
+    # Open or Make input list file
+    with open('inputs/inputs.tsv', 'a') as f:
+        if not prev_inputs:
+            # Initiate input list
+            f.write('#%s\n'%'\t'.join(headers))
+        # Check input files
+        for input in inputs:
+            path_glob = glob.glob(input)
+            # Catch non paths inputs
+            if path_glob == []:
+                # Assume fasta accession ID
+                # Check if inputfile was processed previously
+                if input in prev_inputs:
+                    paths.append(prev_inputs[input]['filepath'])
+                else:
+                    # Try download file
+                    with Popen(["download_genomes.sh", input], stdout=PIPE, stderr=PIPE, cwd=dir) as p:
+                        stdout = p.stdout.read().decode('utf-8')
+                        stderr = p.stderr.read().decode('utf-8')
 
-            sys.stderr.write(stdout)
-            sys.stderr.write(stderr)
-            path = glob.glob(f"{dir}{input}*")
-            path = path[0] if path != [] else ''
+                    sys.stderr.write(stdout)
+                    sys.stderr.write(stderr)
+                    path = glob.glob(f"{dir}{input}*")
+                    path = path[0] if path != [] else ''
 
-            # Check if file was downloaded
-            if os.path.exists(path):
-                # Add path to paths
-                paths.append(path)
+                    # Check if file was downloaded
+                    if os.path.exists(path):
+                        # Add path to paths
+                        paths.append(path)
+                        # Save input details for later use
+                        values = ['' for h in headers]
+                        values[headers.index('id')] = input
+                        values[headers.index('filepath')] = path
+                        values[headers.index('accession')] = input
+                        f.write('\t'.join(values))
+                        f.write('\n')
+                    else:
+                        sys.stderr.write(f'WARNING: The following input path{ref}: "{input}" '
+                                         'was ignored, due to not being a valid file path or'
+                                         ' known accession id!\n')
             else:
-                sys.stderr.write(f'WARNING: The following input path{ref}: "{input}" '
-                                 'was ignored, due to not being a valid file path or'
-                                 ' known accession id!\n')
-        else:
-            paths.extend(path_glob)
+                paths.extend(path_glob)
 
     nonfasta = [os.path.basename(x) for x in paths if check_file_type(x) != 'fasta']
     if nonfasta:
