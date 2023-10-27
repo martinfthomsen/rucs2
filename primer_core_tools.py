@@ -79,6 +79,7 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
     stats_file = f'{result_dir}{name}stats.log'
     pairs_json_file = f'{result_dir}{name}pairs.json'
     products_file = f'{result_dir}{name}products.tsv'
+    full_products_file = f'{result_dir}{name}products_full.tsv'
     results_file = f'{result_dir}{name}results.tsv'
     results_file_best = f'{result_dir}{name}results_best.tsv'
 
@@ -137,20 +138,41 @@ def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,
             json.dump(pairs[:no_tested_pp], f)
 
         # Create test summary file
-        with open_(products_file, 'w') as f:
+        with open_(full_products_file, 'w') as f:
             rp = range(len(positives))
             rn = range(len(negatives))
             f.write('#%s\t%s\n'%('\t'.join(('P_%s'%(x+1) for x in rp)),
                                  '\t'.join(('N_%s'%(x+1) for x in rn))))
-            f.write('\n'.join(('\t'.join(
-                (','.join(map(str, sorted(x, key=int))) for x in
-                (p['products']['pos'] + p['products']['neg'] if 'test' in p else [])
-                )) for p in pairs[:no_tested_pp])))
+            f.write('\n'.join(
+                ('\t'.join(  # old version, kept for later debugging
+                    [','.join(str(y[-1]) for y in x) for x in p['products']['pos']]
+                    + [','.join(str(y[-1]) for y in x) for x in p['products']['neg']]
+                    if 'test' in p else []
+                    ) for p in pairs[:no_tested_pp])
+                ))
+
+        # Prepare reference and pcr_products list
+        refs = positives + negatives
+        lp = len(positives)
+        pcr_products = []
+        for p, pair in enumerate(good_pp):
+            pcr_products.append([[] for r in refs])
+            for r, ref in enumerate(positives):
+                pcr_products[p][r] = pair['products']['pos'][r]
+            for r, ref in enumerate(negatives):
+                pcr_products[p][lp+r] = pair['products']['neg'][r]
+
+        # Pickle dump of products
+        with open_(f'{work_dir}pcr_products.pkl', 'wb') as f:
+            pickle.dump(pcr_products, f)
+
+        # Print PCR results to products file
+        print_pcr_Results(refs, pcr_products, products_file)
 
         # Create tab separated summary file of good pairs
         with open_(results_file_best, 'w') as f:
             f.write(present_pairs_full(good_pp))
-        # Create tab separated summary file of all pairs
+        # Create tab separated summary file of results
         with open_(results_file, 'w') as f:
             f.write(present_pairs_full(pairs[:no_tested_pp]))
     except UserWarning as msg:
@@ -4130,7 +4152,10 @@ def print_pcr_Results(refs, pcr_results, output=None):
 
     """
     # Check if alternative IDs for the input files exists
-    input_details = {os.path.basename(x['filepath']):x['id'] for x in parse_tsv('inputs/inputs.tsv') if 'filepath' in x}
+    try:
+        input_details = {os.path.basename(x['filepath']):x['id'] for x in parse_tsv('inputs/inputs.tsv') if 'filepath' in x}
+    except:
+        input_details = {}
     if output is not None:
         if '/' not in output or os.path.exists(os.path.dirname(output)):
             with open_(output, 'w') as f:
