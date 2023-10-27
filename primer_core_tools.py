@@ -4961,20 +4961,28 @@ def pcrs(args):
     pairs = get_pairs(args.pairs)
     to_upper = settings['input']['to_upper']
     buffer = settings['input']['use_ram_buffer']
+    pcr_stats(pairs, args.template, to_upper, buffer)
 
+def pcr_stats(pairs, template=None, to_upper=True, buffer=False):
+
+    ''' Show PCR Statistics - Analyse the temperature and more for the provided
+    primer pairs.
+
+    MINIMUM CMDLINE ARGUMENT INPUTS:
+       --pairs pair_file.tsv        - This is a tab-separated file listing the forward and reverse primer sequences (and probes)
+       --template template.fa       - This is a fasta file containing the template where the primers and probes align to
+    '''
     # Get first template entry
-    if args.template is not None:
+    if template is not None:
         try:
-            for seq, n, d in seqs_from_file(args.template, to_upper=to_upper,
+            for seq, n, d in seqs_from_file(template, to_upper=to_upper,
                                             use_ram_buffer=buffer):
                 template = seq
                 break
         except:
-            sys.stderr.write('Template: %s\n'%args.template)
+            sys.stderr.write('Template: %s\n'%template)
             sys.stderr.write('Warning: Template not valid!\n')
             template = None
-    else:
-        template = None
 
     # Show PCR stats for each pair
     for i, seqs in enumerate(pairs):
