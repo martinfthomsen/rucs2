@@ -73,8 +73,9 @@ RUN wget https://ftp.ncbi.nlm.nih.gov/entrez/entrezdirect/edirect.tar.gz && \
     chmod +x xtract.Linux rchive.Linux transmute.Linux
 
 # Copy repository files to /tools/
-COPY ./primer_core_tools.py /tools/
-COPY ./settings.default.cjson /tools/
+COPY ./rucs /tools/rucs
+COPY ./cli.py /tools/
+COPY ./settings.default.cjson /tools/rucs/
 COPY ./download_genomes.sh /tools/
 COPY ./testdata/* /tools/testdata/
 
@@ -85,8 +86,11 @@ RUN echo "alias ls='ls -h --color=tty'" >> ~/.bashrc && \
     echo "alias du='du -hP --max-depth=1'" >> ~/.bashrc && \
     echo "alias cwd='readlink -f .'" >> ~/.bashrc;
 
+# Make cli script executeable
+RUN chmod +x /tools/cli.py
+
 # Set entry point (This makes the container invoke the tool directly)
-ENTRYPOINT ["primer_core_tools.py"]
+ENTRYPOINT ["/tools/cli.py"]
 CMD ["--help"]
 
 WORKDIR /workdir
