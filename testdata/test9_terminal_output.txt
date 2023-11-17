@@ -1,0 +1,1 @@
+{'blaTMB-1_1_FR771847': [(1, 720, ['Metallothioprotein beta-lactamase II', 'BLA-IMP', 'Carbapenem and cephamycin resistance', 'Cephalosporinase', 'Imipenem-cefoxitin hydrolyzing enzyme', 'Penicillinase', 'Zinc-requiring beta-lactamase II', 'Carbapenem-hydrolyzing beta-lactamase BlaB-5', 'Class B carbapenemase BlaB-5', 'New Delhi metallo-beta-lactamase-1'])]}
