@@ -14,6 +14,8 @@ There are two forms of qPCR: qPCR based on intercalating dyes, for example SYBR 
 Which brings us to the advantage of hydrolysis probes, they are specific to a target and only gives a signal when the  polymerase is incorporating the probe into the amplicon. Additionally, the specificity of TaqMan probes also allows for multiplexing. Ie. having multiple probes with different dyes attached. This makes it possible to check for multiple specific targets of interest in the same PCR reaction.
 
 RUCS supports both qPCR methods. For SYBR green, the standard options of RUCS will work. For TaqMan, the user has to specify the --pick_probe argument must be specified.
+
+
 ## RUCS - *R*apid Identification of PCR Primers Pairs for *U*nique *C*ore *S*equences ##
 This repository contains the source code for a bioinformatics tool, which have
 several usage cases:
@@ -618,17 +620,6 @@ limit on how much of the host's RAM it may access. Check if you have enough RAM
 allocated, or try to increase the amount of RAM for your machine. Otherwise,
 consider using a smaller BLAST database.
 
-## Docker Cleanup Commands ##
-```bash
-# Stop and remove all containers (instances of images)
-docker rm $(docker stop $(docker ps -aq))
-# Remove all exited containers
-docker rm -v $(docker ps -aq -f status=exited)
-# Remove all dangling images
-docker rmi $(docker images -qf "dangling=true")
-# Remove all dangling volumes
-docker volume rm $(docker volume ls -qf dangling=true)
-```
 
 ## Contact ##
 You can report your issues here: https://github.com/martinfthomsen/rucs2/issues
