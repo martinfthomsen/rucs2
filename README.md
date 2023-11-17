@@ -608,8 +608,22 @@ over-represented (ors) and under-represented sequences (urs):
 ORS can be used to identify primer pairs to target most of the positive references, and
 URS can be used to identify primer pairs to target most of the negative references.
 
-For instance, sometimes what strains have in common might not be what DNA they share, but ratcher what they are missing. The URS will provide this insight of any missing DNA.
-The explore method stops at this stage. To get primer pair identification, Virtual PCR, etc. please run the FPPP method using either the ors.disscafs.fa or urs.disscafs.fa as the template option.
+*Why are ORS useful?*
+Not all data is perfect, and not all assumptions are true. ORS can provide you
+with useful sequence data, even if some of your data points are faulty, or if
+some of your "positive" strains aren't positive at all, or if the mechanics of
+the positive phenotype are different from the rest of the positive strains.
+
+*Why are URS useful?*
+For instance, sometimes what strains have in common might not be what DNA they
+share, but ratcher what they are missing. The URS will provide this insight of
+any missing DNA.
+
+*What is next?*
+The explore method stops after identifying the ORS and URS sequences. If you
+want to use the identified sequences for primer pair design, virtual PCR, etc.
+please run the FPPP method using either the ors.disscafs.fa or urs.disscafs.fa
+as the template option.
 
 
 ## Troubleshoot ##
