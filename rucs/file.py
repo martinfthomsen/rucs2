@@ -5,6 +5,26 @@
 
     Contains file handling functionalities.
 
+    * file_buffer (class) - This class wraps around a file object and allows the lines of the file
+    to be stored in the RAM seemlesly. Buffering the file in RAM is an advantage
+    if you want to expedite the IOops as quickly as possible to reduce IO load.
+    This also makes it possible reset the line pointer to any line number.
+    * get_pairs - Extract the pairs from the file. return pairs
+    * parse_tsv - Extract the fields from the tsv file. return tsv
+    * get_fasta_files - Expand truncated paths, download files for provided accession IDs and ignore non fasta files. Return list of paths to fasta files
+    * seqs_from_file (Iterator) - Extract sequences from a file. Yield
+    * load_commented_json - Load a json file containing comments
+    * decomment_json - Load a json file containing comments
+    * check_file_type - Check whether the input files are in fasta format, reads format or other/mix formats
+    * open_ - Switch for both open() and gzip.open(). Determines if the file is normal or gzipped by looking at the file extension.
+    * save_as_fasta - Save list of sequences as fasta file
+    * save_as_fastq - Stores the list of sequences in a fastq format on disk. Where the header is the sequence number according to the position in the list, and the qualities are set to 'b's.
+    * create_symbolic_files - Create symbolic links to all the files in the directory and return list of symbolic files
+    * which - Method for finding the path to a program
+    * load_file_list - Extracts file paths from a file, and stores them in a list
+    * clean_up - Clean up (to reduce space usage)
+    * find_files - Find files matching one or more patterns
+
 """
 # (c) 2023 Martin Thomsen
 
@@ -388,6 +408,7 @@ def open_(filename, mode='r', compresslevel=9):
         return open(filename, mode)
 
 def save_as_fasta(sequences, filename, add_unique_id=True):
+    ''' Save list of sequences as fasta file '''
     with open_(filename, 'w') as f:
         for i, seq_obj in enumerate(sequences):
             if isinstance(seq_obj, str):

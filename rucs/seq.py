@@ -5,6 +5,12 @@
 
     Contains sequence handling functionalities.
 
+    * analyse_genome - Analyse the genome, and annotate sequence and base data.
+    * reverse_complement - Compute the reverse complementary DNA string.
+    * split_scaffolds_into_contigs - Expands scaffolds into contigs, by splitting the sequences by gap
+    * extract_contigs - Extract sub-sequences (and their position) which are divided by gaps
+    * align_seqs - Align 2 sequences, '-' are used for gaps.
+
 """
 # (c) 2023 Martin Thomsen
 

@@ -5,6 +5,14 @@
 
     Contains functionalities relating to k-mer operations.
 
+    * find_unique_core_sequences - Find unique core sequences. A unique core sequence is a sequence only found in the positive genomes
+    * find_intersecting_kmers - Compute the intersection of kmer sequences across the set of files containing sequences
+    * extract_kmers_from_file - Extract K-mers from a file with sequence data, and return a list of unique k-mers.
+    * extract_kmers - Extract K-mers from seqeunce data (seq), and add it to the K-mer dictionary (kmers).
+    * set_op - Execute set operation command (union, intersection, symmetric difference or complement) on the provided sets or dictionaries
+    * compute_consensus_sequences - Method for computing scaffolds and contigs from a kmers object using a reference sequence as template
+    * find_complementing_kmers - Compute the complementing kmers of a kmers object to a set of files containing sequences
+
 """
 # (c) 2023 Martin Thomsen
 
@@ -97,7 +105,8 @@ def find_unique_core_sequences(positives, negatives, reference, kmer_size=20):
 
 
 def find_intersecting_kmers(files, kmer_size=20, min_seq_len=500):
-    '''
+    ''' Compute the intersection of kmer sequences across the set of files
+
     * get kmers from file (RAM)
     * store kmer object as tmp file (cpickle)
     * clean memory
@@ -386,7 +395,9 @@ def set_op(op, a, b, method='number'):
 def compute_consensus_sequences(kmers, reference, kmer_size=20,
                                 charspace='nATGC', name_prefix='consensus',
                                 buffer=False):
-    ''' Method for computing scaffolds and contigs from a '''
+    ''' Method for computing scaffolds and contigs from a kmers object using a
+    reference sequence as template
+    '''
     if not 'work_dir' in globals():
         # Get directories
         global work_dir, ref_dir, result_dir
@@ -464,7 +475,10 @@ def compute_consensus_sequences(kmers, reference, kmer_size=20,
 
 
 def find_complementing_kmers(kmers, files, kmer_size=20, min_seq_len=500):
-    ''' '''
+    ''' Compute the complementing kmers of a kmers object to a set of files
+    containing sequences
+
+    '''
     if log is not None:
         log.progress.add('pan',
                          'Computing k-mer complement to the negative genomes',

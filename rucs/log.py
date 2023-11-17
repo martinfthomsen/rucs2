@@ -5,6 +5,8 @@
 
     Contains log handling functionalities.
 
+    * LogObj (object class) - A log object contains a set of sub objects and functions to handle logging in RUCS
+
 """
 # (c) 2023 Martin Thomsen
 

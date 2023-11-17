@@ -5,6 +5,10 @@
 
     Contains relevant functionalities for the explore method.
 
+    * explore_representation - Explore Over- and underrepresentation of k-mer in the positive genomes
+    versus the negative genomes. Return combined_contigs_ors, combined_disscafs_ors, combined_contigs_urs, combined_disscafs_urs
+    * count_kmers - Count in how many files, a given k-mer is found. Return kmers with counts.
+
 """
 # (c) 2023 Martin Thomsen
 

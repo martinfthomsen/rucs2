@@ -5,6 +5,16 @@
 
     Contains global functionalities for the library.
 
+    * load_global_settings - load customisable settings from the settings files
+    * setup_directories - setup standard directories (work, references and results) used through the RUCS libraries
+    * get_directories - Fetch the global defined standard directories for (work, references and results)
+    * text_table - convert title, headers and a data matrix into a nice looking printable table
+    * binarray2num - Convert a binary array (list of 1s and 0s) into an integer representing the array
+    * num2binarray - Convert a representing a binary array into a list of 1s and 0s.
+    * round_sig - round a long decimal number to a certain number of decimals to look nice for printing
+
+    Initialise the global "settings" used through out the RUCS libraries
+
 """
 # (c) 2023 Martin Thomsen
 

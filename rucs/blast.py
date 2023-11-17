@@ -5,6 +5,9 @@
 
     Contains BLAST functionalities.
 
+    * blast_to_ref - BLAST the fasta sequences to the reference and return the alignments
+    * get_blast_annotations - BLAST the fasta sequences to the reference and return the annotations from the database
+
 """
 # (c) 2023 Martin Thomsen
 

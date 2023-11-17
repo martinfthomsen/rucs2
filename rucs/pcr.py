@@ -5,6 +5,23 @@
 
     Contain PCR handling functionalities.
 
+    * AdvancedDictionary (dict-based class) - This class expands on the dictionary class by making it hierachical
+    * multirange (class) - Class for keeping track of marked ranges. This makes it possible to keep track of which positions have been marked without creating a huge list for each position.
+    * find_validated_primer_pairs - Design and identify primer pairs for the provided template, which are validated against the possitive and negative references.
+    * pair_sort - Method for deciding sorting rank of primers.
+    * compute_binding_sites - Compute binding sites by calculating heterodimer thermodynamics for all alignments and filtering those with a melting temperature below 0 degrees
+    * grade_binding_sites - Grade the binding sites for each primer sequence based on the thermodynamics according to the predefined threshold criteria
+    * estimate_primer_rank - Calculate the penalty for the alignments given the scheme (positive or negative)
+    * validate_primer_pairs - Validate and score primer pairs
+    * find_pcr_products - Find primer pair products
+    * present_pairs_full - Presents essential aspects of the primer pairs
+    * predict_pcr_results - Predict the results of a PCR
+    * print_pcr_results - Print PCR results
+    * get_primer_and_probe_bindsites - Extract the sequences and the primer and probe location found in the
+    sequences.
+    * print_primer_and_probe_bindsites - print primer and probe binding sites
+    * color_seq - fct for applying coloring to print statements from print_primer_and_probe_bindsites
+
 """
 # (c) 2023 Martin Thomsen
 

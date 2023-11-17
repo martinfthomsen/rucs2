@@ -5,6 +5,10 @@
 
     Contains Primer3 functionalities.
 
+    * compute_primer_pairs - Use the Primer 3 software to identify primer pair candidates for the query sequence
+    * configure_p3_thermoanalysis - Configure the P3 thermodynamic analysis and provide it as global variables
+    * primer3_parser - Parse Primer3 designPrimers output, and sort it into a hierachical dictionary structure of primer pairs.
+
 """
 # (c) 2023 Martin Thomsen
 

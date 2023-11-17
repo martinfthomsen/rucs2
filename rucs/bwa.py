@@ -5,6 +5,12 @@
 
     Contains functionalities relating to BWA.
 
+    * DependencyError (class) - Environment error specificly used for dependency errors
+    * align_to_ref - Align the sequences in the fastq to the reference using bwa. Return alignments
+    * bwa - Wrapper for running BWA commandline. Return path.bam
+    * extract_alignment_details - Adds contig and position details from the sequence mapping (sam) to the
+    sequence dictionary. Return alignments
+
 """
 # (c) 2023 Martin Thomsen
 

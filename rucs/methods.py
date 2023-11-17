@@ -5,6 +5,21 @@
 
     Contains the primary methods.
 
+    * main - RUCS - a tool for designing PCR primer pairs suitable for distinguishing closely related strains
+    * find_ucs - This script computes the core sequences of the positive genomes and removes sequences covered by any of the negative genomes, thus creating unique core sequences.
+    * find_primer_pairs - This methods allows you to run Primer Identification for a one or more fasta entries
+    * annotate - BLAST the fasta sequences to the annotation database
+    * virtual_pcr - Run a virtual PCR / simulation of a PCR in silico
+    * pcr_stats - Show PCR Statistics
+    * show_pcr_stats - PCR Stat Analysis
+    * explore - This script computes the over- and underrepresentation of k-mers in the positive genomes versus the negative genomes. This feature will create two output fasta files; the first containing the overrepresented sequences, and the second containing the underrepresented sequences. The fasta description header will contain the genome names where the given sequence is found.
+    * show_primer_probe_locs - Show the location of primer bindingsites (red) and probebinding sites
+    (green) using shell text coloring.
+    * compute_tm - Compute the Tm of each of the sequences, and the hetero dimer complex.
+    * generate_sequence_atlas_data_file - Generate Sequence Atlas data file (json)
+    * print_multiranges - Markup the template with data from a multirange object with up to 4 targets.
+
+
 """
 # (c) 2023 Martin Thomsen
 
