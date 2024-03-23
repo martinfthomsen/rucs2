@@ -5,13 +5,6 @@
 
     Contains functionalities relating to k-mer operations.
 
-    * find_unique_core_sequences - Find unique core sequences. A unique core sequence is a sequence only found in the positive genomes
-    * find_intersecting_kmers - Compute the intersection of kmer sequences across the set of files containing sequences
-    * extract_kmers_from_file - Extract K-mers from a file with sequence data, and return a list of unique k-mers.
-    * extract_kmers - Extract K-mers from seqeunce data (seq), and add it to the K-mer dictionary (kmers).
-    * set_op - Execute set operation command (union, intersection, symmetric difference or complement) on the provided sets or dictionaries
-    * compute_consensus_sequences - Method for computing scaffolds and contigs from a kmers object using a reference sequence as template
-    * find_complementing_kmers - Compute the complementing kmers of a kmers object to a set of files containing sequences
 
 """
 # (c) 2023 Martin Thomsen
@@ -25,10 +18,11 @@ from rucs.file import open_, check_file_type, save_as_fastq, save_as_fasta, seqs
 from rucs.bwa import align_to_ref
 from rucs.seq import analyse_genome, reverse_complement, split_scaffolds_into_contigs
 
-def find_unique_core_sequences(positives, negatives, reference, kmer_size=20):
-    ''' Find unique core sequences
 
-    A unique core sequence is a sequence only found in the positive genomes
+def find_unique_core_sequences(positives, negatives, reference, kmer_size=20):
+    ''' Find unique core sequences which are sequences only found in the positive genomes
+
+    >>> cs_files, ucs_files = find_unique_core_sequences(positives, negatives, reference, kmer_size):
     '''
     # Get directories
     global work_dir, ref_dir, result_dir
@@ -51,13 +45,38 @@ def find_unique_core_sequences(positives, negatives, reference, kmer_size=20):
         log.stats.add_table('seqs', 'Sequence Analyses',
                             ['Fasta file', 'Sequences', 'Size in bases',
                              'Seqs >%s'%min_seq_len, 'Size >%s'%min_seq_len])
-        # Analyse Reference Sequence
+        # Analyse reference sequences
         counts = analyse_genome(reference, min_seq_len)
         log.stats.add_row('seqs', [os.path.basename(reference)] + counts)
 
+    # Identify core sequences through computation of intersecting k-mers from positive references
+    core_kmers, cs_files = compute_core_sequences(positives, reference, kmer_size, min_seq_len)
+
+    if log is not None:
+        # Analyse contigs of core sequences
+        counts = analyse_genome(cs_files[1], min_seq_len)
+        log.stats.add_row('seqs', [os.path.basename(cs_files[1])] + counts)
+
+    # Identify unique sequences through computation of complementing k-mers to negative references
+    unique_core_kmers, ucs_files = remove_common_sequences(core_kmers, negatives, reference, kmer_size, min_seq_len)
+
+    if log is not None:
+        # Analyse contigs of unique core sequences
+        counts = analyse_genome(ucs_files[1], min_seq_len)
+        log.stats.add_row('seqs', [os.path.basename(ucs_files[1])] + counts)
+        log.progress['ucs'].log_time()
+
+    return cs_files, ucs_files
+
+
+def compute_core_sequences(positives, reference, kmer_size=20, min_seq_len=100):
+    ''' Compute the intersecting k-mers from positive references, and
+    generate the core sequences from the common kmers
+
+    >>> compute_core_sequences(positives, negatives, reference, kmer_size, min_seq_len)
+    '''
     # Compute intersecting k-mers from positive references
-    core_kmers = find_intersecting_kmers(positives, kmer_size,
-                                         min_seq_len=settings['ucs']['min_seq_len_pos'])
+    core_kmers = find_intersecting_kmers(positives, kmer_size, min_seq_len)
     if len(core_kmers) == 0:
         raise UserWarning('No intersecting k-mers could be identified!')
 
@@ -77,13 +96,18 @@ def find_unique_core_sequences(positives, negatives, reference, kmer_size=20):
                                            settings['ucs']['charspace'], 'core_sequences')
     if log is not None:
         log.progress['make_cs'].log_time()
-        counts = analyse_genome(cs_files[1], min_seq_len)
-        log.stats.add_row('seqs', [os.path.basename(cs_files[1])] + counts)
 
+    return core_kmers, cs_files
+
+
+def remove_common_sequences(core_kmers, negatives, reference, kmer_size=20, min_seq_len=100):
+    ''' Compute and remove complementing k-mers to negative references, and
+    generate the unique core sequences from the remaining kmers
+
+    >>> unique_core_kmers, ucs_files = remove_common_sequences(core_kmers, negatives, reference, kmer_size, min_seq_len)
+    '''
     # Compute complementing k-mers to negative references
-    unique_core_kmers = find_complementing_kmers(core_kmers, negatives,
-                                                 kmer_size,
-                                                 min_seq_len=settings['ucs']['min_seq_len_neg'])
+    unique_core_kmers = find_complementing_kmers(core_kmers, negatives, kmer_size, min_seq_len)
     if len(unique_core_kmers) == 0:
         raise UserWarning('No complementing k-mers could be identified!')
 
@@ -96,15 +120,11 @@ def find_unique_core_sequences(positives, negatives, reference, kmer_size=20):
                                             'unique_core_sequences')
     if log is not None:
         log.progress['make_ucs'].log_time()
-        counts = analyse_genome(ucs_files[1], min_seq_len)
-        log.stats.add_row('seqs', [os.path.basename(ucs_files[1])] + counts)
 
-        log.progress['ucs'].log_time()
-
-    return cs_files, ucs_files
+    return unique_core_kmers, ucs_files
 
 
-def find_intersecting_kmers(files, kmer_size=20, min_seq_len=500):
+def find_intersecting_kmers(files, kmer_size=20, min_seq_len=100):
     ''' Compute the intersection of kmer sequences across the set of files
 
     * get kmers from file (RAM)
@@ -143,7 +163,7 @@ def find_intersecting_kmers(files, kmer_size=20, min_seq_len=500):
 
 def extract_kmers_from_file(filename, genome_prefix='', kmer_size=20,
                             kmer_prefix='', fastq_kmer_count_threshold=20,
-                            revcom=True, min_seq_len=500, to_upper=False,
+                            revcom=True, min_seq_len=100, to_upper=False,
                             buffer=False, log_entry=None, reuse=False):
     '''
     NAME      Extract K-mers from sequence
@@ -474,7 +494,7 @@ def compute_consensus_sequences(kmers, reference, kmer_size=20,
     return (scaffolds_file, contigs_file, auxiliary_file, dissected_scafs_file)
 
 
-def find_complementing_kmers(kmers, files, kmer_size=20, min_seq_len=500):
+def find_complementing_kmers(kmers, files, kmer_size=20, min_seq_len=100):
     ''' Compute the complementing kmers of a kmers object to a set of files
     containing sequences
 
