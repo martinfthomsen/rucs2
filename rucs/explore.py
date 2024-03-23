@@ -17,9 +17,8 @@ import os, pickle, gc
 from rucs import settings, get_directories
 from rucs.log import log
 from rucs.file import open_, seqs_from_file, save_as_fastq
-from rucs.seq import analyse_genome, reverse_complement
+from rucs.seq import compute_consensus_sequences, extract_kmers_from_file, analyse_genome, reverse_complement
 from rucs.bwa import align_to_ref
-from rucs.kmer import compute_consensus_sequences, extract_kmers_from_file
 
 
 def explore_representation(positives, negatives, kmer_size=None, reuse=False):

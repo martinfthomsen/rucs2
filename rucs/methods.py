@@ -29,10 +29,9 @@ import json, pickle              # refactor away
 from rucs import settings, log, load_global_settings, setup_directories, text_table, round_sig
 from rucs.log import log
 from rucs.file import seqs_from_file, save_as_fasta, create_symbolic_files, open_, clean_up
-from rucs.kmer import find_unique_core_sequences
 from rucs.explore import explore_representation
 from rucs.blast import get_blast_annotations
-from rucs.seq import analyse_genome, reverse_complement
+from rucs.seq import find_unique_core_sequences, analyse_genome, reverse_complement
 from rucs.pcr import print_pcr_results, present_pairs_full, predict_pcr_results, configure_p3_thermoanalysis, get_primer_and_probe_bindsites, print_primer_and_probe_bindsites, color_seq, multirange, find_validated_primer_pairs
 
 def main(positives, negatives, ref_input=None, kmer_size=None, quiet=False,

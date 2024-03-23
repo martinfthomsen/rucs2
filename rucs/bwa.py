@@ -20,7 +20,6 @@ from subprocess import Popen, PIPE
 from rucs import settings
 from rucs.log import log
 from rucs.file import which, open_
-from rucs.seq import reverse_complement
 
 # CLASSES
 class DependencyError(EnvironmentError):
@@ -212,6 +211,8 @@ def extract_alignment_details(bam, ignore_flags=4):
     (RNAME,POS,CIGAR,NM;)
     Note: The sign in front of POS (+ or -) determines the strand
     '''
+    from rucs.seq import reverse_complement
+
     # Create path class and object and method to extract them
     path = type('path_object', (object,), {})()
     all_elements = lambda obj: [p for p in dir(obj) if p[:2] != '__']
