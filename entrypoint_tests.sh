@@ -45,6 +45,10 @@ docker run --rm -v `pwd`/script_tests/test8:/workdir rucs expl -v --positives in
 mkdir -p script_tests/test9/inputs && cp testdata/bla.fa script_tests/test9/inputs/
 docker run --rm -v `pwd`/script_tests/test9:/workdir -v $BLASTDB:/blastdb rucs anno --template inputs/bla.fa > script_tests/test9/results/terminal_output.txt
 
+# Test 10. full with file input
+mkdir -p script_tests/test10/inputs && cp -r script_tests/test4/inputs/* script_tests/test10/inputs/
+docker run --rm -v `pwd`/script_tests/test10:/workdir -v $BLASTDB:/blastdb rucs full -v --reference inputs/positives/NZ_KU341381.1.fna.gz --positives inputs/positives/* --negatives inputs/negatives/*
+
 # Evaluate tests:
 cmp -s testdata/test0_terminal_output.txt script_tests/test0/results/terminal_output.txt && echo -e "\x1B[32mTest 0 - Passed \x1B[0m" || echo -e "\x1B[31mTest 0 - Failed! \x1B[0m"
 cmp -s testdata/test1_products.tsv script_tests/test1/results/products.tsv && echo -e "\x1B[32mTest 1 - Passed \x1B[0m" || echo -e "\x1B[31mTest 1 - Failed! \x1B[0m"
@@ -56,3 +60,4 @@ cmp -s testdata/test6_products.tsv script_tests/test6/results/products.tsv && ec
 cmp -s testdata/test6_products.tsv script_tests/test7/results/products.tsv && echo -e "\x1B[32mTest 7 - Passed \x1B[0m" || echo -e "\x1B[31mTest 7 - Failed! \x1B[0m"
 if [[ "$(awk '/^>/ { if (seq) exit; next } { seq = seq $0 } END { print seq }' "script_tests/test8/results/ors_blacons.contigs.fa")" == "$(awk '/^>/ { if (seq) exit; next } { seq = seq $0 } END { print seq }' "testdata/bla.fa")" ]]; then echo -e "\x1B[32mTest 8 - Passed \x1B[0m"; else echo -e "\x1B[31mTest 8 - Failed! \x1B[0m";fi
 cmp -s testdata/test9_terminal_output.txt script_tests/test9/results/terminal_output.txt && echo -e "\x1B[32mTest 9 - Passed \x1B[0m" || echo -e "\x1B[31mTest 9 - Failed! \x1B[0m"
+cmp -s testdata/test10_products.tsv script_tests/test10/results/products.tsv && echo -e "\x1B[32mTest 10 - Passed \x1B[0m" || echo -e "\x1B[31mTest 10 - Failed! \x1B[0m"
