@@ -8,8 +8,6 @@
    "ucs": { // Parameters for ucs computation
       "kmer_size":            20, // k size used to extract k-mers
       "max_ns":             1000, // Maximum stretches of 'n' allowed in dissected scaffolds
-      "min_seq_len_pos":     500, // Minimum sequence length for contigs in positive samples to be considered for k-mer extraction. Threshold for limiting k-mers from untrustworthy sequences
-      "min_seq_len_neg":     500, // Minimum sequence length for contigs in negative samples to be considered for k-mer extraction. Threshold for limiting k-mers from untrustworthy sequences
       "charspace":       "nATGC", // The alphabet used by the program. The "any" symbol is asumed to be the first symbol.
       "min_kmer_count":       20, // Minimum number of times a k-mer must be found to count as present (FASTQ reads input only)
       "rev_comp":           true, // Should the reverse_complement sequences be considered for k-mer extraction? true/false

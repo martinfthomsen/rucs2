@@ -119,9 +119,6 @@ if __name__ == '__main__':
     # settings_file
     parser.add_argument("--kmer_size", default=None,
                         help=("This will overwrite the set value in the settings"))
-    parser.add_argument("--read_length", default=None,
-                        help=("This option will modify min_seq_len_pos and "
-                              "min_seq_len_neg in the settings file"))
     parser.add_argument("--tm_threshold", default=None,
                         help=("This will overwrite the set value in the settings"))
     parser.add_argument("--primer_pair_max_diff_tm", default=None,
@@ -199,9 +196,6 @@ if __name__ == '__main__':
     # Update Settings
     if args.kmer_size is not None:
         settings['ucs']['kmer_size'] = int(args.kmer_size)
-    if args.read_length is not None:
-        settings['ucs']['min_seq_len_pos'] = int(args.read_length) * 2
-        settings['ucs']['min_seq_len_neg'] = int(args.read_length) * 2
     if args.tm_threshold is not None:
         tm = int(args.tm_threshold)
         settings['pcr']['priming']['threshold_tm'] = tm
