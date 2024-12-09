@@ -22,14 +22,14 @@ fi
 for accession in $acc_list; do
     echo "processing $accession..."
     # Try download the accessions from the assembly db
-    found=false
+    export found=false
     echo "Checking against the assembly DB..."
     esearch -db assembly -query "$accession" | esummary \
         | xtract -pattern DocumentSummary -element FtpPath_GenBank \
         | while read -r line ;
         do
             fname=$(echo $line | grep -o 'GCA_.*' | sed 's/$/_genomic.fna.gz/') ;
-            found=true
+            export found=true
             if test -f $accession"_"$fname || test -f $accession"_"${fname%.*}; then
                 echo "found $fname! File previously downloaded! skipping..."
             else
